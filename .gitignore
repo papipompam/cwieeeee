@@ -1,0 +1,25 @@
+# Nuxt dev/build outputs
+.output
+.data
+.nuxt
+.nitro
+.cache
+dist
+
+# Node
+node_modules
+
+# Logs
+logs
+*.log
+
+# Misc
+.DS_Store
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Prisma
+prisma/generated
