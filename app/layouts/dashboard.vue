@@ -8,44 +8,105 @@ const handleSelect = () => {
   open.value = false
 }
 
-const staffLinks: NavigationMenuItem[] = [
-  {
-    label: 'ภาพรวม',
-    icon: 'i-lucide-layout-dashboard',
-    to: '/staff',
-    onSelect: handleSelect
-  },
-  {
-    label: 'รอบสหกิจ',
-    icon: 'i-lucide-calendar-range',
-    to: '/staff/cooperative-cycles',
-    onSelect: handleSelect
-  },
-  {
-    label: 'เจ้าหน้าที่',
-    icon: 'i-lucide-users-round',
-    to: '/staff/staffs',
-    onSelect: handleSelect
-  },
-  {
-    label: 'นักศึกษา',
-    icon: 'i-lucide-graduation-cap',
-    to: '/staff/students',
-    onSelect: handleSelect
-  },
-  {
-    label: 'อาจารย์',
-    icon: 'i-lucide-user-round-check',
-    to: '/staff/teachers',
-    onSelect: handleSelect
-  },
-  {
-    label: 'สถานประกอบการ',
-    icon: 'i-lucide-building-2',
-    to: '/staff/companies',
-    onSelect: handleSelect
-  }
-]
+const activeCycleId = computed(() => {
+  const match = route.path.match(/^\/staff\/cooperative-cycles\/(\d+)/)
+  return match ? match[1] : null
+})
+
+const staffLinks = computed<NavigationMenuItem[]>(() => {
+  const cycleId = activeCycleId.value
+
+  return [
+    {
+      label: 'ภาพรวม',
+      icon: 'i-lucide-layout-dashboard',
+      to: '/staff',
+      onSelect: handleSelect
+    },
+    {
+      label: 'รอบสหกิจ',
+      icon: 'i-lucide-calendar-range',
+      to: '/staff/cooperative-cycles',
+      onSelect: handleSelect,
+      defaultOpen: true,
+      children: cycleId ? [
+        {
+          label: 'ภาพรวมรอบ',
+          icon: 'i-lucide-layout-dashboard',
+          to: `/staff/cooperative-cycles/${cycleId}`,
+          exact: true,
+          onSelect: handleSelect
+        },
+        {
+          label: 'รายชื่อนักศึกษา',
+          icon: 'i-lucide-users',
+          to: `/staff/cooperative-cycles/${cycleId}/students`,
+          onSelect: handleSelect
+        },
+        {
+          label: 'คำร้อง',
+          icon: 'i-lucide-file-check-2',
+          to: `/staff/cooperative-cycles/${cycleId}/applications`,
+          onSelect: handleSelect
+        },
+        {
+          label: 'สถานประกอบการ',
+          icon: 'i-lucide-building-2',
+          to: `/staff/cooperative-cycles/${cycleId}/placements`,
+          onSelect: handleSelect
+        },
+        {
+          label: 'อาจารย์นิเทศ',
+          icon: 'i-lucide-users-round',
+          to: `/staff/cooperative-cycles/${cycleId}/supervisors`,
+          onSelect: handleSelect
+        },
+        {
+          label: 'ตารางนิเทศ',
+          icon: 'i-lucide-calendar-days',
+          to: `/staff/cooperative-cycles/${cycleId}/visits`,
+          onSelect: handleSelect
+        },
+        {
+          label: 'การประเมิน',
+          icon: 'i-lucide-clipboard-check',
+          to: `/staff/cooperative-cycles/${cycleId}/evaluations`,
+          onSelect: handleSelect
+        },
+        {
+          label: 'งบประมาณ',
+          icon: 'i-lucide-wallet-cards',
+          to: `/staff/cooperative-cycles/${cycleId}/budgets`,
+          onSelect: handleSelect
+        }
+      ] : undefined
+    },
+    {
+      label: 'เจ้าหน้าที่',
+      icon: 'i-lucide-id-card',
+      to: '/staff/staffs',
+      onSelect: handleSelect
+    },
+    {
+      label: 'นักศึกษา',
+      icon: 'i-lucide-graduation-cap',
+      to: '/staff/students',
+      onSelect: handleSelect
+    },
+    {
+      label: 'อาจารย์',
+      icon: 'i-lucide-user-round-check',
+      to: '/staff/teachers',
+      onSelect: handleSelect
+    },
+    {
+      label: 'สถานประกอบการ',
+      icon: 'i-lucide-building-2',
+      to: '/staff/companies',
+      onSelect: handleSelect
+    }
+  ]
+})
 
 const teacherLinks: NavigationMenuItem[] = [
   {
@@ -74,7 +135,7 @@ const currentRole = computed<'staff' | 'teacher' | 'student'>(() => {
 const currentLinks = computed<NavigationMenuItem[]>(() => {
   if (currentRole.value === 'teacher') return teacherLinks
   if (currentRole.value === 'student') return studentLinks
-  return staffLinks
+  return staffLinks.value
 })
 </script>
 
