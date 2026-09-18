@@ -204,6 +204,15 @@ const submitImport = async () => {
   }
 }
 
+// Detail Modal state
+const isDetailOpen = ref(false)
+const selectedStudent = ref<Student | null>(null)
+
+const openDetail = (student: Student) => {
+  selectedStudent.value = student
+  isDetailOpen.value = true
+}
+
 // Modal open handlers
 const openCreateModal = () => {
   isEditing.value = false
@@ -395,7 +404,7 @@ const columns: TableColumn<Student>[] = [
   {
     id: 'actions',
     header: 'จัดการ',
-    meta: { class: { th: 'w-36 text-end', td: 'w-36 text-end' } }
+    meta: { class: { th: 'w-48 text-end', td: 'w-48 text-end' } }
   }
 ]
 </script>
@@ -513,6 +522,14 @@ const columns: TableColumn<Student>[] = [
 
             <template #actions-cell="{ row }">
               <div class="flex justify-end gap-1.5">
+                <UButton
+                  label="ดู"
+                  icon="i-lucide-eye"
+                  color="neutral"
+                  variant="ghost"
+                  size="xs"
+                  @click="openDetail(row.original)"
+                />
                 <UButton
                   label="แก้ไข"
                   icon="i-lucide-pencil"
@@ -721,4 +738,73 @@ const columns: TableColumn<Student>[] = [
     :loading="isDeleting"
     @confirm="confirmDelete"
   />
+
+  <!-- Student Detail Modal -->
+  <UModal
+    v-model:open="isDetailOpen"
+    :title="selectedStudent ? `ข้อมูลนักศึกษา: ${selectedStudent.prefix}${selectedStudent.firstName} ${selectedStudent.lastName}` : 'รายละเอียดนักศึกษา'"
+    :description="selectedStudent ? `รหัสนักศึกษา: ${selectedStudent.studentId}` : ''"
+  >
+    <template #body>
+      <div v-if="selectedStudent" class="space-y-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 rounded-lg border border-default p-4 bg-muted/10 text-sm">
+          <div>
+            <span class="text-xs text-muted block">รหัสนักศึกษา</span>
+            <span class="font-mono font-semibold text-highlighted text-base">{{ selectedStudent.studentId }}</span>
+          </div>
+
+          <div>
+            <span class="text-xs text-muted block">สถานะการใช้งาน</span>
+            <UBadge
+              :label="selectedStudent.isActive ? 'ใช้งาน' : 'ไม่ใช้งาน'"
+              :color="selectedStudent.isActive ? 'success' : 'neutral'"
+              variant="subtle"
+              class="mt-1"
+            />
+          </div>
+
+          <div>
+            <span class="text-xs text-muted block">ชื่อ-นามสกุล</span>
+            <span class="font-medium text-highlighted">{{ selectedStudent.prefix }}{{ selectedStudent.firstName }} {{ selectedStudent.lastName }}</span>
+          </div>
+
+          <div>
+            <span class="text-xs text-muted block">เพศ</span>
+            <span>{{ selectedStudent.gender }}</span>
+          </div>
+
+          <div>
+            <span class="text-xs text-muted block">รุ่น (ปีที่เข้าศึกษา)</span>
+            <span>รุ่น {{ selectedStudent.cohortYear }}</span>
+          </div>
+
+          <div>
+            <span class="text-xs text-muted block">หมู่เรียน</span>
+            <span>หมู่ {{ selectedStudent.classGroup }}</span>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <template #footer>
+      <div class="flex w-full justify-between items-center">
+        <UButton
+          v-if="selectedStudent"
+          label="แก้ไขข้อมูล"
+          icon="i-lucide-pencil"
+          color="neutral"
+          variant="outline"
+          @click="isDetailOpen = false; openEditModal(selectedStudent)"
+        />
+        <div class="ml-auto">
+          <UButton
+            label="ปิด"
+            color="neutral"
+            variant="subtle"
+            @click="isDetailOpen = false"
+          />
+        </div>
+      </div>
+    </template>
+  </UModal>
 </template>

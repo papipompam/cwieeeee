@@ -62,3 +62,27 @@ model Teacher {
 
   @@map("teachers")
 }
+
+model Company {
+  id            Int      @id @default(autoincrement())
+  name          String
+  contactPerson String   @map("contact_person")
+  phone         String?
+  email         String?
+  addressNo     String   @map("address_no")
+  moo           String?
+  soi           String?
+  street        String?
+  subdistrict   String
+  district      String
+  province      String
+  postalCode    String   @map("postal_code")
+  latitude      Float?
+  longitude     Float?
+  travelNote    String?  @map("travel_note")
+  isActive      Boolean  @default(true) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@map("companies")
+}

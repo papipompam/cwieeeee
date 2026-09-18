@@ -151,8 +151,16 @@ const openCreateModal = () => {
   formState.gender = 'ชาย'
   formState.phone = ''
   formState.isActive = true
-
   isFormOpen.value = true
+}
+
+// Detail Modal state
+const isDetailOpen = ref(false)
+const selectedTeacher = ref<Teacher | null>(null)
+
+const openDetail = (teacher: Teacher) => {
+  selectedTeacher.value = teacher
+  isDetailOpen.value = true
 }
 
 const openEditModal = (teacher: Teacher) => {
@@ -317,7 +325,7 @@ const columns: TableColumn<Teacher>[] = [
   {
     id: 'actions',
     header: 'จัดการ',
-    meta: { class: { th: 'w-36 text-end', td: 'w-36 text-end' } }
+    meta: { class: { th: 'w-48 text-end', td: 'w-48 text-end' } }
   }
 ]
 </script>
@@ -414,6 +422,14 @@ const columns: TableColumn<Teacher>[] = [
 
             <template #actions-cell="{ row }">
               <div class="flex justify-end gap-1.5">
+                <UButton
+                  label="ดู"
+                  icon="i-lucide-eye"
+                  color="neutral"
+                  variant="ghost"
+                  size="xs"
+                  @click="openDetail(row.original)"
+                />
                 <UButton
                   label="แก้ไข"
                   icon="i-lucide-pencil"
@@ -572,4 +588,76 @@ const columns: TableColumn<Teacher>[] = [
     :loading="isDeleting"
     @confirm="confirmDelete"
   />
+
+  <!-- Teacher Detail Modal -->
+  <UModal
+    v-model:open="isDetailOpen"
+    :title="selectedTeacher ? `ข้อมูลอาจารย์: ${selectedTeacher.prefix}${selectedTeacher.firstName} ${selectedTeacher.lastName}` : 'รายละเอียดอาจารย์'"
+    :description="selectedTeacher ? `รหัสอาจารย์: ${selectedTeacher.teacherId}` : ''"
+  >
+    <template #body>
+      <div v-if="selectedTeacher" class="space-y-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 rounded-lg border border-default p-4 bg-muted/10 text-sm">
+          <div>
+            <span class="text-xs text-muted block">รหัสอาจารย์</span>
+            <span class="font-mono font-semibold text-highlighted text-base">{{ selectedTeacher.teacherId }}</span>
+          </div>
+
+          <div>
+            <span class="text-xs text-muted block">สถานะการใช้งาน</span>
+            <UBadge
+              :label="selectedTeacher.isActive ? 'ใช้งาน' : 'ไม่ใช้งาน'"
+              :color="selectedTeacher.isActive ? 'success' : 'neutral'"
+              variant="subtle"
+              class="mt-1"
+            />
+          </div>
+
+          <div>
+            <span class="text-xs text-muted block">ชื่อ-นามสกุล</span>
+            <span class="font-medium text-highlighted">{{ selectedTeacher.prefix }}{{ selectedTeacher.firstName }} {{ selectedTeacher.lastName }}</span>
+          </div>
+
+          <div>
+            <span class="text-xs text-muted block">เพศ</span>
+            <span>{{ selectedTeacher.gender }}</span>
+          </div>
+
+          <div class="sm:col-span-2">
+            <span class="text-xs text-muted block">เบอร์มือถือ</span>
+            <a
+              v-if="selectedTeacher.phone"
+              :href="`tel:${selectedTeacher.phone}`"
+              class="font-mono font-medium text-primary hover:underline inline-flex items-center gap-1.5 mt-0.5"
+            >
+              <UIcon name="i-lucide-phone" class="size-4" />
+              {{ selectedTeacher.phone }}
+            </a>
+            <span v-else class="text-muted italic">ไม่ได้ระบุ</span>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <template #footer>
+      <div class="flex w-full justify-between items-center">
+        <UButton
+          v-if="selectedTeacher"
+          label="แก้ไขข้อมูล"
+          icon="i-lucide-pencil"
+          color="neutral"
+          variant="outline"
+          @click="isDetailOpen = false; openEditModal(selectedTeacher)"
+        />
+        <div class="ml-auto">
+          <UButton
+            label="ปิด"
+            color="neutral"
+            variant="subtle"
+            @click="isDetailOpen = false"
+          />
+        </div>
+      </div>
+    </template>
+  </UModal>
 </template>
