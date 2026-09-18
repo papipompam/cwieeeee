@@ -532,7 +532,7 @@ const handleDeletePlan = async () => {
             v-model="selectedRoundId"
             :items="roundOptions"
             class="w-52"
-            size="sm"
+            size="md"
             :disabled="rounds.length === 0"
           />
         </div>
@@ -541,7 +541,7 @@ const handleDeletePlan = async () => {
           label="สร้างแผนเดินทาง"
           icon="i-lucide-plus"
           color="primary"
-          size="sm"
+          size="md"
           :disabled="rounds.length === 0"
           @click="openCreatePlanModal"
         />
@@ -607,14 +607,14 @@ const handleDeletePlan = async () => {
           icon="i-lucide-search"
           placeholder="ค้นหากลุ่ม จุดแวะ หรืออาจารย์ผู้เดินทาง..."
           class="w-72"
-          size="sm"
+          size="md"
         />
 
         <USelect
           v-model="selectedGroupId"
           :items="groupFilterOptions"
           class="w-48"
-          size="sm"
+          size="md"
         />
 
         <UButton
@@ -623,7 +623,7 @@ const handleDeletePlan = async () => {
           icon="i-lucide-x"
           color="neutral"
           variant="ghost"
-          size="sm"
+          size="md"
           @click="searchQuery = ''; selectedGroupId = 'ALL'"
         />
       </div>
@@ -748,7 +748,7 @@ const handleDeletePlan = async () => {
                 v-model="planForm.groupId"
                 :items="groupOptions"
                 class="w-full"
-                size="sm"
+                size="md"
                 :disabled="!!editingPlanId"
               />
             </div>
@@ -840,7 +840,7 @@ const handleDeletePlan = async () => {
                     :items="appointmentOptions"
                     placeholder="เลือกนัดหมาย..."
                     class="w-full"
-                    size="xs"
+                    size="md"
                   />
                 </div>
                 <div class="flex items-center gap-1 shrink-0 w-36">
@@ -906,7 +906,7 @@ const handleDeletePlan = async () => {
                       :items="groupTeachersOptions"
                       placeholder="เลือกอาจารย์..."
                       class="flex-1"
-                      size="xs"
+                      size="md"
                     />
                   </div>
                   <UButton

@@ -511,7 +511,7 @@ const handleCancelAppointment = async () => {
             v-model="selectedRoundId"
             :items="roundOptions"
             class="w-52"
-            size="sm"
+            size="md"
             :disabled="rounds.length === 0"
           />
         </div>
@@ -520,7 +520,7 @@ const handleCancelAppointment = async () => {
           label="สร้างนัดหมาย"
           icon="i-lucide-plus"
           color="primary"
-          size="sm"
+          size="md"
           :disabled="rounds.length === 0"
           @click="openCreateModal"
         />
@@ -549,21 +549,21 @@ const handleCancelAppointment = async () => {
           icon="i-lucide-search"
           placeholder="ค้นหาสถานประกอบการ อาจารย์ หรือนักศึกษา..."
           class="w-64"
-          size="sm"
+          size="md"
         />
 
         <USelect
           v-model="selectedGroupId"
           :items="groupFilterOptions"
           class="w-40"
-          size="sm"
+          size="md"
         />
 
         <USelect
           v-model="selectedStatus"
           :items="statusFilterOptions"
           class="w-48"
-          size="sm"
+          size="md"
         />
 
         <UButton
@@ -572,7 +572,7 @@ const handleCancelAppointment = async () => {
           icon="i-lucide-x"
           color="neutral"
           variant="ghost"
-          size="sm"
+          size="md"
           @click="searchQuery = ''; selectedGroupId = 'ALL'; selectedStatus = 'ALL'"
         />
       </div>
@@ -584,7 +584,7 @@ const handleCancelAppointment = async () => {
           :label="`เผยแพร่ที่เลือก (${selectedAppointmentIds.length})`"
           icon="i-lucide-send"
           color="success"
-          size="sm"
+          size="md"
           :loading="isBulkPublishing"
           @click="handleBulkPublish"
         />
@@ -772,7 +772,7 @@ const handleCancelAppointment = async () => {
                 :items="groupOptions"
                 placeholder="เลือกกลุ่มนิเทศ..."
                 class="w-full"
-                size="sm"
+                size="md"
               />
             </div>
 
@@ -783,7 +783,7 @@ const handleCancelAppointment = async () => {
                 :items="groupCompaniesOptions"
                 placeholder="เลือกสถานประกอบการในกลุ่ม..."
                 class="w-full"
-                size="sm"
+                size="md"
                 :disabled="!appointmentForm.groupId"
               />
             </div>
@@ -796,7 +796,7 @@ const handleCancelAppointment = async () => {
                 v-model="appointmentForm.scheduledDate"
                 type="date"
                 class="w-full"
-                size="sm"
+                size="md"
               />
             </div>
 
@@ -810,7 +810,7 @@ const handleCancelAppointment = async () => {
                   { label: 'เต็มวัน', value: 'FULL_DAY' }
                 ]"
                 class="w-full"
-                size="sm"
+                size="md"
               />
             </div>
           </div>
@@ -929,7 +929,7 @@ const handleCancelAppointment = async () => {
                   { label: 'เต็มวัน', value: 'FULL_DAY' }
                 ]"
                 class="w-full"
-                size="sm"
+                size="md"
               />
             </div>
           </div>

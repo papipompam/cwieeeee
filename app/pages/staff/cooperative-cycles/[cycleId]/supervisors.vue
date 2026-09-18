@@ -187,6 +187,10 @@ const groupForm = ref({
   note: ''
 })
 const isSavingGroup = ref(false)
+const selectedTeacherIds = ref<number[]>([])
+const selectedCompanyIds = ref<number[]>([])
+const teacherSearchQuery = ref('')
+const companySearchQuery = ref('')
 
 const openCreateGroupModal = () => {
   editingGroupId.value = null
@@ -195,6 +199,10 @@ const openCreateGroupModal = () => {
     name: `กลุ่มที่ ${nextIdx}`,
     note: ''
   }
+  selectedTeacherIds.value = []
+  selectedCompanyIds.value = []
+  teacherSearchQuery.value = ''
+  companySearchQuery.value = ''
   isGroupModalOpen.value = true
 }
 
@@ -204,6 +212,8 @@ const openEditGroupModal = (group: SupervisionGroup) => {
     name: group.name,
     note: group.note || ''
   }
+  selectedTeacherIds.value = []
+  selectedCompanyIds.value = []
   isGroupModalOpen.value = true
 }
 
@@ -213,6 +223,14 @@ const handleSaveGroup = async () => {
     return
   }
   if (!selectedRoundId.value) return
+  if (!editingGroupId.value && selectedTeacherIds.value.length === 0) {
+    notify.warning('กรุณาเลือกอาจารย์ผู้นิเทศอย่างน้อย 1 ท่าน')
+    return
+  }
+  if (!editingGroupId.value && selectedCompanyIds.value.length === 0) {
+    notify.warning('กรุณาเลือกสถานประกอบการอย่างน้อย 1 แห่ง')
+    return
+  }
 
   isSavingGroup.value = true
   try {
@@ -225,12 +243,16 @@ const handleSaveGroup = async () => {
     } else {
       await $fetch(`/api/staff/cooperative-cycles/${cycleId.value}/supervision/rounds/${selectedRoundId.value}/groups`, {
         method: 'POST',
-        body: groupForm.value
+        body: {
+          ...groupForm.value,
+          teacherUserIds: selectedTeacherIds.value,
+          companyIds: selectedCompanyIds.value
+        }
       })
       notify.success('สร้างกลุ่มนิเทศสำเร็จ')
     }
     isGroupModalOpen.value = false
-    await refreshGroups()
+    await refreshAll()
   } catch (err: any) {
     notify.error(err.data?.message || 'ไม่สามารถบันทึกกลุ่มได้')
   } finally {
@@ -271,6 +293,8 @@ const isManageModalOpen = ref(false)
 
 const openManageGroup = (group: SupervisionGroup) => {
   activeManageGroup.value = group
+  manageTeacherSearchQuery.value = ''
+  manageCompanySearchQuery.value = ''
   isManageModalOpen.value = true
 }
 
@@ -285,34 +309,48 @@ const assignedTeacherIdsInRound = computed(() => {
   return set
 })
 
-const availableTeacherOptions = computed(() => {
+const availableTeachers = computed(() => {
   if (!allTeachers.value) return []
   return allTeachers.value
     .filter(t => !assignedTeacherIdsInRound.value.has(t.id))
-    .map(t => ({
-      label: `${t.prefix}${t.firstName} ${t.lastName} (${t.teacherId})`,
-      value: t.id
-    }))
 })
 
-const selectedTeacherToAssign = ref<number | undefined>(undefined)
+const filteredTeachers = computed(() => {
+  const query = teacherSearchQuery.value.trim().toLowerCase()
+  if (!query) return availableTeachers.value
+  return availableTeachers.value.filter(teacher =>
+    `${teacher.prefix}${teacher.firstName} ${teacher.lastName} ${teacher.teacherId}`.toLowerCase().includes(query)
+  )
+})
+
+const toggleTeacher = (teacherId: number) => {
+  selectedTeacherIds.value = selectedTeacherIds.value.includes(teacherId)
+    ? selectedTeacherIds.value.filter(id => id !== teacherId)
+    : [...selectedTeacherIds.value, teacherId]
+}
+
+const manageTeacherSearchQuery = ref('')
+const filteredTeachersForManage = computed(() => {
+  const query = manageTeacherSearchQuery.value.trim().toLowerCase()
+  if (!query) return availableTeachers.value
+  return availableTeachers.value.filter(teacher =>
+    `${teacher.prefix}${teacher.firstName} ${teacher.lastName} ${teacher.teacherId}`.toLowerCase().includes(query)
+  )
+})
+
 const isAssigningTeacher = ref(false)
 
-const handleAssignTeacher = async () => {
-  if (!selectedTeacherToAssign.value || !activeManageGroup.value || !selectedRoundId.value) {
-    notify.warning('กรุณาเลือกอาจารย์ที่ต้องการมอบหมาย')
-    return
-  }
+const handleAssignTeacher = async (teacherUserId: number) => {
+  if (!activeManageGroup.value || !selectedRoundId.value) return
   isAssigningTeacher.value = true
   try {
     await $fetch(`/api/staff/cooperative-cycles/${cycleId.value}/supervision/rounds/${selectedRoundId.value}/groups/${activeManageGroup.value.id}/teachers`, {
       method: 'POST',
       body: {
-        teacherUserId: selectedTeacherToAssign.value
+        teacherUserId
       }
     })
     notify.success('มอบหมายอาจารย์สำเร็จ')
-    selectedTeacherToAssign.value = undefined
     await refreshGroups()
     activeManageGroup.value = groups.value.find(g => g.id === activeManageGroup.value?.id) || null
   } catch (err: any) {
@@ -337,30 +375,40 @@ const handleRemoveTeacher = async (teacherUserId: number) => {
 }
 
 // Assign Company to Group
-const selectedCompanyToAssign = ref<number | undefined>(undefined)
 const isAssigningCompany = ref(false)
 
-const availableCompanyOptions = computed(() => {
-  return unassignedCompanies.value.map(c => ({
-    label: `${c.companyName} (${c.province || 'ไม่ระบุจังหวัด'} - ${c.studentCount} คน)`,
-    value: c.companyId
-  }))
+const filteredCompanies = computed(() => {
+  const query = companySearchQuery.value.trim().toLowerCase()
+  if (!query) return unassignedCompanies.value
+  return unassignedCompanies.value.filter(company =>
+    `${company.companyName} ${company.province || ''} ${company.address || ''}`.toLowerCase().includes(query)
+  )
 })
 
-const handleAssignCompany = async (companyId?: number) => {
-  const cId = companyId || selectedCompanyToAssign.value
-  if (!cId || !activeManageGroup.value || !selectedRoundId.value) {
-    notify.warning('กรุณาเลือกสถานประกอบการ')
-    return
-  }
+const toggleCompany = (companyId: number) => {
+  selectedCompanyIds.value = selectedCompanyIds.value.includes(companyId)
+    ? selectedCompanyIds.value.filter(id => id !== companyId)
+    : [...selectedCompanyIds.value, companyId]
+}
+
+const manageCompanySearchQuery = ref('')
+const filteredCompaniesForManage = computed(() => {
+  const query = manageCompanySearchQuery.value.trim().toLowerCase()
+  if (!query) return unassignedCompanies.value
+  return unassignedCompanies.value.filter(company =>
+    `${company.companyName} ${company.province || ''} ${company.address || ''}`.toLowerCase().includes(query)
+  )
+})
+
+const handleAssignCompany = async (companyId: number) => {
+  if (!activeManageGroup.value || !selectedRoundId.value) return
   isAssigningCompany.value = true
   try {
     await $fetch(`/api/staff/cooperative-cycles/${cycleId.value}/supervision/rounds/${selectedRoundId.value}/groups/${activeManageGroup.value.id}/companies`, {
       method: 'POST',
-      body: { companyId: cId }
+      body: { companyId }
     })
     notify.success('เพิ่มสถานประกอบการเข้ากลุ่มแล้ว')
-    selectedCompanyToAssign.value = undefined
     await refreshAll()
     activeManageGroup.value = groups.value.find(g => g.id === activeManageGroup.value?.id) || null
   } catch (err: any) {
@@ -407,7 +455,7 @@ const handleRemoveCompany = async (companyId: number) => {
             v-model="selectedRoundId"
             :items="roundOptions"
             class="w-56"
-            size="sm"
+            size="md"
           />
         </div>
 
@@ -416,7 +464,7 @@ const handleRemoveCompany = async (companyId: number) => {
           icon="i-lucide-calendar-plus"
           color="neutral"
           variant="outline"
-          size="sm"
+          size="md"
           @click="openCreateRoundModal"
         />
 
@@ -481,14 +529,14 @@ const handleRemoveCompany = async (companyId: number) => {
           icon="i-lucide-search"
           placeholder="ค้นหากลุ่ม อาจารย์ สถานประกอบการ..."
           class="w-72"
-          size="sm"
+          size="md"
         />
         <UButton
           v-if="searchQuery"
           label="ล้าง"
           color="neutral"
           variant="ghost"
-          size="sm"
+          size="md"
           @click="searchQuery = ''"
         />
       </div>
@@ -497,7 +545,7 @@ const handleRemoveCompany = async (companyId: number) => {
         label="สร้างกลุ่มใหม่"
         icon="i-lucide-plus"
         color="primary"
-        size="sm"
+        size="md"
         @click="openCreateGroupModal"
       />
     </div>
@@ -638,7 +686,7 @@ const handleRemoveCompany = async (companyId: number) => {
         label="สร้างกลุ่มแรก"
         icon="i-lucide-plus"
         color="primary"
-        size="sm"
+        size="md"
         class="mt-3"
         @click="openCreateGroupModal"
       />
@@ -658,7 +706,7 @@ const handleRemoveCompany = async (companyId: number) => {
         label="สร้างครั้งที่นิเทศแรก"
         icon="i-lucide-plus"
         color="primary"
-        size="sm"
+        size="md"
         @click="openCreateRoundModal"
       />
     </div>
@@ -701,7 +749,7 @@ const handleRemoveCompany = async (companyId: number) => {
       :title="editingGroupId ? 'แก้ไขข้อมูลกลุ่มนิเทศ' : 'สร้างกลุ่มนิเทศใหม่'"
     >
       <template #body>
-        <div class="space-y-4">
+        <div class="max-h-[65vh] space-y-5 overflow-y-auto pr-1">
           <div>
             <label class="block text-xs font-medium text-highlighted mb-1">ชื่อกลุ่ม *</label>
             <UInput
@@ -718,6 +766,79 @@ const handleRemoveCompany = async (companyId: number) => {
               class="w-full"
             />
           </div>
+          <template v-if="!editingGroupId">
+            <div class="space-y-2">
+              <div class="flex items-center justify-between gap-2">
+                <label class="text-xs font-medium text-highlighted">อาจารย์ผู้นิเทศ *</label>
+                <span class="text-xs text-muted">เลือกแล้ว {{ selectedTeacherIds.length }} ท่าน</span>
+              </div>
+              <UInput
+                v-model="teacherSearchQuery"
+                icon="i-lucide-search"
+                placeholder="ค้นหาชื่อหรือรหัสอาจารย์"
+                class="w-full"
+                aria-label="ค้นหาอาจารย์ผู้นิเทศ"
+              />
+              <div class="max-h-48 divide-y divide-default overflow-y-auto rounded-lg border border-default">
+                <button
+                  v-for="teacher in filteredTeachers"
+                  :key="teacher.id"
+                  type="button"
+                  class="flex w-full items-center gap-3 p-3 text-left hover:bg-muted/50 focus-visible:outline-2 focus-visible:outline-primary"
+                  :class="selectedTeacherIds.includes(teacher.id) ? 'bg-primary/10' : 'bg-default'"
+                  :aria-pressed="selectedTeacherIds.includes(teacher.id)"
+                  @click="toggleTeacher(teacher.id)"
+                >
+                  <UIcon
+                    :name="selectedTeacherIds.includes(teacher.id) ? 'i-lucide-circle-check' : 'i-lucide-circle'"
+                    class="size-5 shrink-0"
+                    :class="selectedTeacherIds.includes(teacher.id) ? 'text-primary' : 'text-muted'"
+                  />
+                  <span class="min-w-0">
+                    <span class="block truncate text-sm font-medium text-highlighted">{{ teacher.prefix }}{{ teacher.firstName }} {{ teacher.lastName }}</span>
+                    <span class="block text-xs text-muted">รหัสอาจารย์: {{ teacher.teacherId }}</span>
+                  </span>
+                </button>
+                <div v-if="filteredTeachers.length === 0" class="p-4 text-center text-sm text-muted">ไม่พบอาจารย์ที่พร้อมมอบหมาย</div>
+              </div>
+            </div>
+
+            <div class="space-y-2">
+              <div class="flex items-center justify-between gap-2">
+                <label class="text-xs font-medium text-highlighted">สถานประกอบการ *</label>
+                <span class="text-xs text-muted">เลือกแล้ว {{ selectedCompanyIds.length }} แห่ง</span>
+              </div>
+              <UInput
+                v-model="companySearchQuery"
+                icon="i-lucide-search"
+                placeholder="ค้นหาชื่อสถานประกอบการ จังหวัด หรือที่อยู่"
+                class="w-full"
+                aria-label="ค้นหาสถานประกอบการ"
+              />
+              <div class="max-h-56 divide-y divide-default overflow-y-auto rounded-lg border border-default">
+                <button
+                  v-for="company in filteredCompanies"
+                  :key="company.companyId"
+                  type="button"
+                  class="flex w-full items-center gap-3 p-3 text-left hover:bg-muted/50 focus-visible:outline-2 focus-visible:outline-primary"
+                  :class="selectedCompanyIds.includes(company.companyId) ? 'bg-primary/10' : 'bg-default'"
+                  :aria-pressed="selectedCompanyIds.includes(company.companyId)"
+                  @click="toggleCompany(company.companyId)"
+                >
+                  <UIcon
+                    :name="selectedCompanyIds.includes(company.companyId) ? 'i-lucide-circle-check' : 'i-lucide-circle'"
+                    class="size-5 shrink-0"
+                    :class="selectedCompanyIds.includes(company.companyId) ? 'text-primary' : 'text-muted'"
+                  />
+                  <span class="min-w-0">
+                    <span class="block truncate text-sm font-medium text-highlighted">{{ company.companyName }}</span>
+                    <span class="block truncate text-xs text-muted">{{ company.province || 'ไม่ระบุจังหวัด' }} · นักศึกษา {{ company.studentCount }} คน</span>
+                  </span>
+                </button>
+                <div v-if="filteredCompanies.length === 0" class="p-4 text-center text-sm text-muted">ไม่พบสถานประกอบการที่ยังไม่ถูกจัดกลุ่ม</div>
+              </div>
+            </div>
+          </template>
         </div>
       </template>
       <template #footer>
@@ -744,7 +865,7 @@ const handleRemoveCompany = async (companyId: number) => {
       :title="`จัดการสมาชิก & สถานประกอบการ: ${activeManageGroup?.name || ''}`"
     >
       <template #body>
-        <div v-if="activeManageGroup" class="space-y-6">
+        <div v-if="activeManageGroup" class="max-h-[65vh] space-y-6 overflow-y-auto pr-1">
           <!-- Teachers Section -->
           <div class="space-y-3">
             <h4 class="text-xs font-semibold text-highlighted uppercase tracking-wider flex items-center gap-2">
@@ -752,23 +873,31 @@ const handleRemoveCompany = async (companyId: number) => {
               อาจารย์ประจำกลุ่ม ({{ activeManageGroup.teachers.length }} ท่าน)
             </h4>
 
-            <!-- Add Teacher Form -->
-            <div class="flex flex-col sm:flex-row items-center gap-2 bg-muted/10 p-3 rounded-lg border border-default">
-              <USelect
-                v-model="selectedTeacherToAssign"
-                :items="availableTeacherOptions"
-                placeholder="เลือกอาจารย์ที่ยังไม่ได้รับมอบหมาย..."
-                class="flex-1 w-full"
-                size="sm"
+            <div class="space-y-2 rounded-lg border border-default bg-muted/10 p-3">
+              <UInput
+                v-model="manageTeacherSearchQuery"
+                icon="i-lucide-search"
+                placeholder="ค้นหาแล้วกดเลือกอาจารย์เพื่อเพิ่มเข้ากลุ่ม"
+                class="w-full"
+                aria-label="ค้นหาอาจารย์เพื่อเพิ่มเข้ากลุ่ม"
               />
-              <UButton
-                label="มอบหมาย"
-                icon="i-lucide-user-plus"
-                color="primary"
-                size="sm"
-                :loading="isAssigningTeacher"
-                @click="handleAssignTeacher"
-              />
+              <div class="max-h-40 divide-y divide-default overflow-y-auto rounded border border-default bg-default">
+                <button
+                  v-for="teacher in filteredTeachersForManage"
+                  :key="teacher.id"
+                  type="button"
+                  class="flex w-full items-center justify-between gap-3 p-3 text-left hover:bg-muted/50 focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-not-allowed"
+                  :disabled="isAssigningTeacher"
+                  @click="handleAssignTeacher(teacher.id)"
+                >
+                  <span class="min-w-0">
+                    <span class="block truncate text-sm font-medium text-highlighted">{{ teacher.prefix }}{{ teacher.firstName }} {{ teacher.lastName }}</span>
+                    <span class="block text-xs text-muted">รหัสอาจารย์: {{ teacher.teacherId }}</span>
+                  </span>
+                  <UIcon name="i-lucide-plus" class="size-4 shrink-0 text-primary" />
+                </button>
+                <div v-if="filteredTeachersForManage.length === 0" class="p-3 text-center text-sm text-muted">ไม่พบอาจารย์ที่พร้อมมอบหมาย</div>
+              </div>
             </div>
 
             <!-- Teachers List -->
@@ -819,23 +948,31 @@ const handleRemoveCompany = async (companyId: number) => {
               สถานประกอบการในกลุ่ม ({{ activeManageGroup.companies.length }} แห่ง)
             </h4>
 
-            <!-- Add Company Form -->
-            <div class="flex flex-col sm:flex-row items-center gap-2 bg-muted/10 p-3 rounded-lg border border-default">
-              <USelect
-                v-model="selectedCompanyToAssign"
-                :items="availableCompanyOptions"
-                placeholder="เลือกสถานประกอบการที่ยังไม่จัดกลุ่ม..."
-                class="flex-1 w-full"
-                size="sm"
+            <div class="space-y-2 rounded-lg border border-default bg-muted/10 p-3">
+              <UInput
+                v-model="manageCompanySearchQuery"
+                icon="i-lucide-search"
+                placeholder="ค้นหาแล้วกดเลือกสถานประกอบการเพื่อเพิ่มเข้ากลุ่ม"
+                class="w-full"
+                aria-label="ค้นหาสถานประกอบการเพื่อเพิ่มเข้ากลุ่ม"
               />
-              <UButton
-                label="เพิ่มเข้ากลุ่ม"
-                icon="i-lucide-plus"
-                color="primary"
-                size="sm"
-                :loading="isAssigningCompany"
-                @click="() => handleAssignCompany()"
-              />
+              <div class="max-h-48 divide-y divide-default overflow-y-auto rounded border border-default bg-default">
+                <button
+                  v-for="company in filteredCompaniesForManage"
+                  :key="company.companyId"
+                  type="button"
+                  class="flex w-full items-center justify-between gap-3 p-3 text-left hover:bg-muted/50 focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-not-allowed"
+                  :disabled="isAssigningCompany"
+                  @click="handleAssignCompany(company.companyId)"
+                >
+                  <span class="min-w-0">
+                    <span class="block truncate text-sm font-medium text-highlighted">{{ company.companyName }}</span>
+                    <span class="block truncate text-xs text-muted">{{ company.province || 'ไม่ระบุจังหวัด' }} · นักศึกษา {{ company.studentCount }} คน</span>
+                  </span>
+                  <UIcon name="i-lucide-plus" class="size-4 shrink-0 text-primary" />
+                </button>
+                <div v-if="filteredCompaniesForManage.length === 0" class="p-3 text-center text-sm text-muted">ไม่พบสถานประกอบการที่ยังไม่ถูกจัดกลุ่ม</div>
+              </div>
             </div>
 
             <!-- Companies List -->

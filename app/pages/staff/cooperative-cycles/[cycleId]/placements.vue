@@ -143,7 +143,7 @@ const pageEnd = computed(() => {
         icon="i-lucide-search"
         placeholder="ค้นหารหัส ชื่อ หรือสถานประกอบการ..."
         class="w-72"
-        size="sm"
+        size="md"
       />
 
       <UButton
@@ -152,7 +152,7 @@ const pageEnd = computed(() => {
         icon="i-lucide-x"
         color="neutral"
         variant="ghost"
-        size="sm"
+        size="md"
         @click="searchQuery = ''"
       />
     </div>

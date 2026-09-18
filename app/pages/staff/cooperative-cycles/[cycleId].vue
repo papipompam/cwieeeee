@@ -132,6 +132,7 @@ const currentModuleTitle = computed(() => {
               class="w-64 text-sm"
               icon="i-lucide-calendar-range"
               aria-label="เปลี่ยนรอบสหกิจ"
+              size="md"
             />
           </div>
         </template>

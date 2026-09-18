@@ -166,7 +166,7 @@ const columns: TableColumn<SupervisionAppointmentRow>[] = [
             v-model="selectedRoundId"
             :items="roundOptions"
             class="w-52"
-            size="sm"
+            size="md"
           />
         </div>
 
@@ -226,14 +226,14 @@ const columns: TableColumn<SupervisionAppointmentRow>[] = [
         icon="i-lucide-search"
         placeholder="ค้นหาสถานประกอบการ อาจารย์ หรือนักศึกษา..."
         class="w-72"
-        size="sm"
+        size="md"
       />
       <UButton
         v-if="searchQuery"
         label="ล้าง"
         color="neutral"
         variant="ghost"
-        size="sm"
+        size="md"
         @click="searchQuery = ''"
       />
     </div>

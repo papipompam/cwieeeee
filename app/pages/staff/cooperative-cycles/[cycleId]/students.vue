@@ -223,7 +223,7 @@ const pageEnd = computed(() => {
         icon="i-lucide-external-link"
         color="neutral"
         variant="outline"
-        size="sm"
+        size="md"
         to="/staff/students"
       />
     </div>
@@ -236,7 +236,7 @@ const pageEnd = computed(() => {
           icon="i-lucide-search"
           placeholder="ค้นหารหัสนักศึกษา หรือชื่อ..."
           class="w-64"
-          size="sm"
+          size="md"
         />
 
         <USelect
@@ -244,7 +244,7 @@ const pageEnd = computed(() => {
           :items="classGroupOptions"
           value-key="value"
           class="w-36"
-          size="sm"
+          size="md"
         />
 
         <USelect
@@ -252,7 +252,7 @@ const pageEnd = computed(() => {
           :items="statusOptions"
           value-key="value"
           class="w-36"
-          size="sm"
+          size="md"
         />
 
         <UButton
@@ -261,7 +261,7 @@ const pageEnd = computed(() => {
           icon="i-lucide-x"
           color="neutral"
           variant="ghost"
-          size="sm"
+          size="md"
           @click="clearFilters"
         />
       </div>

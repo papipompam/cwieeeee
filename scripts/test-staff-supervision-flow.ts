@@ -331,11 +331,15 @@ async function run() {
     const unassignedRes: any = await unassignedCompaniesHandler(unassignedEvent as any)
     assert.equal(unassignedRes.companies.length, 2, 'Should list both confirmed companies as unassigned in round 1')
 
-    // TEST 5: Create Groups and Assign Company
-    console.log('\n--- TEST 5: Groups & Company Assignment ---')
+    // TEST 5: Create a complete group in one request
+    console.log('\n--- TEST 5: Create Group with Teachers & Companies ---')
     const createGroupAEvent = createMockEvent({
       params: { cycleId: String(cycle1.id), roundId: String(round1Id) },
-      body: { name: 'กลุ่ม A (กรุงเทพ)' },
+      body: {
+        name: 'กลุ่ม A (กรุงเทพ)',
+        teacherUserIds: [teacher1User.id],
+        companyIds: [company1.id]
+      },
       staffUser
     })
     const groupARes: any = await createGroupHandler(createGroupAEvent as any)
@@ -349,15 +353,7 @@ async function run() {
     const groupBRes: any = await createGroupHandler(createGroupBEvent as any)
     const groupBId = groupBRes.group.id
 
-    // Assign company 1 to Group A
-    const assignComp1Event = createMockEvent({
-      params: { cycleId: String(cycle1.id), roundId: String(round1Id), groupId: String(groupAId) },
-      body: { companyId: company1.id },
-      staffUser
-    })
-    await addCompanyToGroupHandler(assignComp1Event as any)
-
-    // Verify unassigned companies count decreased to 1
+    // Verify the company selected at creation is immediately assigned.
     const unassignedAfterAssign: any = await unassignedCompaniesHandler(unassignedEvent as any)
     assert.equal(unassignedAfterAssign.companies.length, 1)
     assert.equal(unassignedAfterAssign.companies[0].companyId, company2.id)
@@ -391,13 +387,6 @@ async function run() {
 
     // TEST 7: Assign Teachers & Duplicate Guard
     console.log('\n--- TEST 7: Duplicate Teacher in Same Round (409) ---')
-    const assignTeacher1ToAEvent = createMockEvent({
-      params: { cycleId: String(cycle1.id), roundId: String(round1Id), groupId: String(groupAId) },
-      body: { teacherUserId: teacher1User.id },
-      staffUser
-    })
-    await addTeacherToGroupHandler(assignTeacher1ToAEvent as any)
-
     // Attempt to assign Teacher 1 to Group B in round 1
     const assignTeacher1ToBEvent = createMockEvent({
       params: { cycleId: String(cycle1.id), roundId: String(round1Id), groupId: String(groupBId) },
