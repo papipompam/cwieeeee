@@ -157,10 +157,21 @@ const openCreateModal = () => {
 // Detail Modal state
 const isDetailOpen = ref(false)
 const selectedTeacher = ref<Teacher | null>(null)
+const isPasswordOpen = ref(false)
+const passwordAccount = ref<{ id: number, loginId: string, name: string } | null>(null)
 
 const openDetail = (teacher: Teacher) => {
   selectedTeacher.value = teacher
   isDetailOpen.value = true
+}
+
+const openPasswordModal = (teacher: Teacher) => {
+  passwordAccount.value = {
+    id: teacher.id,
+    loginId: teacher.teacherId,
+    name: `${teacher.prefix}${teacher.firstName} ${teacher.lastName}`
+  }
+  isPasswordOpen.value = true
 }
 
 const openEditModal = (teacher: Teacher) => {
@@ -325,7 +336,7 @@ const columns: TableColumn<Teacher>[] = [
   {
     id: 'actions',
     header: 'จัดการ',
-    meta: { class: { th: 'w-48 text-end', td: 'w-48 text-end' } }
+    meta: { class: { th: 'w-64 text-end', td: 'w-64 text-end' } }
   }
 ]
 </script>
@@ -345,6 +356,7 @@ const columns: TableColumn<Teacher>[] = [
             color="primary"
             @click="openCreateModal"
           />
+          <AppNotificationBell />
         </template>
       </UDashboardNavbar>
     </template>
@@ -439,6 +451,14 @@ const columns: TableColumn<Teacher>[] = [
                   @click="openEditModal(row.original)"
                 />
                 <UButton
+                  label="รหัสผ่าน"
+                  icon="i-lucide-key-round"
+                  color="neutral"
+                  variant="ghost"
+                  size="xs"
+                  @click="openPasswordModal(row.original)"
+                />
+                <UButton
                   label="ลบ"
                   icon="i-lucide-trash-2"
                   color="error"
@@ -478,6 +498,12 @@ const columns: TableColumn<Teacher>[] = [
       </div>
     </template>
   </UDashboardPanel>
+
+  <UIAccountPasswordModal
+    v-if="passwordAccount"
+    v-model:open="isPasswordOpen"
+    :account="passwordAccount"
+  />
 
   <!-- Create / Edit Modal Form -->
   <UModal

@@ -43,13 +43,14 @@ const markAllRead = async () => {
 </script>
 
 <template>
-  <UDashboardPanel id="student-notifications-page">
+  <UDashboardPanel id="staff-notifications-page">
     <template #header>
       <UDashboardNavbar title="การแจ้งเตือน">
         <template #leading><UDashboardSidebarCollapse /></template>
         <template #right>
           <UButton v-if="data?.unreadCount" color="neutral" variant="ghost" label="อ่านทั้งหมด" :loading="isMarkingAllRead" @click="markAllRead" />
           <UIButtonRefresh :loading="status === 'pending'" @refresh="refresh" />
+          <AppNotificationBell />
         </template>
       </UDashboardNavbar>
     </template>

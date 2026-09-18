@@ -139,6 +139,20 @@ export default defineEventHandler(async (event) => {
       }
     })
 
+    if (body.newCompany) {
+      const staffs = await tx.user.findMany({ where: { role: 'STAFF', isActive: true }, select: { id: true } })
+      if (staffs.length) {
+        await tx.notification.createMany({
+          data: staffs.map(s => ({
+            userId: s.id,
+            title: 'มีสถานประกอบการใหม่ที่นักศึกษาระบุ',
+            message: `${user.prefix}${user.firstName} ${user.lastName} เพิ่มข้อมูลสถานประกอบการใหม่: ${newApplication.company.name}`,
+            link: `/staff/companies/${newApplication.company.id}`
+          }))
+        })
+      }
+    }
+
     return newApplication
   })
 })

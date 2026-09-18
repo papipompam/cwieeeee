@@ -5,7 +5,7 @@ defineProps<{
   collapsed?: boolean
 }>()
 
-const user = useState<{ id: number, loginId: string, role: 'STAFF' | 'TEACHER' | 'STUDENT', name: string } | null>('current-user', () => null)
+const user = useState<{ id: number, loginId: string, role: 'STAFF' | 'TEACHER' | 'STUDENT', name: string, mustChangePassword: boolean } | null>('current-user', () => null)
 
 const { data } = await useFetch<any>('/api/auth/me')
 user.value = data.value ?? null

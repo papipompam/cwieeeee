@@ -108,7 +108,9 @@ const currentModuleTitle = computed(() => {
             </div>
           </div>
         </template>
-
+        <template #right>
+          <AppNotificationBell />
+        </template>
       </UDashboardNavbar>
     </template>
 

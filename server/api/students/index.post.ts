@@ -12,7 +12,8 @@ export default defineEventHandler(async (event) => {
         lastName: student.lastName,
         cohortYear: student.cohortYear,
         classGroup: student.classGroup,
-        isActive: student.isActive
+        isActive: student.isActive,
+        mustChangePassword: true
       }
     })
 

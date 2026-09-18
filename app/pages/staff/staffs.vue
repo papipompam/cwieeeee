@@ -141,10 +141,21 @@ const openCreateModal = () => {
 // Detail Modal state
 const isDetailOpen = ref(false)
 const selectedStaff = ref<Staff | null>(null)
+const isPasswordOpen = ref(false)
+const passwordAccount = ref<{ id: number, loginId: string, name: string } | null>(null)
 
 const openDetail = (staff: Staff) => {
   selectedStaff.value = staff
   isDetailOpen.value = true
+}
+
+const openPasswordModal = (staff: Staff) => {
+  passwordAccount.value = {
+    id: staff.id,
+    loginId: staff.staffId,
+    name: `${staff.prefix}${staff.firstName} ${staff.lastName}`
+  }
+  isPasswordOpen.value = true
 }
 
 const openEditModal = (staff: Staff) => {
@@ -298,7 +309,7 @@ const columns: TableColumn<Staff>[] = [
   {
     id: 'actions',
     header: 'จัดการ',
-    meta: { class: { th: 'w-48 text-end', td: 'w-48 text-end' } }
+    meta: { class: { th: 'w-64 text-end', td: 'w-64 text-end' } }
   }
 ]
 </script>
@@ -318,6 +329,7 @@ const columns: TableColumn<Staff>[] = [
             color="primary"
             @click="openCreateModal"
           />
+          <AppNotificationBell />
         </template>
       </UDashboardNavbar>
     </template>
@@ -412,6 +424,14 @@ const columns: TableColumn<Staff>[] = [
                   @click="openEditModal(row.original)"
                 />
                 <UButton
+                  label="รหัสผ่าน"
+                  icon="i-lucide-key-round"
+                  color="neutral"
+                  variant="ghost"
+                  size="xs"
+                  @click="openPasswordModal(row.original)"
+                />
+                <UButton
                   label="ลบ"
                   icon="i-lucide-trash-2"
                   color="error"
@@ -451,6 +471,12 @@ const columns: TableColumn<Staff>[] = [
       </div>
     </template>
   </UDashboardPanel>
+
+  <UIAccountPasswordModal
+    v-if="passwordAccount"
+    v-model:open="isPasswordOpen"
+    :account="passwordAccount"
+  />
 
   <!-- Create / Edit Modal Form -->
   <UModal

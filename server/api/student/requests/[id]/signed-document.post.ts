@@ -148,7 +148,7 @@ export default defineEventHandler(async (event) => {
             userId: s.id,
             title: 'มีเอกสารส่งมาใหม่รอตรวจสอบ',
             message: `${user.prefix}${user.firstName} ${user.lastName} อัปโหลดหนังสือตอบรับ (${request.companyName})`,
-            link: `/staff/cooperative-cycles/${request.companyApplication.cooperativeCycleId}/applications`
+            link: `/staff/cooperative-cycles/${request.companyApplication.cooperativeCycleId}/applications/${request.id}`
           }))
         })
       }

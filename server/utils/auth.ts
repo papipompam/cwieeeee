@@ -32,6 +32,16 @@ export const destroySession = async (event: Parameters<typeof setCookie>[0]) => 
   setCookie(event, sessionCookie, '', { httpOnly: true, sameSite: 'lax', path: '/', maxAge: 0 })
 }
 
+export const destroyOtherSessions = async (event: Parameters<typeof setCookie>[0], userId: number) => {
+  const token = getCookie(event, sessionCookie)
+  await prisma.authSession.deleteMany({
+    where: {
+      userId,
+      ...(token ? { tokenHash: { not: hashToken(token) } } : {})
+    }
+  })
+}
+
 export const getCurrentUser = async (event: Parameters<typeof getCookie>[0]) => {
   const token = getCookie(event, sessionCookie)
   if (!token) return null

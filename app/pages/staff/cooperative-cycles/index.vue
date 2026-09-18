@@ -410,6 +410,7 @@ const columns: TableColumn<CooperativeCycle>[] = [
             color="primary"
             @click="openCreateModal"
           />
+          <AppNotificationBell />
         </template>
       </UDashboardNavbar>
     </template>

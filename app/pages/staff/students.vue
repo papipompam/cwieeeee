@@ -56,7 +56,9 @@ const formState = reactive({
   lastName: '',
   cohortYear: 2566,
   classGroup: 1,
-  isActive: true
+  isActive: true,
+  newPassword: '',
+  confirmPassword: ''
 })
 
 const formErrors = reactive<Record<string, string>>({})
@@ -228,6 +230,8 @@ const openCreateModal = () => {
   formState.cohortYear = currentYear - 3
   formState.classGroup = 1
   formState.isActive = true
+  formState.newPassword = ''
+  formState.confirmPassword = ''
 
   isFormOpen.value = true
 }
@@ -244,6 +248,8 @@ const openEditModal = (student: Student) => {
   formState.cohortYear = student.cohortYear
   formState.classGroup = student.classGroup
   formState.isActive = student.isActive
+  formState.newPassword = ''
+  formState.confirmPassword = ''
 
   isFormOpen.value = true
 }
@@ -279,6 +285,14 @@ const validateForm = () => {
 
   if (!formState.classGroup || formState.classGroup <= 0) {
     formErrors.classGroup = 'กรุณาระบุหมู่เรียนเป็นจำนวนเต็มบวก'
+    isValid = false
+  }
+
+  if (formState.newPassword && formState.newPassword.length < 8) {
+    formErrors.newPassword = 'รหัสผ่านใหม่ต้องมีอย่างน้อย 8 ตัวอักษร'
+    isValid = false
+  } else if (formState.newPassword !== formState.confirmPassword) {
+    formErrors.confirmPassword = 'ยืนยันรหัสผ่านใหม่ไม่ตรงกัน'
     isValid = false
   }
 
@@ -426,6 +440,7 @@ const columns: TableColumn<Student>[] = [
             color="primary"
             @click="openCreateModal"
           />
+          <AppNotificationBell />
         </template>
       </UDashboardNavbar>
     </template>
@@ -583,8 +598,10 @@ const columns: TableColumn<Student>[] = [
     <template #body>
       <div class="space-y-4">
         <p class="text-sm text-muted">
-          หัวตารางที่ต้องมี: รหัสนักศึกษา, คำนำหน้า, ชื่อ, นามสกุล, รุ่น, หมู่เรียน
+          รองรับหัวตาราง: รหัสนักศึกษา หรือ รหัส, ชื่อ, รุ่น, หมู่เรียน
           <span class="block">สถานะใช้งานเป็นคอลัมน์เสริม โดยใช้ ใช้งาน หรือ ไม่ใช้งาน</span>
+          <span class="block">ช่องชื่อรองรับชื่อ-สกุลและคำนำหน้าในช่องเดียว เช่น “นาย สมชาย ใจดี”; รุ่น 66 จะบันทึกเป็น 2566</span>
+          <span class="block">บัญชีใหม่ใช้รหัสนักศึกษาเป็นรหัสผ่านตั้งต้น และนักศึกษาต้องตั้งรหัสผ่านใหม่เมื่อเข้าสู่ระบบครั้งแรก</span>
         </p>
         <a
           href="/student-import-template.csv"
@@ -618,7 +635,7 @@ const columns: TableColumn<Student>[] = [
   <UModal
     v-model:open="isFormOpen"
     :title="isEditing ? 'แก้ไขข้อมูลนักศึกษา' : 'เพิ่มข้อมูลนักศึกษาใหม่'"
-    :description="isEditing ? 'ปรับปรุงข้อมูลส่วนตัว รุ่น และสถานะการใช้งานของนักศึกษา' : 'กรอกข้อมูลนักศึกษาเพื่อลงทะเบียนเข้าสู่ระบบงานสหกิจศึกษา'"
+    :description="isEditing ? 'ปรับปรุงข้อมูลส่วนตัว รุ่น และสถานะการใช้งานของนักศึกษา' : 'รหัสผ่านตั้งต้นคือรหัสนักศึกษา และนักศึกษาจะต้องตั้งรหัสผ่านใหม่เมื่อเข้าสู่ระบบครั้งแรก'"
   >
     <template #body>
       <form class="space-y-4" @submit.prevent="submitForm">
@@ -688,6 +705,15 @@ const columns: TableColumn<Student>[] = [
                 {{ formState.isActive ? 'เปิดใช้งาน (Active)' : 'ปิดใช้งาน (Inactive)' }}
               </span>
             </div>
+          </UFormField>
+        </div>
+
+        <div v-if="isEditing" class="grid grid-cols-1 gap-3 border-t border-default pt-3 sm:grid-cols-2">
+          <UFormField label="ตั้งรหัสผ่านใหม่" hint="เว้นว่างหากไม่เปลี่ยน" :error="formErrors.newPassword">
+            <UInput v-model="formState.newPassword" type="password" autocomplete="new-password" class="w-full" />
+          </UFormField>
+          <UFormField label="ยืนยันรหัสผ่านใหม่" :error="formErrors.confirmPassword">
+            <UInput v-model="formState.confirmPassword" type="password" autocomplete="new-password" class="w-full" />
           </UFormField>
         </div>
       </form>

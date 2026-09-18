@@ -2,7 +2,7 @@ import ExcelJS from 'exceljs'
 import { Readable } from 'node:stream'
 
 const headers = {
-  studentId: ['studentid', 'รหัสนักศึกษา'],
+  studentId: ['studentid', 'รหัสนักศึกษา', 'รหัส'],
   prefix: ['prefix', 'คำนำหน้า'],
   firstName: ['firstname', 'ชื่อ'],
   lastName: ['lastname', 'นามสกุล'],
@@ -16,6 +16,24 @@ const normalizeHeader = (value: string) => value.replace(/^\uFEFF/, '').trim().t
 const rowValue = (row: Record<string, unknown>, names: string[]) => {
   const entry = Object.entries(row).find(([key]) => names.includes(normalizeHeader(key)))
   return entry?.[1]
+}
+
+const readText = (value: unknown) => typeof value === 'string' ? value.trim() : String(value ?? '').trim()
+
+const readName = (value: unknown) => {
+  const parts = readText(value).split(/\s+/).filter(Boolean)
+  const prefix = ['นางสาว', 'นาย', 'นาง'].includes(parts[0] ?? '') ? parts.shift() ?? '' : ''
+
+  return {
+    prefix,
+    firstName: parts.shift() ?? '',
+    lastName: parts.join(' ')
+  }
+}
+
+const normalizeCohortYear = (value: unknown) => {
+  const year = Number(value)
+  return Number.isInteger(year) && year > 0 && year < 100 ? year + 2500 : value
 }
 
 const readActive = (value: unknown) => {
@@ -92,12 +110,15 @@ export default defineEventHandler(async (event) => {
     }
 
     try {
+      const name = readName(rowValue(row, headers.firstName))
+      const firstName = readText(rowValue(row, headers.firstName))
+      const lastName = readText(rowValue(row, headers.lastName))
       const student = readStudentInput({
         studentId: String(rowValue(row, headers.studentId) ?? ''),
-        prefix: rowValue(row, headers.prefix),
-        firstName: rowValue(row, headers.firstName),
-        lastName: rowValue(row, headers.lastName),
-        cohortYear: rowValue(row, headers.cohortYear),
+        prefix: readText(rowValue(row, headers.prefix)) || name.prefix || 'ไม่ระบุ',
+        firstName: lastName ? firstName : name.firstName || firstName,
+        lastName: lastName || name.lastName || '-',
+        cohortYear: normalizeCohortYear(rowValue(row, headers.cohortYear)),
         classGroup: rowValue(row, headers.classGroup),
         ...(isActive === undefined ? {} : { isActive })
       })
@@ -143,7 +164,8 @@ export default defineEventHandler(async (event) => {
         lastName: student.lastName,
         cohortYear: student.cohortYear,
         classGroup: student.classGroup,
-        isActive: student.isActive
+        isActive: student.isActive,
+        mustChangePassword: true
       }))
     )
 

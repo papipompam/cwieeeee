@@ -39,6 +39,9 @@ const handleSubmit = async (formData: any) => {
             aria-label="กลับไปหน้ารายการสถานประกอบการ"
           />
         </template>
+        <template #right>
+          <AppNotificationBell />
+        </template>
       </UDashboardNavbar>
     </template>
 

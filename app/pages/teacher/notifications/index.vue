@@ -43,7 +43,7 @@ const markAllRead = async () => {
 </script>
 
 <template>
-  <UDashboardPanel id="student-notifications-page">
+  <UDashboardPanel id="teacher-notifications-page">
     <template #header>
       <UDashboardNavbar title="การแจ้งเตือน">
         <template #leading><UDashboardSidebarCollapse /></template>

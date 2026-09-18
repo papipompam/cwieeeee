@@ -8,50 +8,44 @@ interface NotificationItem {
   createdAt: string
 }
 
-const { data, refresh } = await useFetch<{ items: NotificationItem[]; unreadCount: number }>('/api/student/notifications')
+const user = useState<{ role: 'STAFF' | 'TEACHER' | 'STUDENT' } | null>('current-user', () => null)
 
-const formatTimeAgo = (dateStr: string) => {
-  const d = new Date(dateStr)
-  return new Intl.DateTimeFormat('th-TH', {
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  }).format(d)
-}
+const allNotiLink = computed(() => {
+  if (user.value?.role === 'TEACHER') return '/teacher/notifications'
+  if (user.value?.role === 'STAFF') return '/staff/notifications'
+  return '/student/notifications'
+})
+
+const { data, refresh } = useFetch<{ items: NotificationItem[]; unreadCount: number }>('/api/notifications')
+
+const formatTimeAgo = (dateStr: string) =>
+  new Intl.DateTimeFormat('th-TH', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(dateStr))
 
 const markAsRead = async (item: NotificationItem) => {
   if (item.isRead) return
   try {
-    await $fetch(`/api/student/notifications/${item.id}/read`, { method: 'PATCH' })
+    await $fetch(`/api/notifications/${item.id}/read`, { method: 'PATCH' })
     item.isRead = true
-    if (data.value && data.value.unreadCount > 0) {
-      data.value.unreadCount--
-    }
-  } catch {
-    // ignore
-  }
+    if (data.value && data.value.unreadCount > 0) data.value.unreadCount--
+  } catch { /* ignore */ }
 }
 
 const markAllAsRead = async () => {
   try {
-    await $fetch('/api/student/notifications/read-all', { method: 'POST' })
+    await $fetch('/api/notifications/read-all', { method: 'POST' })
     await refresh()
-  } catch {
-    // ignore
-  }
+  } catch { /* ignore */ }
 }
+
+const isOpen = ref(false)
+watch(isOpen, (open) => {
+  if (open) refresh()
+})
 </script>
 
 <template>
-  <UPopover>
-    <UButton
-      color="neutral"
-      variant="ghost"
-      icon="i-lucide-bell"
-      aria-label="การแจ้งเตือน"
-      class="relative"
-    >
+  <UPopover v-model:open="isOpen">
+    <UButton color="neutral" variant="ghost" icon="i-lucide-bell" aria-label="การแจ้งเตือน" class="relative">
       <span
         v-if="data && data.unreadCount > 0"
         class="absolute top-1.5 right-1.5 size-2 rounded-full bg-error ring-2 ring-default"
@@ -94,6 +88,7 @@ const markAllAsRead = async () => {
               v-if="item.link"
               :to="item.link"
               class="text-[11px] text-primary hover:underline inline-block pt-0.5"
+              @click="isOpen = false"
             >
               ไปยังรายการ →
             </NuxtLink>
@@ -105,10 +100,7 @@ const markAllAsRead = async () => {
         </div>
 
         <div class="border-t border-default pt-2 text-center">
-          <NuxtLink
-            to="/student/notifications"
-            class="text-xs text-primary font-medium hover:underline block"
-          >
+          <NuxtLink :to="allNotiLink" class="text-xs text-primary font-medium hover:underline block" @click="isOpen = false">
             ดูการแจ้งเตือนทั้งหมด
           </NuxtLink>
         </div>

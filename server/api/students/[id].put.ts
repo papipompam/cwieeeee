@@ -1,4 +1,5 @@
 export default defineEventHandler(async (event) => {
+  await requireRole(event, 'STAFF')
   const idParam = getRouterParam(event, 'id')
   const id = Number(idParam)
 
@@ -14,6 +15,12 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, message: 'ไม่พบข้อมูลนักศึกษาที่ระบุ' })
   }
 
+  const body = await readBody(event)
+  const newPassword = typeof body.newPassword === 'string' ? body.newPassword : ''
+  if (newPassword && newPassword.length < 8) {
+    throw createError({ statusCode: 400, message: 'รหัสผ่านใหม่ต้องมีอย่างน้อย 8 ตัวอักษร' })
+  }
+
   const student = readStudentInput({
     studentId: current.loginId,
     prefix: current.prefix,
@@ -22,10 +29,15 @@ export default defineEventHandler(async (event) => {
     cohortYear: current.cohortYear,
     classGroup: current.classGroup,
     isActive: current.isActive,
-    ...await readBody(event)
+    ...body
   })
 
   try {
+    const passwordHash = newPassword
+      ? await hashPassword(newPassword)
+      : current.mustChangePassword && student.studentId !== current.loginId
+        ? await hashPassword(student.studentId)
+        : undefined
     const updated = await prisma.user.update({
       where: { id },
       data: {
@@ -35,9 +47,11 @@ export default defineEventHandler(async (event) => {
         lastName: student.lastName,
         cohortYear: student.cohortYear,
         classGroup: student.classGroup,
-        isActive: student.isActive
+        isActive: student.isActive,
+        ...(passwordHash ? { passwordHash } : {})
       }
     })
+    if (newPassword) await destroyOtherSessions(event, id)
 
     return {
       id: updated.id,

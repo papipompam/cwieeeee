@@ -145,6 +145,8 @@ export const getStaffCycleRequest = async (event: any, cycleId: number, requestI
 export type StudentCycleStatusKey =
   | 'NOT_APPLIED'
   | 'APPLYING'
+  | 'AWAITING_RESPONSE'
+  | 'INTERVIEW'
   | 'ACCEPTED'
   | 'REQUEST_SUBMITTED'
   | 'WAITING_DOCUMENT'
@@ -194,7 +196,17 @@ export const deriveStudentCycleStatus = (
     return { key: 'ACCEPTED', label: 'รอยืนยันสถานประกอบการ', color: 'info' }
   }
 
-  const hasActive = applications.some(a => ['SUBMITTED', 'AWAITING_RESPONSE', 'INTERVIEW'].includes(a.status))
+  const hasInterview = applications.some(a => a.status === 'INTERVIEW')
+  if (hasInterview) {
+    return { key: 'INTERVIEW', label: 'รอสัมภาษณ์', color: 'info' }
+  }
+
+  const hasAwaiting = applications.some(a => a.status === 'AWAITING_RESPONSE')
+  if (hasAwaiting) {
+    return { key: 'AWAITING_RESPONSE', label: 'รอผลตอบกลับ', color: 'warning' }
+  }
+
+  const hasActive = applications.some(a => a.status === 'SUBMITTED')
   if (hasActive) {
     return { key: 'APPLYING', label: 'กำลังสมัคร', color: 'info' }
   }

@@ -66,11 +66,13 @@ export default defineEventHandler(async (event) => {
     
     // Latest company: first from request snapshot, then company relation
     const appWithReq = apps.find(a => a.cooperativeRequest)
+    const latestApp = appWithReq || apps[0]
     const latestCompany = appWithReq?.cooperativeRequest?.companyName
       || apps[0]?.company?.name
       || null
 
     const latestRequestId = appWithReq?.cooperativeRequest?.id || null
+    const latestApplicationStatus = latestApp?.status || null
 
     return {
       id: s.id,
@@ -83,7 +85,8 @@ export default defineEventHandler(async (event) => {
       isActive: s.isActive,
       cycleStatus,
       latestCompany,
-      latestRequestId
+      latestRequestId,
+      latestApplicationStatus
     }
   })
 

@@ -261,6 +261,7 @@ const columns: TableColumn<Company>[] = [
             color="primary"
             to="/staff/companies/new"
           />
+          <AppNotificationBell />
         </template>
       </UDashboardNavbar>
     </template>

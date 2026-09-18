@@ -49,5 +49,19 @@ export default defineEventHandler(async (event) => {
     }
   })
 
+  if (targetStatus === 'ACCEPTED') {
+    const staffs = await prisma.user.findMany({ where: { role: 'STAFF', isActive: true }, select: { id: true } })
+    if (staffs.length) {
+      await prisma.notification.createMany({
+        data: staffs.map(staff => ({
+          userId: staff.id,
+          title: 'นักศึกษาได้รับการตอบรับจากสถานประกอบการ',
+          message: `${user.prefix}${user.firstName} ${user.lastName} ได้รับการตอบรับจาก ${updated.company.name}`,
+          link: `/staff/cooperative-cycles/${application.cooperativeCycleId}/students`
+        }))
+      })
+    }
+  }
+
   return updated
 })

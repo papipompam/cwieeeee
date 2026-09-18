@@ -23,5 +23,5 @@ export default defineEventHandler(async (event) => {
   }
   failedLogins.delete(ip)
   await createSession(event, user.id)
-  return { loginId: user.loginId, role: user.role }
+  return { loginId: user.loginId, role: user.role, mustChangePassword: user.mustChangePassword }
 })

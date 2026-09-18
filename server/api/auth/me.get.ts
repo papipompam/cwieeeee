@@ -6,6 +6,7 @@ export default defineEventHandler(async (event) => {
     id: user.id,
     loginId: user.loginId,
     role: user.role,
+    mustChangePassword: user.mustChangePassword,
     name: name || user.loginId
   }
 })

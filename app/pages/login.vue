@@ -17,8 +17,8 @@ const submit = async () => {
   if (!state.loginId.trim() || !state.password) { error.value = 'กรุณากรอกรหัสผู้ใช้และรหัสผ่าน'; return }
   loading.value = true
   try {
-    const user = await $fetch<{ role: 'STAFF' | 'TEACHER' | 'STUDENT' }>('/api/auth/login', { method: 'POST', body: state })
-    await navigateTo(user.role === 'STAFF' ? '/staff' : user.role === 'TEACHER' ? '/teacher' : '/student')
+    const user = await $fetch<{ role: 'STAFF' | 'TEACHER' | 'STUDENT', mustChangePassword: boolean }>('/api/auth/login', { method: 'POST', body: state })
+    await navigateTo(user.mustChangePassword ? '/account/password' : user.role === 'STAFF' ? '/staff' : user.role === 'TEACHER' ? '/teacher' : '/student')
   } catch (cause: unknown) {
     const data = typeof cause === 'object' && cause && 'data' in cause ? cause.data : null
     error.value = typeof data === 'object' && data && 'message' in data && typeof data.message === 'string' ? data.message : 'ไม่สามารถเข้าสู่ระบบได้'

@@ -1,4 +1,5 @@
 export default defineEventHandler(async (event) => {
+  await requireRole(event, 'STAFF')
   const idParam = getRouterParam(event, 'id')
   const id = Number(idParam)
 
@@ -14,6 +15,12 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, message: 'ไม่พบข้อมูลอาจารย์ที่ระบุ' })
   }
 
+  const body = await readBody(event)
+  const newPassword = typeof body.newPassword === 'string' ? body.newPassword : ''
+  if (newPassword && newPassword.length < 8) {
+    throw createError({ statusCode: 400, message: 'รหัสผ่านใหม่ต้องมีอย่างน้อย 8 ตัวอักษร' })
+  }
+
   const teacher = readTeacherInput({
     teacherId: current.loginId,
     prefix: current.prefix,
@@ -22,7 +29,7 @@ export default defineEventHandler(async (event) => {
     gender: current.gender,
     phone: current.phone,
     isActive: current.isActive,
-    ...await readBody(event)
+    ...body
   })
 
   try {
@@ -35,9 +42,11 @@ export default defineEventHandler(async (event) => {
         lastName: teacher.lastName,
         gender: teacher.gender,
         phone: teacher.phone,
-        isActive: teacher.isActive
+        isActive: teacher.isActive,
+        ...(newPassword ? { passwordHash: await hashPassword(newPassword) } : {})
       }
     })
+    if (newPassword) await destroyOtherSessions(event, id)
 
     return {
       id: updated.id,

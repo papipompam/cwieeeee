@@ -68,7 +68,7 @@ export default defineEventHandler(async (event) => {
           userId: staff.id,
           title: 'มีคำร้องสถานที่ฝึกงานใหม่',
           message: `${user.prefix}${user.firstName} ${user.lastName} ส่งคำร้องสำหรับ ${current.company.name}`,
-          link: `/staff/cooperative-cycles/${current.cooperativeCycleId}/applications`
+          link: `/staff/cooperative-cycles/${current.cooperativeCycleId}/applications/${request.id}`
         }))
       })
     }

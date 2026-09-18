@@ -64,6 +64,7 @@ model User {
   cohortYear          Int?                 @map("cohort_year")
   classGroup          Int?                 @map("class_group")
   isActive            Boolean              @default(true) @map("is_active")
+  mustChangePassword  Boolean              @default(false) @map("must_change_password")
   sessions            AuthSession[]
   companyApplications CompanyApplication[]
   cycleEnrollments    CooperativeCycleEnrollment[]

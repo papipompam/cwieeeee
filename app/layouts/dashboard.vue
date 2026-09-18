@@ -5,11 +5,28 @@ const open = ref(false)
 const route = useRoute()
 const { activeCycleId: savedCycleId, setActiveCycle } = useStaffActiveCycle()
 
+const user = useState<{ id: number, loginId: string, role: 'STAFF' | 'TEACHER' | 'STUDENT', name: string, mustChangePassword: boolean } | null>('current-user', () => null)
+const { data: currentUser } = await useFetch<any>('/api/auth/me')
+if (currentUser.value) {
+  user.value = currentUser.value
+}
+
+const currentRole = computed<'staff' | 'teacher' | 'student'>(() => {
+  if (route.path.startsWith('/teacher')) return 'teacher'
+  if (route.path.startsWith('/student')) return 'student'
+  if (route.path.startsWith('/staff')) return 'staff'
+  if (user.value?.role === 'TEACHER') return 'teacher'
+  if (user.value?.role === 'STUDENT') return 'student'
+  return 'staff'
+})
+
 interface CycleReference {
   id: number
 }
 
-const { data: cycles } = await useFetch<CycleReference[]>('/api/cooperative-cycles')
+const { data: cycles } = await useFetch<CycleReference[]>('/api/cooperative-cycles', {
+  immediate: currentRole.value === 'staff'
+})
 
 const hasCycle = (cycleId: number | string | null | undefined) =>
   cycles.value?.some(cycle => cycle.id === Number(cycleId)) ?? false
@@ -121,6 +138,12 @@ const staffLinks = computed<NavigationMenuItem[]>(() => {
       icon: 'i-lucide-building-2',
       to: '/staff/companies',
       onSelect: handleSelect
+    },
+    {
+      label: 'การแจ้งเตือน',
+      icon: 'i-lucide-bell',
+      to: '/staff/notifications',
+      onSelect: handleSelect
     }
   ]
 })
@@ -161,6 +184,12 @@ const teacherLinks: NavigationMenuItem[] = [
     icon: 'i-lucide-building-complex',
     to: '/teacher/companies',
     onSelect: handleSelect
+  },
+  {
+    label: 'การแจ้งเตือน',
+    icon: 'i-lucide-bell',
+    to: '/teacher/notifications',
+    onSelect: handleSelect
   }
 ]
 
@@ -189,19 +218,31 @@ const studentLinks: NavigationMenuItem[] = [
     icon: 'i-lucide-calendar-days',
     to: '/student/visits',
     onSelect: handleSelect
+  },
+  {
+    label: 'การแจ้งเตือน',
+    icon: 'i-lucide-bell',
+    to: '/student/notifications',
+    onSelect: handleSelect
   }
 ]
 
-const currentRole = computed<'staff' | 'teacher' | 'student'>(() => {
-  if (route.path.startsWith('/teacher')) return 'teacher'
-  if (route.path.startsWith('/student')) return 'student'
-  return 'staff'
-})
-
 const currentLinks = computed<NavigationMenuItem[]>(() => {
-  if (currentRole.value === 'teacher') return teacherLinks
-  if (currentRole.value === 'student') return studentLinks
-  return staffLinks.value
+  const links = currentRole.value === 'teacher'
+    ? teacherLinks
+    : currentRole.value === 'student'
+      ? studentLinks
+      : staffLinks.value
+
+  if (user.value?.mustChangePassword) {
+    return links.map(item => ({
+      ...item,
+      disabled: true,
+      children: item.children?.map(child => ({ ...child, disabled: true }))
+    }))
+  }
+
+  return links
 })
 </script>
 
@@ -237,7 +278,7 @@ const currentLinks = computed<NavigationMenuItem[]>(() => {
       </template>
 
       <template #footer="{ collapsed }">
-        <AppUserMenu :collapsed="collapsed" />
+        <AppUserMenu :collapsed="collapsed" class="w-full" />
       </template>
     </UDashboardSidebar>
 

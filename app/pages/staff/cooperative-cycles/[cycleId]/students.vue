@@ -20,6 +20,7 @@ interface StudentRow {
   cycleStatus: StudentCycleStatusInfo
   latestCompany: string | null
   latestRequestId: number | null
+  latestApplicationStatus?: string | null
 }
 
 interface StudentsResponse {
@@ -397,6 +398,13 @@ const pageEnd = computed(() => {
           <template #latestCompany-cell="{ row }">
             <div v-if="row.original.latestCompany" class="flex items-center gap-1.5 truncate">
               <span class="text-highlighted font-medium text-sm truncate">{{ row.original.latestCompany }}</span>
+              <UBadge
+                v-if="row.original.latestApplicationStatus && appStatusDisplayMap[row.original.latestApplicationStatus]"
+                :label="appStatusDisplayMap[row.original.latestApplicationStatus]?.label"
+                :color="appStatusDisplayMap[row.original.latestApplicationStatus]?.color"
+                variant="subtle"
+                size="xs"
+              />
               <UButton
                 v-if="row.original.latestRequestId"
                 icon="i-lucide-file-text"
