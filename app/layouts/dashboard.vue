@@ -22,6 +22,12 @@ const staffLinks: NavigationMenuItem[] = [
     onSelect: handleSelect
   },
   {
+    label: 'เจ้าหน้าที่',
+    icon: 'i-lucide-users-round',
+    to: '/staff/staffs',
+    onSelect: handleSelect
+  },
+  {
     label: 'นักศึกษา',
     icon: 'i-lucide-graduation-cap',
     to: '/staff/students',
