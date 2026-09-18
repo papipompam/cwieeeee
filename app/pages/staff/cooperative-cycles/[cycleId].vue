@@ -25,6 +25,11 @@ const { setActiveCycle } = useStaffActiveCycle()
 // Fetch current cycle
 const { data: cycle, status: fetchStatus, error: fetchError } = await useFetch<CooperativeCycle>(() => `/api/cooperative-cycles/${cycleId.value}`)
 
+if (fetchError.value?.statusCode === 404) {
+  setActiveCycle(null)
+  await navigateTo('/staff/cooperative-cycles?select=1', { replace: true })
+}
+
 // Provide to child pages
 provide("currentCycle", cycle)
 watch(cycle, value => {

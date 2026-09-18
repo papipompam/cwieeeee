@@ -3,7 +3,22 @@ import type { NavigationMenuItem } from '@nuxt/ui'
 
 const open = ref(false)
 const route = useRoute()
-const { activeCycleId: savedCycleId } = useStaffActiveCycle()
+const { activeCycleId: savedCycleId, setActiveCycle } = useStaffActiveCycle()
+
+interface CycleReference {
+  id: number
+}
+
+const { data: cycles } = await useFetch<CycleReference[]>('/api/cooperative-cycles')
+
+const hasCycle = (cycleId: number | string | null | undefined) =>
+  cycles.value?.some(cycle => cycle.id === Number(cycleId)) ?? false
+
+watch(cycles, () => {
+  if (savedCycleId.value && Array.isArray(cycles.value) && !hasCycle(savedCycleId.value)) {
+    setActiveCycle(null)
+  }
+}, { immediate: true })
 
 const handleSelect = () => {
   open.value = false
@@ -11,7 +26,8 @@ const handleSelect = () => {
 
 const activeCycleId = computed(() => {
   const match = route.path.match(/^\/staff\/cooperative-cycles\/(\d+)/)
-  return match ? match[1] : savedCycleId.value ? String(savedCycleId.value) : null
+  if (match) return hasCycle(match[1]) ? match[1] : null
+  return hasCycle(savedCycleId.value) ? String(savedCycleId.value) : null
 })
 
 const staffLinks = computed<NavigationMenuItem[]>(() => {

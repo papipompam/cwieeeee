@@ -39,6 +39,10 @@ const defaultCycle = computed(() => {
   return list.find(cycle => cycle.academicYear === academicYear) ?? list[0] ?? null
 })
 
+if (!defaultCycle.value && activeCycleId.value) {
+  setActiveCycle(null)
+}
+
 if (!route.query.select && defaultCycle.value) {
   setActiveCycle(defaultCycle.value.id)
   await navigateTo(`/staff/cooperative-cycles/${defaultCycle.value.id}`)
