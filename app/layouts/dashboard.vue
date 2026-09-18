@@ -66,13 +66,9 @@ const currentRole = computed<'staff' | 'teacher' | 'student'>(() => {
 })
 
 const currentLinks = computed<NavigationMenuItem[]>(() => {
-  const links = currentRole.value === 'teacher'
-    ? teacherLinks
-    : currentRole.value === 'student'
-      ? studentLinks
-      : staffLinks
-
-  return links
+  if (currentRole.value === 'teacher') return teacherLinks
+  if (currentRole.value === 'student') return studentLinks
+  return staffLinks
 })
 </script>
 

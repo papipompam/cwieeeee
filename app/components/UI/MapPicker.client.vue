@@ -315,7 +315,7 @@ onBeforeUnmount(() => {
     <div class="flex items-center justify-between text-xs text-muted px-1">
       <div class="flex items-center gap-2">
         <span class="font-medium text-highlighted">สถานะพิกัด:</span>
-        <span v-if="modelValue?.lat != null && modelValue?.lng != null" class="font-mono text-primary font-medium">
+        <span v-if="modelValue?.lat != null && modelValue?.lng != null" class=" text-primary font-medium">
           {{ modelValue.lat.toFixed(6) }}, {{ modelValue.lng.toFixed(6) }}
         </span>
         <span v-else class="italic text-muted">

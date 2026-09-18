@@ -16,55 +16,36 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, message: 'ไม่พบรอบสหกิจที่ระบุ' })
   }
 
-  const body = await readBody(event)
-
-  // Status check: if cycle is already CLOSED, prevent data mutation unless changing status out of CLOSED
-  const targetStatus = body.status as CooperativeCycleStatus | undefined
-  if (current.status === CooperativeCycleStatus.CLOSED && targetStatus === CooperativeCycleStatus.CLOSED) {
+  // CLOSED is a terminal state: no mutations allowed
+  if (current.status === CooperativeCycleStatus.CLOSED) {
     throw createError({
       statusCode: 400,
-      message: 'รอบสหกิจนี้ถูกปิดรอบแล้ว ไม่สามารถแก้ไขข้อมูลภายในรอบได้'
+      message: 'รอบสหกิจนี้ถูกปิดรอบแล้ว ไม่สามารถแก้ไขข้อมูลได้'
     })
   }
 
-  const term = Number(body.term ?? current.term)
-  const academicYear = Number(body.academicYear ?? current.academicYear)
-  const cohortYear = Number(body.cohortYear ?? current.cohortYear)
+  const body = await readBody(event)
 
-  if (!term || term <= 0 || !Number.isInteger(term)) {
-    throw createError({ statusCode: 400, message: 'ภาคเรียนต้องเป็นจำนวนเต็มบวก' })
-  }
+  const term = body.term !== undefined ? validateCycleTerm(body.term) : current.term
+  const academicYear = body.academicYear !== undefined ? validatePositiveYear(body.academicYear, 'ปีการศึกษา') : current.academicYear
+  const cohortYear = body.cohortYear !== undefined ? validatePositiveYear(body.cohortYear, 'รุ่นนักศึกษา') : current.cohortYear
 
-  if (!academicYear || academicYear <= 0 || !Number.isInteger(academicYear)) {
-    throw createError({ statusCode: 400, message: 'ปีการศึกษาต้องเป็นจำนวนเต็มบวก (พ.ศ.)' })
-  }
+  const appStart = body.applicationStartDate !== undefined
+    ? parseStrictDate(body.applicationStartDate, 'วันเปิดรับคำร้อง')
+    : current.applicationStartDate
+  const appEnd = body.applicationEndDate !== undefined
+    ? parseStrictDate(body.applicationEndDate, 'วันปิดรับคำร้อง')
+    : current.applicationEndDate
+  const internStart = body.internshipStartDate !== undefined
+    ? parseStrictDate(body.internshipStartDate, 'วันเริ่มฝึกงาน')
+    : current.internshipStartDate
+  const internEnd = body.internshipEndDate !== undefined
+    ? parseStrictDate(body.internshipEndDate, 'วันสิ้นสุดฝึกงาน')
+    : current.internshipEndDate
 
-  if (!cohortYear || cohortYear <= 0 || !Number.isInteger(cohortYear)) {
-    throw createError({ statusCode: 400, message: 'รุ่นนักศึกษาต้องเป็นจำนวนเต็มบวก (พ.ศ.)' })
-  }
+  validateCycleDatesOrder(appStart, appEnd, internStart, internEnd)
 
-  const appStart = new Date(body.applicationStartDate ?? current.applicationStartDate)
-  const appEnd = new Date(body.applicationEndDate ?? current.applicationEndDate)
-  const internStart = new Date(body.internshipStartDate ?? current.internshipStartDate)
-  const internEnd = new Date(body.internshipEndDate ?? current.internshipEndDate)
-
-  if (isNaN(appStart.getTime()) || isNaN(appEnd.getTime())) {
-    throw createError({ statusCode: 400, message: 'รูปแบบวันเปิดรับ/ปิดรับคำร้องไม่ถูกต้อง' })
-  }
-
-  if (isNaN(internStart.getTime()) || isNaN(internEnd.getTime())) {
-    throw createError({ statusCode: 400, message: 'รูปแบบวันเริ่ม/วันสิ้นสุดการฝึกงานไม่ถูกต้อง' })
-  }
-
-  if (appStart > appEnd) {
-    throw createError({ statusCode: 400, message: 'วันเปิดรับคำร้องต้องไม่เกินวันปิดรับคำร้อง' })
-  }
-
-  if (internStart > internEnd) {
-    throw createError({ statusCode: 400, message: 'วันเริ่มฝึกงานต้องไม่เกินวันสิ้นสุดฝึกงาน' })
-  }
-
-  // If changing term or academicYear, check unique constraint against other records
+  // If changing term or academicYear, check unique constraint
   if (term !== current.term || academicYear !== current.academicYear) {
     const existing = await prisma.cooperativeCycle.findUnique({
       where: {
@@ -81,7 +62,8 @@ export default defineEventHandler(async (event) => {
   }
 
   // Validate status enum value if provided
-  let newStatus = current.status
+  let newStatus: CooperativeCycleStatus = current.status
+  const targetStatus = body.status as CooperativeCycleStatus | undefined
   if (targetStatus) {
     if (!Object.values(CooperativeCycleStatus).includes(targetStatus)) {
       throw createError({ statusCode: 400, message: 'สถานะรอบสหกิจไม่ถูกต้อง' })
@@ -89,18 +71,25 @@ export default defineEventHandler(async (event) => {
     newStatus = targetStatus
   }
 
-  return await prisma.cooperativeCycle.update({
-    where: { id },
-    data: {
-      term,
-      academicYear,
-      cohortYear,
-      applicationStartDate: appStart,
-      applicationEndDate: appEnd,
-      internshipStartDate: internStart,
-      internshipEndDate: internEnd,
-      status: newStatus,
-      note: body.note !== undefined ? (body.note ? String(body.note).trim() : null) : current.note
+  try {
+    return await prisma.cooperativeCycle.update({
+      where: { id },
+      data: {
+        term,
+        academicYear,
+        cohortYear,
+        applicationStartDate: appStart,
+        applicationEndDate: appEnd,
+        internshipStartDate: internStart,
+        internshipEndDate: internEnd,
+        status: newStatus,
+        note: body.note !== undefined ? (body.note ? String(body.note).trim() : null) : current.note
+      }
+    })
+  } catch (error) {
+    if (isUniqueConstraintError(error)) {
+      throw createError({ statusCode: 409, message: `มีรอบสหกิจภาคเรียนที่ ${term}/${academicYear} อยู่แล้วในระบบ` })
     }
-  })
+    throw error
+  }
 })

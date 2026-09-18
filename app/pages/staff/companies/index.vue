@@ -463,7 +463,7 @@ const columns: TableColumn<Company>[] = [
               <a
                 v-if="selectedCompany.phone"
                 :href="`tel:${selectedCompany.phone}`"
-                class="font-mono text-primary hover:underline inline-flex items-center gap-1"
+                class=" text-primary hover:underline inline-flex items-center gap-1"
               >
                 <UIcon name="i-lucide-phone" class="size-3.5" />
                 {{ selectedCompany.phone }}
@@ -509,7 +509,7 @@ const columns: TableColumn<Company>[] = [
             <div>
               <span class="text-xs text-muted block">พิกัด GPS</span>
               <div v-if="selectedCompany.latitude != null && selectedCompany.longitude != null" class="flex items-center gap-2 mt-0.5">
-                <span class="font-mono text-xs text-primary font-medium">
+                <span class=" text-xs text-primary font-medium">
                   {{ selectedCompany.latitude.toFixed(6) }}, {{ selectedCompany.longitude.toFixed(6) }}
                 </span>
                 <a

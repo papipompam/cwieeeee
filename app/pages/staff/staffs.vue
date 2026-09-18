@@ -6,9 +6,9 @@ definePageMeta({
   layout: 'dashboard'
 })
 
-interface Teacher {
+interface Staff {
   id: number
-  teacherId: string
+  staffId: string
   prefix: string
   firstName: string
   lastName: string
@@ -23,7 +23,7 @@ const UCheckbox = resolveComponent('UCheckbox')
 const notify = useNotify()
 
 // Data fetching from API
-const { data: teachers, status: fetchStatus, error: fetchError, refresh } = await useFetch<Teacher[]>('/api/teachers')
+const { data: staffs, status: fetchStatus, error: fetchError, refresh } = await useFetch<Staff[]>('/api/staffs')
 
 const searchQuery = ref('')
 const statusFilter = ref<'all' | 'active' | 'inactive'>('all')
@@ -43,8 +43,8 @@ const isSubmitting = ref(false)
 const editingId = ref<number | null>(null)
 
 const formState = reactive({
-  teacherId: '',
-  prefix: 'อาจารย์',
+  staffId: '',
+  prefix: 'นาย',
   firstName: '',
   lastName: '',
   gender: 'ชาย',
@@ -55,17 +55,10 @@ const formState = reactive({
 const formErrors = reactive<Record<string, string>>({})
 
 const prefixOptions = [
-  { label: 'อาจารย์', value: 'อาจารย์' },
-  { label: 'ดร.', value: 'ดร.' },
-  { label: 'ผศ.', value: 'ผศ.' },
-  { label: 'ผศ.ดร.', value: 'ผศ.ดร.' },
-  { label: 'รศ.', value: 'รศ.' },
-  { label: 'รศ.ดร.', value: 'รศ.ดร.' },
-  { label: 'ศ.', value: 'ศ.' },
-  { label: 'ศ.ดร.', value: 'ศ.ดร.' },
   { label: 'นาย', value: 'นาย' },
   { label: 'นางสาว', value: 'นางสาว' },
-  { label: 'นาง', value: 'นาง' }
+  { label: 'นาง', value: 'นาง' },
+  { label: 'ดร.', value: 'ดร.' }
 ]
 
 const genderOptions = [
@@ -80,31 +73,31 @@ const statusOptions = [
   { label: 'ไม่ใช้งาน', value: 'inactive' }
 ]
 
-const filteredTeachers = computed(() => {
-  const list = teachers.value ?? []
+const filteredStaffs = computed(() => {
+  const list = staffs.value ?? []
   const keyword = searchQuery.value.trim().toLowerCase()
 
-  return list.filter((teacher) => {
-    const fullName = `${teacher.prefix}${teacher.firstName} ${teacher.lastName}`
+  return list.filter((staff) => {
+    const fullName = `${staff.prefix}${staff.firstName} ${staff.lastName}`
     const matchesSearch = !keyword || [
-      teacher.teacherId,
-      teacher.firstName,
-      teacher.lastName,
+      staff.staffId,
+      staff.firstName,
+      staff.lastName,
       fullName,
-      teacher.phone
+      staff.phone
     ].join(' ').toLowerCase().includes(keyword)
 
     const matchesStatus = statusFilter.value === 'all'
-      || (statusFilter.value === 'active' && teacher.isActive)
-      || (statusFilter.value === 'inactive' && !teacher.isActive)
+      || (statusFilter.value === 'active' && staff.isActive)
+      || (statusFilter.value === 'inactive' && !staff.isActive)
 
     return matchesSearch && matchesStatus
   })
 })
 
-const paginatedTeachers = computed(() => {
+const paginatedStaffs = computed(() => {
   const start = (page.value - 1) * pageSize
-  return filteredTeachers.value.slice(start, start + pageSize)
+  return filteredStaffs.value.slice(start, start + pageSize)
 })
 
 const selectedIds = computed(() => Object.entries(rowSelection.value)
@@ -113,10 +106,10 @@ const selectedIds = computed(() => Object.entries(rowSelection.value)
 
 const selectedCount = computed(() => selectedIds.value.length)
 const deleteCount = computed(() => pendingDeleteIds.value.length)
-const totalPages = computed(() => Math.max(1, Math.ceil(filteredTeachers.value.length / pageSize)))
+const totalPages = computed(() => Math.max(1, Math.ceil(filteredStaffs.value.length / pageSize)))
 const hasFilters = computed(() => Boolean(searchQuery.value) || statusFilter.value !== 'all')
-const pageStart = computed(() => filteredTeachers.value.length ? (page.value - 1) * pageSize + 1 : 0)
-const pageEnd = computed(() => Math.min(page.value * pageSize, filteredTeachers.value.length))
+const pageStart = computed(() => filteredStaffs.value.length ? (page.value - 1) * pageSize + 1 : 0)
+const pageEnd = computed(() => Math.min(page.value * pageSize, filteredStaffs.value.length))
 
 watch([searchQuery, statusFilter], () => {
   page.value = 1
@@ -135,7 +128,7 @@ const clearFilters = () => {
 const handleRefresh = async () => {
   await refresh()
   rowSelection.value = {}
-  notify.info('อัปเดตข้อมูลอาจารย์แล้ว')
+  notify.info('อัปเดตข้อมูลเจ้าหน้าที่แล้ว')
 }
 
 // Modal open handlers
@@ -144,8 +137,8 @@ const openCreateModal = () => {
   editingId.value = null
   Object.keys(formErrors).forEach(k => delete formErrors[k])
 
-  formState.teacherId = ''
-  formState.prefix = 'อาจารย์'
+  formState.staffId = ''
+  formState.prefix = 'นาย'
   formState.firstName = ''
   formState.lastName = ''
   formState.gender = 'ชาย'
@@ -156,25 +149,25 @@ const openCreateModal = () => {
 
 // Detail Modal state
 const isDetailOpen = ref(false)
-const selectedTeacher = ref<Teacher | null>(null)
+const selectedStaff = ref<Staff | null>(null)
 
-const openDetail = (teacher: Teacher) => {
-  selectedTeacher.value = teacher
+const openDetail = (staff: Staff) => {
+  selectedStaff.value = staff
   isDetailOpen.value = true
 }
 
-const openEditModal = (teacher: Teacher) => {
+const openEditModal = (staff: Staff) => {
   isEditing.value = true
-  editingId.value = teacher.id
+  editingId.value = staff.id
   Object.keys(formErrors).forEach(k => delete formErrors[k])
 
-  formState.teacherId = teacher.teacherId
-  formState.prefix = teacher.prefix
-  formState.firstName = teacher.firstName
-  formState.lastName = teacher.lastName
-  formState.gender = teacher.gender
-  formState.phone = teacher.phone
-  formState.isActive = teacher.isActive
+  formState.staffId = staff.staffId
+  formState.prefix = staff.prefix
+  formState.firstName = staff.firstName
+  formState.lastName = staff.lastName
+  formState.gender = staff.gender
+  formState.phone = staff.phone
+  formState.isActive = staff.isActive
 
   isFormOpen.value = true
 }
@@ -183,8 +176,8 @@ const validateForm = () => {
   Object.keys(formErrors).forEach(k => delete formErrors[k])
   let isValid = true
 
-  if (!formState.teacherId.trim()) {
-    formErrors.teacherId = 'กรุณากรอกรหัสอาจารย์'
+  if (!formState.staffId.trim()) {
+    formErrors.staffId = 'กรุณากรอกรหัสเจ้าหน้าที่'
     isValid = false
   }
 
@@ -225,17 +218,17 @@ const submitForm = async () => {
   isSubmitting.value = true
   try {
     if (isEditing.value && editingId.value) {
-      await $fetch(`/api/teachers/${editingId.value}`, {
+      await $fetch(`/api/staffs/${editingId.value}`, {
         method: 'PUT',
         body: formState
       })
-      notify.updated(`ข้อมูลอาจารย์ ${formState.teacherId}`)
+      notify.updated(`ข้อมูลเจ้าหน้าที่ ${formState.staffId}`)
     } else {
-      await $fetch('/api/teachers', {
+      await $fetch('/api/staffs', {
         method: 'POST',
         body: formState
       })
-      notify.created(`อาจารย์ ${formState.teacherId}`)
+      notify.created(`เจ้าหน้าที่ ${formState.staffId}`)
     }
 
     isFormOpen.value = false
@@ -249,8 +242,8 @@ const submitForm = async () => {
 }
 
 // Delete handlers
-const openDelete = (teacher: Teacher) => {
-  pendingDeleteIds.value = [teacher.id]
+const openDelete = (staff: Staff) => {
+  pendingDeleteIds.value = [staff.id]
   isDeleteOpen.value = true
 }
 
@@ -265,16 +258,16 @@ const confirmDelete = async () => {
   isDeleting.value = true
   try {
     for (const id of pendingDeleteIds.value) {
-      await $fetch(`/api/teachers/${id}`, {
+      await $fetch(`/api/staffs/${id}`, {
         method: 'DELETE'
       })
     }
-    notify.deleted(`${pendingDeleteIds.value.length} รายการอาจารย์`)
+    notify.deleted(`${pendingDeleteIds.value.length} รายการเจ้าหน้าที่`)
     rowSelection.value = {}
     pendingDeleteIds.value = []
     isDeleteOpen.value = false
   } catch (err: any) {
-    const msg = err?.data?.message || err?.message || 'ไม่สามารถลบข้อมูลอาจารย์ได้'
+    const msg = err?.data?.message || err?.message || 'ไม่สามารถลบข้อมูลเจ้าหน้าที่ได้'
     notify.error(msg)
   } finally {
     isDeleting.value = false
@@ -282,7 +275,7 @@ const confirmDelete = async () => {
   }
 }
 
-const columns: TableColumn<Teacher>[] = [
+const columns: TableColumn<Staff>[] = [
   {
     id: 'select',
     meta: { class: { th: 'w-12', td: 'w-12' } },
@@ -294,12 +287,12 @@ const columns: TableColumn<Teacher>[] = [
     cell: ({ row }) => h(UCheckbox, {
       modelValue: row.getIsSelected(),
       'onUpdate:modelValue': (value: boolean | 'indeterminate') => row.toggleSelected(!!value),
-      'aria-label': `เลือกอาจารย์รหัส ${row.original.teacherId}`
+      'aria-label': `เลือกเจ้าหน้าที่รหัส ${row.original.staffId}`
     })
   },
   {
-    accessorKey: 'teacherId',
-    header: 'รหัสอาจารย์',
+    accessorKey: 'staffId',
+    header: 'รหัสเจ้าหน้าที่',
     meta: { class: { th: 'w-32 ', td: 'w-32  font-medium' } }
   },
   {
@@ -331,16 +324,16 @@ const columns: TableColumn<Teacher>[] = [
 </script>
 
 <template>
-  <UDashboardPanel id="staff-teachers">
+  <UDashboardPanel id="staff-staffs">
     <template #header>
-      <UDashboardNavbar title="จัดการข้อมูลอาจารย์">
+      <UDashboardNavbar title="จัดการข้อมูลเจ้าหน้าที่">
         <template #leading>
           <UDashboardSidebarCollapse />
         </template>
 
         <template #right>
           <UButton
-            label="เพิ่มอาจารย์"
+            label="เพิ่มเจ้าหน้าที่"
             icon="i-lucide-plus"
             color="primary"
             @click="openCreateModal"
@@ -358,8 +351,8 @@ const columns: TableColumn<Teacher>[] = [
               v-model="searchQuery"
               class="min-w-0 flex-1"
               icon="i-lucide-search"
-              placeholder="ค้นหารหัสอาจารย์ ชื่อ-สกุล หรือเบอร์โทร"
-              aria-label="ค้นหาอาจารย์"
+              placeholder="ค้นหารหัสเจ้าหน้าที่ ชื่อ-สกุล หรือเบอร์โทร"
+              aria-label="ค้นหาเจ้าหน้าที่"
             />
             <UButton
               v-if="hasFilters"
@@ -398,7 +391,7 @@ const columns: TableColumn<Teacher>[] = [
           v-if="fetchError"
           color="error"
           icon="i-lucide-alert-circle"
-          title="ไม่สามารถเชื่อมต่อข้อมูลอาจารย์ได้"
+          title="ไม่สามารถเชื่อมต่อข้อมูลเจ้าหน้าที่ได้"
           :description="fetchError.message"
         />
 
@@ -406,10 +399,10 @@ const columns: TableColumn<Teacher>[] = [
         <div v-else class="overflow-hidden rounded-lg border border-default bg-default">
           <UTable
             v-model:row-selection="rowSelection"
-            :data="paginatedTeachers"
+            :data="paginatedStaffs"
             :columns="columns"
             :loading="fetchStatus === 'pending'"
-            :get-row-id="teacher => String(teacher.id)"
+            :get-row-id="staff => String(staff.id)"
             :ui="{ root: 'overflow-x-auto', base: 'min-w-full' }"
           >
             <template #isActive-cell="{ row }">
@@ -451,9 +444,9 @@ const columns: TableColumn<Teacher>[] = [
 
             <template #empty>
               <div class="py-12 text-center text-muted">
-                <UIcon name="i-lucide-user-round-check" class="size-10 mx-auto mb-2 text-dimmed" />
-                <p>ไม่พบข้อมูลอาจารย์</p>
-                <p class="text-xs text-muted mt-1">กดปุ่ม "เพิ่มอาจารย์" เพื่อบันทึกข้อมูลอาจารย์นิเทศเข้าสู่ระบบ</p>
+                <UIcon name="i-lucide-id-card" class="size-10 mx-auto mb-2 text-dimmed" />
+                <p>ไม่พบข้อมูลเจ้าหน้าที่</p>
+                <p class="text-xs text-muted mt-1">กดปุ่ม "เพิ่มเจ้าหน้าที่" เพื่อบันทึกข้อมูลเจ้าหน้าที่เข้าสู่ระบบ</p>
               </div>
             </template>
           </UTable>
@@ -462,16 +455,16 @@ const columns: TableColumn<Teacher>[] = [
         <!-- Pagination & Range Counter -->
         <div class="flex flex-wrap items-center justify-between gap-3 text-sm text-muted">
           <span>
-            <template v-if="filteredTeachers.length">
-              แสดง {{ pageStart }}–{{ pageEnd }} จาก {{ filteredTeachers.length }} รายการ
+            <template v-if="filteredStaffs.length">
+              แสดง {{ pageStart }}–{{ pageEnd }} จาก {{ filteredStaffs.length }} รายการ
               <template v-if="selectedCount"> · เลือก {{ selectedCount }} รายการ</template>
             </template>
             <template v-else>ไม่พบรายการ</template>
           </span>
           <UPagination
-            v-if="filteredTeachers.length > pageSize"
+            v-if="filteredStaffs.length > pageSize"
             v-model:page="page"
-            :total="filteredTeachers.length"
+            :total="filteredStaffs.length"
             :items-per-page="pageSize"
           />
         </div>
@@ -482,15 +475,15 @@ const columns: TableColumn<Teacher>[] = [
   <!-- Create / Edit Modal Form -->
   <UModal
     v-model:open="isFormOpen"
-    :title="isEditing ? 'แก้ไขข้อมูลอาจารย์' : 'เพิ่มข้อมูลอาจารย์ใหม่'"
-    :description="isEditing ? 'ปรับปรุงข้อมูลอาจารย์นิเทศและสถานะการปฏิบัติงาน' : 'กรอกข้อมูลอาจารย์นิเทศเพื่อลงทะเบียนเข้าสู่ระบบงานสหกิจศึกษา'"
+    :title="isEditing ? 'แก้ไขข้อมูลเจ้าหน้าที่' : 'เพิ่มข้อมูลเจ้าหน้าที่ใหม่'"
+    :description="isEditing ? 'ปรับปรุงข้อมูลเจ้าหน้าที่และสถานะการปฏิบัติงาน' : 'กรอกข้อมูลเจ้าหน้าที่เพื่อลงทะเบียนเข้าสู่ระบบงานสหกิจศึกษา'"
   >
     <template #body>
       <form class="space-y-4" @submit.prevent="submitForm">
-        <UFormField label="รหัสอาจารย์" required :error="formErrors.teacherId">
+        <UFormField label="รหัสเจ้าหน้าที่" required :error="formErrors.staffId">
           <UInput
-            v-model="formState.teacherId"
-            placeholder="เช่น T001"
+            v-model="formState.staffId"
+            placeholder="เช่น S001"
             class="w-full "
           />
         </UFormField>
@@ -566,7 +559,7 @@ const columns: TableColumn<Teacher>[] = [
           @click="isFormOpen = false"
         />
         <UButton
-          :label="isEditing ? 'บันทึกการแก้ไข' : 'บันทึกอาจารย์'"
+          :label="isEditing ? 'บันทึกการแก้ไข' : 'บันทึกเจ้าหน้าที่'"
           color="primary"
           :loading="isSubmitting"
           @click="submitForm"
@@ -578,9 +571,9 @@ const columns: TableColumn<Teacher>[] = [
   <!-- Delete Confirmation Modal -->
   <UIConfirmModal
     v-model:open="isDeleteOpen"
-    title="ลบข้อมูลอาจารย์"
-    :message="`คุณต้องการลบข้อมูลอาจารย์ ${deleteCount} รายการใช่หรือไม่?`"
-    sub-message="การลบจะนำข้อมูลออกจากระบบอย่างถาวร หากอาจารย์มีประวัติการนิเทศแล้วแนะนำให้เปลี่ยนสถานะเป็นไม่ใช้งานแทน"
+    title="ลบข้อมูลเจ้าหน้าที่"
+    :message="`คุณต้องการลบข้อมูลเจ้าหน้าที่ ${deleteCount} รายการใช่หรือไม่?`"
+    sub-message="การลบจะนำข้อมูลออกจากระบบอย่างถาวร หากเจ้าหน้าที่มีประวัติการทำงานแล้วแนะนำให้เปลี่ยนสถานะเป็นไม่ใช้งานแทน"
     icon="i-lucide-trash-2"
     icon-color="error"
     confirm-label="ลบข้อมูล"
@@ -589,25 +582,25 @@ const columns: TableColumn<Teacher>[] = [
     @confirm="confirmDelete"
   />
 
-  <!-- Teacher Detail Modal -->
+  <!-- Staff Detail Modal -->
   <UModal
     v-model:open="isDetailOpen"
-    :title="selectedTeacher ? `ข้อมูลอาจารย์: ${selectedTeacher.prefix}${selectedTeacher.firstName} ${selectedTeacher.lastName}` : 'รายละเอียดอาจารย์'"
-    :description="selectedTeacher ? `รหัสอาจารย์: ${selectedTeacher.teacherId}` : ''"
+    :title="selectedStaff ? `ข้อมูลเจ้าหน้าที่: ${selectedStaff.prefix}${selectedStaff.firstName} ${selectedStaff.lastName}` : 'รายละเอียดเจ้าหน้าที่'"
+    :description="selectedStaff ? `รหัสเจ้าหน้าที่: ${selectedStaff.staffId}` : ''"
   >
     <template #body>
-      <div v-if="selectedTeacher" class="space-y-4">
+      <div v-if="selectedStaff" class="space-y-4">
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 rounded-lg border border-default p-4 bg-muted/10 text-sm">
           <div>
-            <span class="text-xs text-muted block">รหัสอาจารย์</span>
-            <span class=" font-semibold text-highlighted text-base">{{ selectedTeacher.teacherId }}</span>
+            <span class="text-xs text-muted block">รหัสเจ้าหน้าที่</span>
+            <span class=" font-semibold text-highlighted text-base">{{ selectedStaff.staffId }}</span>
           </div>
 
           <div>
             <span class="text-xs text-muted block">สถานะการใช้งาน</span>
             <UBadge
-              :label="selectedTeacher.isActive ? 'ใช้งาน' : 'ไม่ใช้งาน'"
-              :color="selectedTeacher.isActive ? 'success' : 'neutral'"
+              :label="selectedStaff.isActive ? 'ใช้งาน' : 'ไม่ใช้งาน'"
+              :color="selectedStaff.isActive ? 'success' : 'neutral'"
               variant="subtle"
               class="mt-1"
             />
@@ -615,23 +608,23 @@ const columns: TableColumn<Teacher>[] = [
 
           <div>
             <span class="text-xs text-muted block">ชื่อ-นามสกุล</span>
-            <span class="font-medium text-highlighted">{{ selectedTeacher.prefix }}{{ selectedTeacher.firstName }} {{ selectedTeacher.lastName }}</span>
+            <span class="font-medium text-highlighted">{{ selectedStaff.prefix }}{{ selectedStaff.firstName }} {{ selectedStaff.lastName }}</span>
           </div>
 
           <div>
             <span class="text-xs text-muted block">เพศ</span>
-            <span>{{ selectedTeacher.gender }}</span>
+            <span>{{ selectedStaff.gender }}</span>
           </div>
 
           <div class="sm:col-span-2">
             <span class="text-xs text-muted block">เบอร์มือถือ</span>
             <a
-              v-if="selectedTeacher.phone"
-              :href="`tel:${selectedTeacher.phone}`"
+              v-if="selectedStaff.phone"
+              :href="`tel:${selectedStaff.phone}`"
               class=" font-medium text-primary hover:underline inline-flex items-center gap-1.5 mt-0.5"
             >
               <UIcon name="i-lucide-phone" class="size-4" />
-              {{ selectedTeacher.phone }}
+              {{ selectedStaff.phone }}
             </a>
             <span v-else class="text-muted italic">ไม่ได้ระบุ</span>
           </div>
@@ -642,12 +635,12 @@ const columns: TableColumn<Teacher>[] = [
     <template #footer>
       <div class="flex w-full justify-between items-center">
         <UButton
-          v-if="selectedTeacher"
+          v-if="selectedStaff"
           label="แก้ไขข้อมูล"
           icon="i-lucide-pencil"
           color="neutral"
           variant="outline"
-          @click="isDetailOpen = false; openEditModal(selectedTeacher)"
+          @click="isDetailOpen = false; openEditModal(selectedStaff)"
         />
         <div class="ml-auto">
           <UButton

@@ -176,6 +176,10 @@ const openCreateModal = () => {
 }
 
 const openEditModal = (cycle: CooperativeCycle) => {
+  if (cycle.status === 'CLOSED') {
+    notify.error('รอบสหกิจนี้ถูกปิดรอบแล้ว ไม่สามารถแก้ไขได้')
+    return
+  }
   isEditing.value = true
   editingId.value = cycle.id
   Object.keys(formErrors).forEach(k => delete formErrors[k])
@@ -197,8 +201,8 @@ const validateForm = () => {
   Object.keys(formErrors).forEach(k => delete formErrors[k])
   let isValid = true
 
-  if (!formState.term || formState.term <= 0) {
-    formErrors.term = 'กรุณาระบุภาคเรียนเป็นจำนวนเต็มบวก'
+  if (!formState.term || formState.term < 1 || formState.term > 3 || !Number.isInteger(formState.term)) {
+    formErrors.term = 'กรุณาระบุภาคเรียนเป็น 1, 2 หรือ 3'
     isValid = false
   }
 
@@ -221,12 +225,15 @@ const validateForm = () => {
     formErrors.applicationEndDate = 'กรุณาระบุวันปิดรับคำร้อง'
     isValid = false
   } else if (formState.applicationStartDate && formState.applicationStartDate > formState.applicationEndDate) {
-    formErrors.applicationEndDate = 'วันปิดรับคำร้องต้องไม่ก่อนวันเปิดรับ'
+    formErrors.applicationEndDate = 'วันเปิดรับคำร้องต้องไม่เกินวันปิดรับคำร้อง'
     isValid = false
   }
 
   if (!formState.internshipStartDate) {
     formErrors.internshipStartDate = 'กรุณาระบุวันเริ่มฝึกงาน'
+    isValid = false
+  } else if (formState.applicationEndDate && formState.applicationEndDate > formState.internshipStartDate) {
+    formErrors.internshipStartDate = 'วันปิดรับคำร้องต้องไม่เกินวันเริ่มฝึกงาน'
     isValid = false
   }
 
@@ -234,7 +241,7 @@ const validateForm = () => {
     formErrors.internshipEndDate = 'กรุณาระบุวันสิ้นสุดฝึกงาน'
     isValid = false
   } else if (formState.internshipStartDate && formState.internshipStartDate > formState.internshipEndDate) {
-    formErrors.internshipEndDate = 'วันสิ้นสุดฝึกงานต้องไม่ก่อนวันเริ่มฝึก'
+    formErrors.internshipEndDate = 'วันเริ่มฝึกงานต้องไม่เกินวันสิ้นสุดฝึกงาน'
     isValid = false
   }
 
@@ -272,13 +279,24 @@ const submitForm = async () => {
 
 // Delete handlers
 const openDelete = (cycle: CooperativeCycle) => {
+  if (cycle.status === 'CLOSED') {
+    notify.error('ไม่สามารถลบรอบสหกิจที่ปิดรอบแล้วได้')
+    return
+  }
   pendingDeleteIds.value = [cycle.id]
   isDeleteOpen.value = true
 }
 
 const openBulkDelete = () => {
-  pendingDeleteIds.value = selectedIds.value
-  isDeleteOpen.value = true
+  pendingDeleteIds.value = selectedIds.value.filter(id => {
+    const item = cycles.value?.find(c => c.id === id)
+    return item && item.status !== 'CLOSED'
+  })
+  if (pendingDeleteIds.value.length) {
+    isDeleteOpen.value = true
+  } else {
+    notify.error('ไม่สามารถลบรอบสหกิจที่ปิดรอบแล้วได้')
+  }
 }
 
 const confirmDelete = async () => {
@@ -313,11 +331,13 @@ const columns: TableColumn<CooperativeCycle>[] = [
       'onUpdate:modelValue': (value: boolean | 'indeterminate') => table.toggleAllPageRowsSelected(!!value),
       'aria-label': 'เลือกทุกรายการในหน้านี้'
     }),
-    cell: ({ row }) => h(UCheckbox, {
-      modelValue: row.getIsSelected(),
-      'onUpdate:modelValue': (value: boolean | 'indeterminate') => row.toggleSelected(!!value),
-      'aria-label': `เลือกรอบสหกิจ ภาคเรียนที่ ${row.original.term}/${row.original.academicYear}`
-    })
+    cell: ({ row }) => row.original.status === 'CLOSED'
+      ? null
+      : h(UCheckbox, {
+          modelValue: row.getIsSelected(),
+          'onUpdate:modelValue': (value: boolean | 'indeterminate') => row.toggleSelected(!!value),
+          'aria-label': `เลือกรอบสหกิจ ภาคเรียนที่ ${row.original.term}/${row.original.academicYear}`
+        })
   },
   {
     accessorKey: 'term',
@@ -442,23 +462,28 @@ const columns: TableColumn<CooperativeCycle>[] = [
             </template>
 
             <template #actions-cell="{ row }">
-              <div class="flex justify-end gap-1.5">
-                <UButton
-                  label="แก้ไข"
-                  icon="i-lucide-pencil"
-                  color="neutral"
-                  variant="ghost"
-                  size="xs"
-                  @click="openEditModal(row.original)"
-                />
-                <UButton
-                  label="ลบ"
-                  icon="i-lucide-trash-2"
-                  color="error"
-                  variant="ghost"
-                  size="xs"
-                  @click="openDelete(row.original)"
-                />
+              <div class="flex justify-end items-center gap-1.5 min-h-7">
+                <template v-if="row.original.status === 'CLOSED'">
+                  <span class="text-xs text-muted">ปิดรอบแล้ว</span>
+                </template>
+                <template v-else>
+                  <UButton
+                    label="แก้ไข"
+                    icon="i-lucide-pencil"
+                    color="neutral"
+                    variant="ghost"
+                    size="xs"
+                    @click="openEditModal(row.original)"
+                  />
+                  <UButton
+                    label="ลบ"
+                    icon="i-lucide-trash-2"
+                    color="error"
+                    variant="ghost"
+                    size="xs"
+                    @click="openDelete(row.original)"
+                  />
+                </template>
               </div>
             </template>
 

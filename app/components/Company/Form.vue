@@ -328,7 +328,7 @@ const handleSubmit = () => {
             <UInput
               v-model="form.postalCode"
               placeholder="เช่น 50200"
-              class="w-full font-mono"
+              class="w-full "
             />
           </UFormField>
         </div>
@@ -365,7 +365,7 @@ const handleSubmit = () => {
               type="number"
               step="any"
               placeholder="เช่น 18.7953"
-              class="w-full font-mono"
+              class="w-full "
             />
           </UFormField>
 
@@ -375,7 +375,7 @@ const handleSubmit = () => {
               type="number"
               step="any"
               placeholder="เช่น 98.9620"
-              class="w-full font-mono"
+              class="w-full "
             />
           </UFormField>
         </div>

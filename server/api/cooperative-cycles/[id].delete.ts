@@ -1,3 +1,5 @@
+import { CooperativeCycleStatus } from '~~/prisma/generated/client'
+
 export default defineEventHandler(async (event) => {
   const idParam = getRouterParam(event, 'id')
   const id = Number(idParam)
@@ -12,6 +14,13 @@ export default defineEventHandler(async (event) => {
 
   if (!current) {
     throw createError({ statusCode: 404, message: 'ไม่พบรอบสหกิจที่ต้องการลบ' })
+  }
+
+  if (current.status === CooperativeCycleStatus.CLOSED) {
+    throw createError({
+      statusCode: 400,
+      message: 'ไม่สามารถลบรอบสหกิจที่ปิดรอบแล้วได้'
+    })
   }
 
   // ponytail: in future iterations with StudentApplications, check referencing relations before delete

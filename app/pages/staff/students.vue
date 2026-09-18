@@ -372,7 +372,7 @@ const columns: TableColumn<Student>[] = [
   {
     accessorKey: 'studentId',
     header: 'รหัสนักศึกษา',
-    meta: { class: { th: 'w-36 font-mono', td: 'w-36 font-mono font-medium' } }
+    meta: { class: { th: 'w-36 ', td: 'w-36  font-medium' } }
   },
   {
     id: 'fullName',
@@ -630,7 +630,7 @@ const columns: TableColumn<Student>[] = [
           <UInput
             v-model="formState.studentId"
             placeholder="เช่น 66010001"
-            class="w-full font-mono"
+            class="w-full "
           />
         </UFormField>
 
@@ -750,7 +750,7 @@ const columns: TableColumn<Student>[] = [
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 rounded-lg border border-default p-4 bg-muted/10 text-sm">
           <div>
             <span class="text-xs text-muted block">รหัสนักศึกษา</span>
-            <span class="font-mono font-semibold text-highlighted text-base">{{ selectedStudent.studentId }}</span>
+            <span class=" font-semibold text-highlighted text-base">{{ selectedStudent.studentId }}</span>
           </div>
 
           <div>

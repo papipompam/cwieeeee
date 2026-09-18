@@ -14,6 +14,37 @@ enum CooperativeCycleStatus {
   CLOSED
 }
 
+enum UserRole {
+  STAFF
+  TEACHER
+  STUDENT
+}
+
+model User {
+  id           Int         @id @default(autoincrement())
+  loginId      String      @unique @map("login_id")
+  passwordHash String      @map("password_hash")
+  role         UserRole
+  isActive     Boolean     @default(true) @map("is_active")
+  sessions     AuthSession[]
+  createdAt    DateTime    @default(now()) @map("created_at")
+  updatedAt    DateTime    @updatedAt @map("updated_at")
+
+  @@map("users")
+}
+
+model AuthSession {
+  id        Int      @id @default(autoincrement())
+  tokenHash String   @unique @map("token_hash")
+  userId    Int      @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@map("auth_sessions")
+}
+
 model CooperativeCycle {
   id                   Int                    @id @default(autoincrement())
   term                 Int
@@ -85,4 +116,19 @@ model Company {
   updatedAt     DateTime @updatedAt @map("updated_at")
 
   @@map("companies")
+}
+
+model Staff {
+  id        Int      @id @default(autoincrement())
+  staffId   String   @unique @map("staff_id")
+  prefix    String
+  firstName String   @map("first_name")
+  lastName  String   @map("last_name")
+  gender    String
+  phone     String
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("staffs")
 }

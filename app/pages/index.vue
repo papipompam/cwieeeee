@@ -1,5 +1,5 @@
 <script setup lang="ts">
-await navigateTo('/staff')
+await navigateTo('/login')
 </script>
 
 <template>

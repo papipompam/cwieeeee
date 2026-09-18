@@ -89,6 +89,6 @@ export const readCompanyInput = (value: Record<string, unknown>): CompanyInput =
     latitude,
     longitude,
     travelNote,
-    isActive: value.isActive !== undefined ? Boolean(value.isActive) : true
+    isActive: value.isActive ?? true
   }
 }
