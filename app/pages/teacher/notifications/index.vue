@@ -48,6 +48,7 @@ const markAllRead = async () => {
       <UDashboardNavbar title="การแจ้งเตือน">
         <template #leading><UDashboardSidebarCollapse /></template>
         <template #right>
+          <AppNotificationBell />
           <UButton v-if="data?.unreadCount" color="neutral" variant="ghost" label="อ่านทั้งหมด" :loading="isMarkingAllRead" @click="markAllRead" />
           <UIButtonRefresh :loading="status === 'pending'" @refresh="refresh" />
         </template>

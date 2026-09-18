@@ -2,21 +2,6 @@
 import type { TableColumn } from '@nuxt/ui'
 import type { Ref } from 'vue'
 
-interface TravelStop {
-  id?: number
-  sequence: number
-  distanceKmFromPrevious: number
-  appointmentId: number
-  appointment?: {
-    id: number
-    companyName: string
-    province: string | null
-    scheduledDate: string
-    period: string
-    status: string
-  }
-}
-
 interface TravelTraveller {
   id?: number
   teacherUserId: number
@@ -43,13 +28,11 @@ interface TravelPlanRow {
   startLocation: string
   fuelRate: number
   note: string | null
-  stopsCount: number
   travellersCount: number
   group: {
     id: number
     name: string
   }
-  stops: TravelStop[]
   travellers: TravelTraveller[]
   calculation: {
     totalDistanceKm: number
@@ -137,7 +120,6 @@ const travelPlans = computed(() => {
       (p.group?.name && p.group.name.toLowerCase().includes(q)) ||
       (p.note && p.note.toLowerCase().includes(q)) ||
       (p.startLocation && p.startLocation.toLowerCase().includes(q)) ||
-      p.stops.some(s => s.appointment?.companyName?.toLowerCase().includes(q)) ||
       p.travellers.some(t => {
         const name = `${t.teacher?.prefix || ''}${t.teacher?.firstName || ''} ${t.teacher?.lastName || ''}`.trim()
         return name.toLowerCase().includes(q)
@@ -184,11 +166,6 @@ const columns: TableColumn<TravelPlanRow>[] = [
     header: 'กลุ่มนิเทศ / รายละเอียด'
   },
   {
-    id: 'stops',
-    header: 'จุดแวะ (กม.)',
-    meta: { class: { th: 'w-32 text-end', td: 'w-32 text-end' } }
-  },
-  {
     id: 'fuel',
     header: 'ค่าน้ำมัน (฿)',
     meta: { class: { th: 'w-28 text-end', td: 'w-28 text-end' } }
@@ -226,10 +203,6 @@ const planForm = ref<{
   startLocation: string
   fuelRate: number
   note: string
-  stops: Array<{
-    appointmentId: number | undefined
-    distanceKmFromPrevious: number
-  }>
   travellers: Array<{
     teacherUserId: number | undefined
     perDiemRate: number
@@ -244,28 +217,7 @@ const planForm = ref<{
   startLocation: 'มหาวิทยาลัย',
   fuelRate: 4,
   note: '',
-  stops: [],
   travellers: []
-})
-
-// Fetch appointments for selected group to populate stop options
-const { data: groupAppointmentsData } = await useFetch<{ appointments: any[] }>(
-  () => `/api/staff/cooperative-cycles/${cycleId.value}/supervision/rounds/${selectedRoundId.value || 0}/appointments`,
-  {
-    query: computed(() => ({
-      groupId: planForm.value.groupId,
-      pageSize: 100
-    })),
-    watch: [() => planForm.value.groupId, selectedRoundId]
-  }
-)
-const availableAppointmentsForGroup = computed(() => groupAppointmentsData.value?.appointments || [])
-
-const appointmentOptions = computed(() => {
-  return availableAppointmentsForGroup.value.map(a => ({
-    label: `${a.companyName || a.company?.name || 'นัดหมาย'} (${formatDate(a.scheduledDate)})`,
-    value: a.id
-  }))
 })
 
 const groupTeachersOptions = computed(() => {
@@ -279,8 +231,6 @@ const groupTeachersOptions = computed(() => {
 
 // Precalculate in modal
 const modalCalculations = computed(() => {
-  const dist = planForm.value.stops.reduce((s, st) => s + (Number(st.distanceKmFromPrevious) || 0), 0)
-  const fuel = dist * (Number(planForm.value.fuelRate) || 0)
   const perDiem = planForm.value.travellers.reduce((s, t) => s + (Number(t.perDiemRate) || 0) * (Number(t.perDiemDays) || 0), 0)
   const lodging = planForm.value.travellers.reduce((s, t) => {
     const rate = Number(t.lodgingRate) || 0
@@ -289,18 +239,15 @@ const modalCalculations = computed(() => {
     return s + (rate * nights) / persons
   }, 0)
   return {
-    dist,
-    fuel: Math.round(fuel * 100) / 100,
     perDiem: Math.round(perDiem * 100) / 100,
     lodging: Math.round(lodging * 100) / 100,
-    total: Math.round((fuel + perDiem + lodging) * 100) / 100
+    total: Math.round((perDiem + lodging) * 100) / 100
   }
 })
 
-// When group changes in modal (when creating new plan), reset stops and populate teachers
+// When group changes in modal, populate its teachers.
 watch(() => planForm.value.groupId, (newGroupId, oldGroupId) => {
   if (newGroupId !== oldGroupId && !editingPlanId.value) {
-    planForm.value.stops = []
     const g = groups.value.find(gr => gr.id === newGroupId)
     if (g) {
       planForm.value.travellers = g.teachers.map(t => ({
@@ -336,7 +283,6 @@ const openCreatePlanModal = () => {
     startLocation: 'มหาวิทยาลัย',
     fuelRate: 4,
     note: '',
-    stops: [],
     travellers: defaultTeachers
   }
   isModalOpen.value = true
@@ -350,10 +296,6 @@ const openEditPlanModal = (plan: TravelPlanRow) => {
     startLocation: plan.startLocation || 'มหาวิทยาลัย',
     fuelRate: plan.fuelRate ?? 4,
     note: plan.note || '',
-    stops: plan.stops.map(s => ({
-      appointmentId: s.appointment?.id || s.appointmentId,
-      distanceKmFromPrevious: s.distanceKmFromPrevious
-    })),
     travellers: plan.travellers.map(t => ({
       teacherUserId: t.teacherUserId,
       perDiemRate: t.perDiemRate,
@@ -364,20 +306,6 @@ const openEditPlanModal = (plan: TravelPlanRow) => {
     }))
   }
   isModalOpen.value = true
-}
-
-const addStop = () => {
-  const unusedApp = availableAppointmentsForGroup.value.find(
-    a => !planForm.value.stops.some(s => s.appointmentId === a.id)
-  )
-  planForm.value.stops.push({
-    appointmentId: unusedApp?.id,
-    distanceKmFromPrevious: 0
-  })
-}
-
-const removeStop = (idx: number) => {
-  planForm.value.stops.splice(idx, 1)
 }
 
 const addTraveller = () => {
@@ -410,17 +338,6 @@ const handleSavePlan = async () => {
   }
   if (!selectedRoundId.value) return
 
-  // Check invalid stops
-  if (planForm.value.stops.some(s => !s.appointmentId)) {
-    notify.warning('กรุณาเลือกนัดหมายสำหรับจุดแวะให้ครบทุกจุด')
-    return
-  }
-  const stopAppIds = planForm.value.stops.map(s => s.appointmentId)
-  if (new Set(stopAppIds).size !== stopAppIds.length) {
-    notify.warning('พบจุดแวะนัดหมายซ้ำในแผนเดินทางเดียวกัน')
-    return
-  }
-
   // Check travellers
   if (planForm.value.travellers.some(t => !t.teacherUserId)) {
     notify.warning('กรุณาเลือกอาจารย์ผู้ร่วมเดินทางให้ครบทุกคน')
@@ -440,10 +357,6 @@ const handleSavePlan = async () => {
       startLocation: planForm.value.startLocation || 'มหาวิทยาลัย',
       fuelRate: Number(planForm.value.fuelRate) || 4,
       note: planForm.value.note.trim() || undefined,
-      stops: planForm.value.stops.map((s) => ({
-        appointmentId: s.appointmentId,
-        distanceKmFromPrevious: Math.max(0, Number(s.distanceKmFromPrevious) || 0)
-      })),
       travellers: planForm.value.travellers.map(t => ({
         teacherUserId: t.teacherUserId,
         perDiemRate: Math.max(0, Number(t.perDiemRate) || 0),
@@ -521,7 +434,7 @@ const handleDeletePlan = async () => {
           งบประมาณและแผนการเดินทาง
         </h2>
         <p class="text-xs text-muted mt-0.5">
-          คำนวณประมาณการค่าน้ำมัน เบี้ยเลี้ยง และค่าที่พัก ตามระยะทางและจำนวนอาจารย์ผู้นิเทศ
+          ติดตามและจัดการงบประมาณการเดินทางของแต่ละกลุ่มนิเทศ
         </p>
       </div>
 
@@ -569,15 +482,7 @@ const handleDeletePlan = async () => {
         <div class="text-xl font-bold text-highlighted mt-1">
           {{ overallBudget.plansCount }} รายการ
         </div>
-        <div class="text-[11px] text-muted mt-0.5">ระยะทางรวม {{ overallBudget.totalDistanceKm }} กม.</div>
-      </div>
-
-      <div class="p-3.5 rounded-lg border border-default bg-default shadow-xs">
-        <div class="text-xs text-muted">ค่าน้ำมันประมาณการ</div>
-        <div class="text-xl font-bold text-highlighted mt-1">
-          ฿{{ formatCurrency(overallBudget.totalFuel) }}
-        </div>
-        <div class="text-[11px] text-muted mt-0.5">อัตราตามระยะทางจริง</div>
+        <div class="text-[11px] text-muted mt-0.5">แยกตามวันและกลุ่มนิเทศ</div>
       </div>
 
       <div class="p-3.5 rounded-lg border border-default bg-default shadow-xs">
@@ -605,7 +510,7 @@ const handleDeletePlan = async () => {
         <UInput
           v-model="searchQuery"
           icon="i-lucide-search"
-          placeholder="ค้นหากลุ่ม จุดแวะ หรืออาจารย์ผู้เดินทาง..."
+          placeholder="ค้นหากลุ่มหรืออาจารย์ผู้เดินทาง..."
           class="w-72"
           size="md"
         />
@@ -659,14 +564,6 @@ const handleDeletePlan = async () => {
                 <span>· ผู้เดินทาง {{ row.original.travellers.length }} คน</span>
                 <span v-if="row.original.note" class="text-primary/90">· {{ row.original.note }}</span>
               </div>
-            </div>
-          </template>
-
-          <!-- Stops & Distance -->
-          <template #stops-cell="{ row }">
-            <div class="text-right font-mono text-xs">
-              <span class="font-semibold text-highlighted">{{ row.original.calculation.totalDistanceKm }}</span> กม.
-              <div class="text-[11px] text-muted font-sans mt-0.5">{{ row.original.stops.length }} จุดแวะ</div>
             </div>
           </template>
 
@@ -798,74 +695,6 @@ const handleDeletePlan = async () => {
             />
           </div>
 
-          <!-- Stops Sequence -->
-          <div class="p-3 rounded-lg border border-default bg-muted/5 space-y-3">
-            <div class="flex items-center justify-between">
-              <h4 class="font-semibold text-highlighted flex items-center gap-1.5">
-                <UIcon name="i-lucide-map-pin" class="size-4 text-primary" />
-                จุดแวะ / ลำดับนัดหมาย ({{ planForm.stops.length }} จุด)
-              </h4>
-              <UButton
-                label="เพิ่มจุดแวะ"
-                icon="i-lucide-plus"
-                color="neutral"
-                variant="outline"
-                size="xs"
-                :disabled="!planForm.groupId || availableAppointmentsForGroup.length === 0"
-                @click="addStop"
-              />
-            </div>
-
-            <div v-if="!planForm.groupId" class="text-muted italic text-[11px]">
-              กรุณาเลือกกลุ่มนิเทศก่อนเพิ่มจุดแวะ
-            </div>
-            <div v-else-if="availableAppointmentsForGroup.length === 0" class="text-muted italic text-[11px]">
-              ไม่พบนัดหมายในกลุ่มนี้ กรุณาสร้างร่างนัดหมายในแท็บ "ตารางนิเทศ" ก่อน
-            </div>
-            <div v-else-if="planForm.stops.length === 0" class="text-muted italic text-[11px]">
-              ยังไม่มีจุดแวะ คลิก "เพิ่มจุดแวะ" เพื่อเลือกนัดหมายและระบุระยะทาง
-            </div>
-            <div v-else class="space-y-2 max-h-48 overflow-y-auto">
-              <div
-                v-for="(stop, idx) in planForm.stops"
-                :key="idx"
-                class="flex items-center gap-2 bg-default p-2 rounded border border-default"
-              >
-                <div class="size-5 rounded-full bg-muted/30 text-highlighted flex items-center justify-center font-bold text-[11px] shrink-0">
-                  {{ idx + 1 }}
-                </div>
-                <div class="flex-1">
-                  <USelect
-                    v-model="stop.appointmentId"
-                    :items="appointmentOptions"
-                    placeholder="เลือกนัดหมาย..."
-                    class="w-full"
-                    size="md"
-                  />
-                </div>
-                <div class="flex items-center gap-1 shrink-0 w-36">
-                  <UInput
-                    v-model.number="stop.distanceKmFromPrevious"
-                    type="number"
-                    min="0"
-                    placeholder="0"
-                    class="w-20 font-mono"
-                    size="xs"
-                  />
-                  <span class="text-muted text-[11px]">กม.</span>
-                </div>
-                <UButton
-                  icon="i-lucide-trash-2"
-                  color="error"
-                  variant="ghost"
-                  size="xs"
-                  aria-label="ลบจุดแวะ"
-                  @click="removeStop(idx)"
-                />
-              </div>
-            </div>
-          </div>
-
           <!-- Travellers Section -->
           <div class="p-3 rounded-lg border border-default bg-muted/5 space-y-3">
             <div class="flex items-center justify-between">
@@ -929,7 +758,7 @@ const handleDeletePlan = async () => {
                     <UInput v-model.number="tr.perDiemDays" type="number" class="w-full font-mono" size="xs" />
                   </div>
                   <div>
-                    <span class="text-muted block mb-0.5">ค่าที่พัก (฿/ห้อง/คืน)</span>
+                    <span class="text-muted block mb-0.5">ค่าที่พัก/ห้อง/คืน</span>
                     <UInput v-model.number="tr.lodgingRate" type="number" class="w-full font-mono" size="xs" />
                   </div>
                   <div>
@@ -950,7 +779,7 @@ const handleDeletePlan = async () => {
             <div class="space-y-0.5">
               <div class="text-xs font-semibold text-highlighted">ประมาณการงบประมาณแผนนี้</div>
               <div class="text-[11px] text-muted">
-                ระยะทาง {{ modalCalculations.dist }} กม. · ค่าน้ำมัน ฿{{ formatCurrency(modalCalculations.fuel) }} · เบี้ยเลี้ยง ฿{{ formatCurrency(modalCalculations.perDiem) }} · ที่พัก ฿{{ formatCurrency(modalCalculations.lodging) }}
+                เบี้ยเลี้ยง ฿{{ formatCurrency(modalCalculations.perDiem) }} · ที่พัก ฿{{ formatCurrency(modalCalculations.lodging) }}
               </div>
             </div>
             <div class="text-right font-mono">

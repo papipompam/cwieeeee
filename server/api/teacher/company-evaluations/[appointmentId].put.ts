@@ -22,9 +22,15 @@ export default defineEventHandler(async (event) => {
   if (scoreKeys.some(key => scores[key] === null)) throw createError({ statusCode: 400, message: 'กรุณาให้คะแนนให้ครบทั้ง 13 ด้านก่อนส่งแบบประเมิน' })
   const text = (key: string) => typeof body?.[key] === 'string' && body[key].trim() ? body[key].trim() : null
   const data = { ...scores, observations: text('observations'), companyNeeds: text('companyNeeds'), problems: text('problems'), recommendations: text('recommendations'), futureRecommendation: text('futureRecommendation') }
-  return prisma.companyEvaluation.upsert({
-    where: { appointment_teacher_company_evaluation: { appointmentId, teacherUserId: user.id } },
-    create: { ...data, appointmentId, teacherUserId: user.id },
-    update: data
+  return prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(${appointmentId}, ${7_301})`
+    const existing = await tx.companyEvaluation.findFirst({
+      where: { appointmentId },
+      orderBy: { updatedAt: 'desc' }
+    })
+    if (existing) {
+      return tx.companyEvaluation.update({ where: { id: existing.id }, data })
+    }
+    return tx.companyEvaluation.create({ data: { ...data, appointmentId, teacherUserId: user.id } })
   })
 })

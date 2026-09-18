@@ -169,6 +169,45 @@ const createRoundForm = ref({
 })
 const isCreatingRound = ref(false)
 
+const isAutoGroupOpen = ref(false)
+const isAutoGrouping = ref(false)
+const autoGroupForm = ref({
+  groupCount: 1
+})
+
+const openAutoGroupModal = () => {
+  autoGroupForm.value = {
+    groupCount: Math.max(1, Math.ceil(unassignedCompanies.value.length / 4))
+  }
+  isAutoGroupOpen.value = true
+}
+
+const handleAutoGroup = async () => {
+  if (!Number.isInteger(autoGroupForm.value.groupCount) || autoGroupForm.value.groupCount < 1) {
+    notify.warning('จำนวนกลุ่มต้องเป็นจำนวนเต็มตั้งแต่ 1 ขึ้นไป')
+    return
+  }
+
+  isAutoGrouping.value = true
+  try {
+    const result = await $fetch<{ roundId: number; groupsCount: number; companiesCount: number }>(
+      `/api/staff/cooperative-cycles/${cycleId.value}/supervision/auto-group`,
+      {
+        method: 'POST',
+        body: { groupCount: autoGroupForm.value.groupCount }
+      }
+    )
+    isAutoGroupOpen.value = false
+    await refreshAll()
+    selectedRoundId.value = result.roundId
+    notify.success(`จัด ${result.companiesCount} สถานประกอบการเป็น ${result.groupsCount} กลุ่มเรียบร้อยแล้ว`)
+  } catch (err: any) {
+    notify.error(err.data?.message || 'ไม่สามารถจัดกลุ่มอัตโนมัติได้')
+  } finally {
+    isAutoGrouping.value = false
+  }
+}
+
 const openCreateRoundModal = () => {
   const nextNo = rounds.value.length > 0 ? Math.max(...rounds.value.map(r => r.roundNo)) + 1 : 1
   createRoundForm.value = {
@@ -654,13 +693,23 @@ const handleRemoveCompany = async (companyId: number) => {
         />
       </div>
 
-      <UButton
-        label="สร้างกลุ่มใหม่"
-        icon="i-lucide-plus"
-        color="primary"
-        size="md"
-        @click="openCreateGroupModal"
-      />
+      <div class="flex flex-wrap items-center gap-2">
+        <UButton
+          label="จัดกลุ่มอัตโนมัติ"
+          icon="i-lucide-wand-sparkles"
+          color="neutral"
+          variant="outline"
+          size="md"
+          @click="openAutoGroupModal"
+        />
+        <UButton
+          label="สร้างกลุ่มใหม่"
+          icon="i-lucide-plus"
+          color="primary"
+          size="md"
+          @click="openCreateGroupModal"
+        />
+      </div>
     </div>
 
     <!-- Groups Grid / Cards -->
@@ -852,6 +901,22 @@ const handleRemoveCompany = async (companyId: number) => {
             :loading="isCreatingRound"
             @click="handleCreateRound"
           />
+        </div>
+      </template>
+    </UModal>
+
+    <UModal v-model:open="isAutoGroupOpen" title="จัดกลุ่มนิเทศอัตโนมัติ">
+      <template #body>
+        <div>
+          <UFormField label="จำนวนกลุ่มที่ต้องการ" required>
+            <UInput v-model.number="autoGroupForm.groupCount" type="number" min="1" class="w-full" autofocus />
+          </UFormField>
+        </div>
+      </template>
+      <template #footer>
+        <div class="flex w-full justify-end gap-2">
+          <UButton label="ยกเลิก" color="neutral" variant="outline" :disabled="isAutoGrouping" @click="isAutoGroupOpen = false" />
+          <UButton label="สร้างและจัดกลุ่มทั้งหมด" icon="i-lucide-wand-sparkles" :loading="isAutoGrouping" @click="handleAutoGroup" />
         </div>
       </template>
     </UModal>

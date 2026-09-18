@@ -90,7 +90,7 @@ const staffLinks = computed<NavigationMenuItem[]>(() => {
           onSelect: handleSelect
         },
         {
-          label: 'อาจารย์นิเทศ',
+          label: 'จัดกลุ่มนิเทศ',
           icon: 'i-lucide-users-round',
           to: `/staff/cooperative-cycles/${cycleId}/supervisors`,
           onSelect: handleSelect
@@ -185,12 +185,6 @@ const teacherLinks: NavigationMenuItem[] = [
     to: '/teacher/companies',
     onSelect: handleSelect
   },
-  {
-    label: 'การแจ้งเตือน',
-    icon: 'i-lucide-bell',
-    to: '/teacher/notifications',
-    onSelect: handleSelect
-  }
 ]
 
 const studentLinks: NavigationMenuItem[] = [

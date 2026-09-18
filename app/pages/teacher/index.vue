@@ -31,7 +31,7 @@ const periodLabel = (period: string) => ({ MORNING: 'ช่วงเช้า', 
 <template>
   <UDashboardPanel id="teacher-overview">
     <template #header>
-      <UDashboardNavbar title="งานนิเทศและการประเมิน"><template #leading><UDashboardSidebarCollapse /></template></UDashboardNavbar>
+      <UDashboardNavbar title="งานนิเทศและการประเมิน"><template #leading><UDashboardSidebarCollapse /></template><template #right><AppNotificationBell /></template></UDashboardNavbar>
     </template>
     <template #body>
       <div class="space-y-4">

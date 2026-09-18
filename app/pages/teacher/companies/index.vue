@@ -42,7 +42,7 @@ const columns: TableColumn<CompanyRecord>[] = [
 <template>
   <UDashboardPanel id="teacher-companies">
     <template #header>
-      <UDashboardNavbar title="ข้อมูลสถานประกอบการ"><template #leading><UDashboardSidebarCollapse /></template></UDashboardNavbar>
+      <UDashboardNavbar title="ข้อมูลสถานประกอบการ"><template #leading><UDashboardSidebarCollapse /></template><template #right><AppNotificationBell /></template></UDashboardNavbar>
     </template>
 
     <template #body>

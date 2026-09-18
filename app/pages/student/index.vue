@@ -127,6 +127,44 @@ const getReqStatusBadge = (s: string) => {
       return { label: s, color: 'neutral' as const }
   }
 }
+
+const currentStep = computed(() => {
+  if (!context.value?.cycle) return 1
+  if (context.value.placement) return 5
+  if (context.value.latestRequest) return 3
+  if (context.value.activeApplication) return 2
+  return 1
+})
+
+const workflowSteps = computed(() => {
+  const cycle = context.value?.cycle
+  return [
+    {
+      value: 1,
+      title: 'ยื่นสมัคร',
+      description: cycle ? `${formatThaiDate(cycle.applicationStartDate)} – ${formatThaiDate(cycle.applicationEndDate)}` : 'รอรอบสหกิจเปิดรับ',
+      icon: 'i-lucide-send'
+    },
+    { value: 2, title: 'รอผลบริษัท', description: 'ติดตามผลการสมัคร', icon: 'i-lucide-clock-3' },
+    { value: 3, title: 'ส่งคำร้อง', description: 'หนังสือและเอกสารตอบรับ', icon: 'i-lucide-file-check-2' },
+    { value: 4, title: 'ยืนยันสถานที่', description: 'เจ้าหน้าที่ตรวจสอบเรียบร้อย', icon: 'i-lucide-badge-check' },
+    {
+      value: 5,
+      title: 'ฝึกงานและนิเทศ',
+      description: cycle ? `${formatThaiDate(cycle.internshipStartDate)} – ${formatThaiDate(cycle.internshipEndDate)}` : 'ตามกำหนดการนิเทศ',
+      icon: 'i-lucide-briefcase-business'
+    }
+  ]
+})
+
+const personalStatus = computed(() => {
+  if (!context.value) return { label: 'กำลังโหลดสถานะ', color: 'neutral' as const }
+  if (context.value.placement) return { label: 'ยืนยันสถานที่ฝึกงานแล้ว', color: 'success' as const }
+  if (context.value.latestRequest) return getReqStatusBadge(context.value.latestRequest.status)
+  if (context.value.activeApplication) return getAppStatusBadge(context.value.activeApplication.status)
+  if (context.value.canApply) return { label: 'พร้อมยื่นสมัครสถานประกอบการ', color: 'primary' as const }
+  return { label: context.value.reason || 'ยังไม่มีรายการดำเนินการ', color: 'neutral' as const }
+})
 </script>
 
 <template>
@@ -170,6 +208,32 @@ const getReqStatusBadge = (s: string) => {
         </div>
 
         <template v-else-if="context">
+          <section class="rounded-xl border border-default bg-default p-5 shadow-xs space-y-4">
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 class="font-semibold text-highlighted">สถานะสหกิจศึกษาของฉัน</h2>
+                <p v-if="context.cycle" class="mt-0.5 text-xs text-muted">
+                  ภาคเรียนที่ {{ context.cycle.term }}/{{ context.cycle.academicYear }}
+                </p>
+              </div>
+              <UBadge :color="personalStatus.color" variant="subtle" size="sm">
+                {{ personalStatus.label }}
+              </UBadge>
+            </div>
+
+            <UStepper
+              :items="workflowSteps"
+              :model-value="currentStep"
+              :disabled="true"
+              class="overflow-x-auto pb-1"
+            />
+
+            <p v-if="context.upcomingVisit" class="flex items-center gap-1.5 text-xs text-muted">
+              <UIcon name="i-lucide-calendar-days" class="size-4 text-primary" />
+              นิเทศครั้งถัดไป {{ formatThaiDate(context.upcomingVisit.visitDate) }} · {{ context.upcomingVisit.companyName }}
+            </p>
+          </section>
+
           <!-- Profile & Current Cycle Top Banner -->
           <div class="grid gap-4 md:grid-cols-3">
             <!-- Student Profile Card -->

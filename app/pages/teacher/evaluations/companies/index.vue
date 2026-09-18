@@ -4,7 +4,14 @@ import type { TableColumn } from '@nuxt/ui'
 definePageMeta({ layout: 'dashboard' })
 
 type ScoreKey = 'workAlignmentScore' | 'workScopeScore' | 'learningOpportunityScore' | 'supervisorReadinessScore' | 'studentSupportScore' | 'environmentScore' | 'safetyScore' | 'resourcesScore' | 'welfareScore' | 'travelScore' | 'transportScore' | 'accommodationScore' | 'coordinationScore'
-type Evaluation = Record<ScoreKey, number | null> & { observations: string | null, companyNeeds: string | null, problems: string | null, recommendations: string | null, futureRecommendation: string | null }
+type Evaluation = Record<ScoreKey, number | null> & {
+  observations: string | null
+  companyNeeds: string | null
+  problems: string | null
+  recommendations: string | null
+  futureRecommendation: string | null
+  teacherUser?: { prefix: string | null, firstName: string | null, lastName: string | null }
+}
 interface Item {
   appointmentId: number
   appointmentStatus: 'PUBLISHED' | 'RESCHEDULED' | 'COMPLETED'
@@ -46,6 +53,9 @@ const scoreLabels: Array<{ key: ScoreKey, label: string }> = [
 const form = reactive<Record<ScoreKey | 'observations' | 'companyNeeds' | 'problems' | 'recommendations' | 'futureRecommendation', number | null | string>>(Object.fromEntries([...scoreLabels.map(item => [item.key, null]), ['observations', ''], ['companyNeeds', ''], ['problems', ''], ['recommendations', ''], ['futureRecommendation', '']]) as Record<ScoreKey | 'observations' | 'companyNeeds' | 'problems' | 'recommendations' | 'futureRecommendation', number | null | string>)
 const state = (item: Item) => item.evaluation ? 'SUBMITTED' : 'NOT_STARTED'
 const info = (item: Item) => ({ NOT_STARTED: { label: 'ยังไม่เริ่มประเมิน', color: 'warning' as const }, SUBMITTED: { label: 'ประเมินแล้ว', color: 'success' as const } }[state(item)])
+const evaluatorName = (evaluation: Evaluation | null) => evaluation?.teacherUser
+  ? `${evaluation.teacherUser.prefix || ''}${evaluation.teacherUser.firstName || ''} ${evaluation.teacherUser.lastName || ''}`.trim()
+  : ''
 const filtered = computed(() => (items.value ?? []).filter(item => (!appointmentId.value || item.appointmentId === appointmentId.value) && (!search.value || [item.companyName, item.groupName, item.appointmentId].join(' ').toLowerCase().includes(search.value.trim().toLowerCase())) && (filter.value === 'ALL' || state(item) === filter.value)))
 const edit = (item: Item) => {
   selected.value = item
@@ -80,7 +90,7 @@ const columns: TableColumn<Item>[] = [
 
 <template>
   <UDashboardPanel id="teacher-company-evaluations">
-    <template #header><UDashboardNavbar title="ประเมินสถานประกอบการ"><template #leading><UDashboardSidebarCollapse /></template></UDashboardNavbar></template>
+    <template #header><UDashboardNavbar title="ประเมินสถานประกอบการ"><template #leading><UDashboardSidebarCollapse /></template><template #right><AppNotificationBell /></template></UDashboardNavbar></template>
     <template #body>
       <div class="space-y-4 p-4 sm:p-6">
         <UAlert v-if="error" color="error" title="ไม่สามารถโหลดงานประเมินได้" :description="error.message" />
@@ -95,7 +105,7 @@ const columns: TableColumn<Item>[] = [
         <div class="overflow-hidden rounded-lg border border-default bg-default">
           <UTable :data="filtered" :columns="columns" :loading="status === 'pending'" :ui="{ root: 'overflow-x-auto', base: 'min-w-full' }">
             <template #context-cell="{ row }">นัดหมาย #{{ row.original.appointmentId }} · {{ row.original.groupName }} · ครั้งที่ {{ row.original.roundNo }}</template>
-            <template #state-cell="{ row }"><UBadge :color="info(row.original).color" variant="subtle">{{ info(row.original).label }}</UBadge></template>
+            <template #state-cell="{ row }"><div class="space-y-1"><UBadge :color="info(row.original).color" variant="subtle">{{ info(row.original).label }}</UBadge><div v-if="evaluatorName(row.original.evaluation)" class="text-xs text-muted">{{ evaluatorName(row.original.evaluation) }}</div></div></template>
             <template #actions-cell="{ row }"><UButton :label="state(row.original) === 'SUBMITTED' ? 'แก้ไขผล' : 'ประเมิน'" color="primary" variant="ghost" size="xs" @click="edit(row.original)" /></template>
             <template #empty><div class="py-12 text-center text-muted">ยังไม่มีสถานประกอบการที่อยู่ในรายการนิเทศของคุณ</div></template>
           </UTable>
