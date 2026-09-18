@@ -60,7 +60,8 @@ export default defineEventHandler(async (event) => {
       lodgingRate: t.lodgingRate,
       nights: t.nights,
       personsPerRoom: t.personsPerRoom
-    }))
+    })),
+    { rate: p.lodgingRate, nights: p.lodgingNights, rooms: p.lodgingRooms }
   )
 
   return {
@@ -71,6 +72,9 @@ export default defineEventHandler(async (event) => {
     travelDate: p.travelDate,
     startLocation: p.startLocation,
     fuelRate: p.fuelRate,
+    lodgingRate: p.lodgingRate,
+    lodgingNights: p.lodgingNights,
+    lodgingRooms: p.lodgingRooms,
     note: p.note,
     stops: p.stops.map((s: any) => ({
       id: s.id,

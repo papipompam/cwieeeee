@@ -44,6 +44,28 @@ interface SupervisionGroup {
   provinces: string[]
   teachers: GroupTeacher[]
   companies: GroupCompany[]
+  appointments: Array<{
+    companyId: number
+    scheduledDate: string
+    period: string
+    timeNote: string | null
+    status: string
+  }>
+  travelPlans?: Array<{
+    startLocation: string
+    fuelRate: number
+    lodgingRate: number
+    lodgingNights: number
+    lodgingRooms: number
+    note: string | null
+    travellers: Array<{
+      perDiemRate: number
+      perDiemDays: number
+      lodgingRate: number
+      nights: number
+      personsPerRoom: number
+    }>
+  }>
 }
 
 interface SupervisionRound {
@@ -188,9 +210,37 @@ const groupForm = ref({
 })
 const isSavingGroup = ref(false)
 const selectedTeacherIds = ref<number[]>([])
-const selectedCompanyIds = ref<number[]>([])
+const selectedCompanyPlans = ref<Array<{
+  companyId: number
+  scheduledDate: string
+  period: string
+  timeNote: string
+  distanceKmFromPrevious: number
+}>>([])
+const budgetForm = ref({
+  startLocation: 'มหาวิทยาลัย',
+  fuelRate: 4,
+  perDiemRate: 240,
+  perDiemDays: 1,
+  lodgingRate: 1500,
+  nights: 0,
+  rooms: 0,
+  note: ''
+})
 const teacherSearchQuery = ref('')
 const companySearchQuery = ref('')
+const periodOptions = [
+  { label: 'ช่วงเช้า', value: 'MORNING' },
+  { label: 'ช่วงบ่าย', value: 'AFTERNOON' },
+  { label: 'เต็มวัน', value: 'FULL_DAY' }
+]
+
+const defaultBudget = () => ({
+  startLocation: 'มหาวิทยาลัย', fuelRate: 4, perDiemRate: 240, perDiemDays: 1,
+  lodgingRate: 1500, nights: 0, rooms: 0, note: ''
+})
+
+const defaultScheduleDate = () => new Date().toISOString().slice(0, 10)
 
 const openCreateGroupModal = () => {
   editingGroupId.value = null
@@ -200,7 +250,8 @@ const openCreateGroupModal = () => {
     note: ''
   }
   selectedTeacherIds.value = []
-  selectedCompanyIds.value = []
+  selectedCompanyPlans.value = []
+  budgetForm.value = defaultBudget()
   teacherSearchQuery.value = ''
   companySearchQuery.value = ''
   isGroupModalOpen.value = true
@@ -212,8 +263,27 @@ const openEditGroupModal = (group: SupervisionGroup) => {
     name: group.name,
     note: group.note || ''
   }
-  selectedTeacherIds.value = []
-  selectedCompanyIds.value = []
+  selectedTeacherIds.value = group.teachers.map(teacher => teacher.teacherUserId)
+  selectedCompanyPlans.value = group.companies.map((company) => {
+    const appointment = group.appointments.find(item => item.companyId === company.companyId)
+    return {
+      companyId: company.companyId,
+      scheduledDate: appointment?.scheduledDate?.slice(0, 10) || defaultScheduleDate(),
+      period: appointment?.period || 'MORNING',
+      timeNote: appointment?.timeNote || '',
+      distanceKmFromPrevious: 0
+    }
+  })
+  const plan = group.travelPlans?.[0]
+  const traveller = plan?.travellers?.[0]
+  budgetForm.value = {
+    startLocation: plan?.startLocation || 'มหาวิทยาลัย', fuelRate: plan?.fuelRate ?? 4,
+    perDiemRate: traveller?.perDiemRate ?? 240, perDiemDays: traveller?.perDiemDays ?? 1,
+    lodgingRate: plan?.lodgingRate ?? traveller?.lodgingRate ?? 1500, nights: plan?.lodgingNights ?? traveller?.nights ?? 0,
+    rooms: plan?.lodgingRooms ?? 0, note: plan?.note || ''
+  }
+  teacherSearchQuery.value = ''
+  companySearchQuery.value = ''
   isGroupModalOpen.value = true
 }
 
@@ -223,11 +293,11 @@ const handleSaveGroup = async () => {
     return
   }
   if (!selectedRoundId.value) return
-  if (!editingGroupId.value && selectedTeacherIds.value.length === 0) {
+  if (selectedTeacherIds.value.length === 0) {
     notify.warning('กรุณาเลือกอาจารย์ผู้นิเทศอย่างน้อย 1 ท่าน')
     return
   }
-  if (!editingGroupId.value && selectedCompanyIds.value.length === 0) {
+  if (selectedCompanyPlans.value.length === 0) {
     notify.warning('กรุณาเลือกสถานประกอบการอย่างน้อย 1 แห่ง')
     return
   }
@@ -237,7 +307,12 @@ const handleSaveGroup = async () => {
     if (editingGroupId.value) {
       await $fetch(`/api/staff/cooperative-cycles/${cycleId.value}/supervision/rounds/${selectedRoundId.value}/groups/${editingGroupId.value}`, {
         method: 'PATCH',
-        body: groupForm.value
+      body: {
+        ...groupForm.value,
+        teacherUserIds: selectedTeacherIds.value,
+        companyPlans: selectedCompanyPlans.value,
+        budget: budgetForm.value
+      }
       })
       notify.success('อัปเดตข้อมูลกลุ่มสำเร็จ')
     } else {
@@ -246,7 +321,9 @@ const handleSaveGroup = async () => {
         body: {
           ...groupForm.value,
           teacherUserIds: selectedTeacherIds.value,
-          companyIds: selectedCompanyIds.value
+          companyIds: selectedCompanyPlans.value.map(plan => plan.companyId),
+          companyPlans: selectedCompanyPlans.value,
+          budget: budgetForm.value
         }
       })
       notify.success('สร้างกลุ่มนิเทศสำเร็จ')
@@ -315,10 +392,18 @@ const availableTeachers = computed(() => {
     .filter(t => !assignedTeacherIdsInRound.value.has(t.id))
 })
 
+const selectableTeachers = computed(() => {
+  if (!allTeachers.value) return []
+  const currentTeacherIds = editingGroupId.value
+    ? new Set(groups.value.find(group => group.id === editingGroupId.value)?.teachers.map(teacher => teacher.teacherUserId) || [])
+    : new Set<number>()
+  return allTeachers.value.filter(teacher => currentTeacherIds.has(teacher.id) || !assignedTeacherIdsInRound.value.has(teacher.id))
+})
+
 const filteredTeachers = computed(() => {
   const query = teacherSearchQuery.value.trim().toLowerCase()
-  if (!query) return availableTeachers.value
-  return availableTeachers.value.filter(teacher =>
+  if (!query) return selectableTeachers.value
+  return selectableTeachers.value.filter(teacher =>
     `${teacher.prefix}${teacher.firstName} ${teacher.lastName} ${teacher.teacherId}`.toLowerCase().includes(query)
   )
 })
@@ -386,19 +471,47 @@ const filteredCompanies = computed(() => {
 })
 
 const toggleCompany = (companyId: number) => {
-  selectedCompanyIds.value = selectedCompanyIds.value.includes(companyId)
-    ? selectedCompanyIds.value.filter(id => id !== companyId)
-    : [...selectedCompanyIds.value, companyId]
+  const exists = selectedCompanyPlans.value.some(plan => plan.companyId === companyId)
+  selectedCompanyPlans.value = exists
+    ? selectedCompanyPlans.value.filter(plan => plan.companyId !== companyId)
+    : [...selectedCompanyPlans.value, { companyId, scheduledDate: defaultScheduleDate(), period: 'MORNING', timeNote: '', distanceKmFromPrevious: 0 }]
 }
+
+const selectableCompanies = computed<UnassignedCompany[]>(() => {
+  const currentGroup = editingGroupId.value ? groups.value.find(group => group.id === editingGroupId.value) : undefined
+  const currentCompanies = (currentGroup?.companies || []).map(company => ({
+    companyId: company.companyId,
+    companyName: company.company.name,
+    province: company.company.province,
+    address: company.company.addressNo || null,
+    studentCount: company.studentsCount,
+    students: []
+  }))
+  return [...currentCompanies, ...unassignedCompanies.value.filter(company => !currentCompanies.some(current => current.companyId === company.companyId))]
+})
 
 const manageCompanySearchQuery = ref('')
 const filteredCompaniesForManage = computed(() => {
   const query = manageCompanySearchQuery.value.trim().toLowerCase()
-  if (!query) return unassignedCompanies.value
-  return unassignedCompanies.value.filter(company =>
+  if (!query) return selectableCompanies.value
+  return selectableCompanies.value.filter(company =>
     `${company.companyName} ${company.province || ''} ${company.address || ''}`.toLowerCase().includes(query)
   )
 })
+
+const selectedCompanyDetails = computed(() => selectedCompanyPlans.value.map((plan) => ({
+  plan,
+  company: selectableCompanies.value.find(company => company.companyId === plan.companyId)
+})))
+
+const groupBudgetSummary = computed(() => {
+  const travelDays = new Set(selectedCompanyPlans.value.map(plan => plan.scheduledDate)).size
+  const perDiem = selectedTeacherIds.value.length * Number(budgetForm.value.perDiemRate || 0) * Number(budgetForm.value.perDiemDays || 0) * travelDays
+  const lodging = Number(budgetForm.value.lodgingRate || 0) * Number(budgetForm.value.nights || 0) * Number(budgetForm.value.rooms || 0) * travelDays
+  return { travelDays, perDiem, lodging, total: perDiem + lodging }
+})
+
+const formatCurrency = (value: number) => value.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
 const handleAssignCompany = async (companyId: number) => {
   if (!activeManageGroup.value || !selectedRoundId.value) return
@@ -663,12 +776,12 @@ const handleRemoveCompany = async (companyId: number) => {
           </NuxtLink>
 
           <UButton
-            label="จัดการกลุ่ม"
-            icon="i-lucide-settings"
+            label="แก้ไขแผนกลุ่ม"
+            icon="i-lucide-pencil-line"
             color="primary"
             variant="subtle"
             size="xs"
-            @click="openManageGroup(group)"
+            @click="openEditGroupModal(group)"
           />
         </div>
       </div>
@@ -766,79 +879,65 @@ const handleRemoveCompany = async (companyId: number) => {
               class="w-full"
             />
           </div>
-          <template v-if="!editingGroupId">
-            <div class="space-y-2">
-              <div class="flex items-center justify-between gap-2">
-                <label class="text-xs font-medium text-highlighted">อาจารย์ผู้นิเทศ *</label>
-                <span class="text-xs text-muted">เลือกแล้ว {{ selectedTeacherIds.length }} ท่าน</span>
-              </div>
-              <UInput
-                v-model="teacherSearchQuery"
-                icon="i-lucide-search"
-                placeholder="ค้นหาชื่อหรือรหัสอาจารย์"
-                class="w-full"
-                aria-label="ค้นหาอาจารย์ผู้นิเทศ"
-              />
-              <div class="max-h-48 divide-y divide-default overflow-y-auto rounded-lg border border-default">
-                <button
-                  v-for="teacher in filteredTeachers"
-                  :key="teacher.id"
-                  type="button"
-                  class="flex w-full items-center gap-3 p-3 text-left hover:bg-muted/50 focus-visible:outline-2 focus-visible:outline-primary"
-                  :class="selectedTeacherIds.includes(teacher.id) ? 'bg-primary/10' : 'bg-default'"
-                  :aria-pressed="selectedTeacherIds.includes(teacher.id)"
-                  @click="toggleTeacher(teacher.id)"
-                >
-                  <UIcon
-                    :name="selectedTeacherIds.includes(teacher.id) ? 'i-lucide-circle-check' : 'i-lucide-circle'"
-                    class="size-5 shrink-0"
-                    :class="selectedTeacherIds.includes(teacher.id) ? 'text-primary' : 'text-muted'"
-                  />
-                  <span class="min-w-0">
-                    <span class="block truncate text-sm font-medium text-highlighted">{{ teacher.prefix }}{{ teacher.firstName }} {{ teacher.lastName }}</span>
-                    <span class="block text-xs text-muted">รหัสอาจารย์: {{ teacher.teacherId }}</span>
-                  </span>
-                </button>
-                <div v-if="filteredTeachers.length === 0" class="p-4 text-center text-sm text-muted">ไม่พบอาจารย์ที่พร้อมมอบหมาย</div>
-              </div>
+          <div class="space-y-2">
+            <div class="flex items-center justify-between gap-2">
+              <label class="text-xs font-medium text-highlighted">อาจารย์ผู้นิเทศ *</label>
+              <span class="text-xs text-muted">เลือกแล้ว {{ selectedTeacherIds.length }} ท่าน</span>
             </div>
+            <UInput v-model="teacherSearchQuery" icon="i-lucide-search" placeholder="ค้นหาชื่อหรือรหัสอาจารย์" class="w-full" aria-label="ค้นหาอาจารย์ผู้นิเทศ" />
+            <div class="max-h-48 divide-y divide-default overflow-y-auto rounded-lg border border-default">
+              <button v-for="teacher in filteredTeachers" :key="teacher.id" type="button" class="flex w-full items-center gap-3 p-3 text-left hover:bg-muted/50 focus-visible:outline-2 focus-visible:outline-primary" :class="selectedTeacherIds.includes(teacher.id) ? 'bg-primary/10' : 'bg-default'" :aria-pressed="selectedTeacherIds.includes(teacher.id)" @click="toggleTeacher(teacher.id)">
+                <UIcon :name="selectedTeacherIds.includes(teacher.id) ? 'i-lucide-circle-check' : 'i-lucide-circle'" class="size-5 shrink-0" :class="selectedTeacherIds.includes(teacher.id) ? 'text-primary' : 'text-muted'" />
+                <span class="min-w-0"><span class="block truncate text-sm font-medium text-highlighted">{{ teacher.prefix }}{{ teacher.firstName }} {{ teacher.lastName }}</span><span class="block text-xs text-muted">รหัสอาจารย์: {{ teacher.teacherId }}</span></span>
+              </button>
+              <div v-if="filteredTeachers.length === 0" class="p-4 text-center text-sm text-muted">ไม่พบอาจารย์ที่พร้อมมอบหมาย</div>
+            </div>
+          </div>
 
-            <div class="space-y-2">
-              <div class="flex items-center justify-between gap-2">
-                <label class="text-xs font-medium text-highlighted">สถานประกอบการ *</label>
-                <span class="text-xs text-muted">เลือกแล้ว {{ selectedCompanyIds.length }} แห่ง</span>
-              </div>
-              <UInput
-                v-model="companySearchQuery"
-                icon="i-lucide-search"
-                placeholder="ค้นหาชื่อสถานประกอบการ จังหวัด หรือที่อยู่"
-                class="w-full"
-                aria-label="ค้นหาสถานประกอบการ"
-              />
-              <div class="max-h-56 divide-y divide-default overflow-y-auto rounded-lg border border-default">
-                <button
-                  v-for="company in filteredCompanies"
-                  :key="company.companyId"
-                  type="button"
-                  class="flex w-full items-center gap-3 p-3 text-left hover:bg-muted/50 focus-visible:outline-2 focus-visible:outline-primary"
-                  :class="selectedCompanyIds.includes(company.companyId) ? 'bg-primary/10' : 'bg-default'"
-                  :aria-pressed="selectedCompanyIds.includes(company.companyId)"
-                  @click="toggleCompany(company.companyId)"
-                >
-                  <UIcon
-                    :name="selectedCompanyIds.includes(company.companyId) ? 'i-lucide-circle-check' : 'i-lucide-circle'"
-                    class="size-5 shrink-0"
-                    :class="selectedCompanyIds.includes(company.companyId) ? 'text-primary' : 'text-muted'"
-                  />
-                  <span class="min-w-0">
-                    <span class="block truncate text-sm font-medium text-highlighted">{{ company.companyName }}</span>
-                    <span class="block truncate text-xs text-muted">{{ company.province || 'ไม่ระบุจังหวัด' }} · นักศึกษา {{ company.studentCount }} คน</span>
-                  </span>
-                </button>
-                <div v-if="filteredCompanies.length === 0" class="p-4 text-center text-sm text-muted">ไม่พบสถานประกอบการที่ยังไม่ถูกจัดกลุ่ม</div>
+          <div class="space-y-2">
+            <div class="flex items-center justify-between gap-2"><label class="text-xs font-medium text-highlighted">สถานประกอบการ *</label><span class="text-xs text-muted">เลือกแล้ว {{ selectedCompanyPlans.length }} แห่ง</span></div>
+            <UInput v-model="companySearchQuery" icon="i-lucide-search" placeholder="ค้นหาชื่อสถานประกอบการ จังหวัด หรือที่อยู่" class="w-full" aria-label="ค้นหาสถานประกอบการ" />
+            <div class="max-h-56 divide-y divide-default overflow-y-auto rounded-lg border border-default">
+              <button v-for="company in filteredCompanies" :key="company.companyId" type="button" class="flex w-full items-center gap-3 p-3 text-left hover:bg-muted/50 focus-visible:outline-2 focus-visible:outline-primary" :class="selectedCompanyPlans.some(plan => plan.companyId === company.companyId) ? 'bg-primary/10' : 'bg-default'" :aria-pressed="selectedCompanyPlans.some(plan => plan.companyId === company.companyId)" @click="toggleCompany(company.companyId)">
+                <UIcon :name="selectedCompanyPlans.some(plan => plan.companyId === company.companyId) ? 'i-lucide-circle-check' : 'i-lucide-circle'" class="size-5 shrink-0" :class="selectedCompanyPlans.some(plan => plan.companyId === company.companyId) ? 'text-primary' : 'text-muted'" />
+                <span class="min-w-0"><span class="block truncate text-sm font-medium text-highlighted">{{ company.companyName }}</span><span class="block truncate text-xs text-muted">{{ company.province || 'ไม่ระบุจังหวัด' }} · นักศึกษา {{ company.studentCount }} คน</span></span>
+              </button>
+              <div v-if="filteredCompanies.length === 0" class="p-4 text-center text-sm text-muted">ไม่พบสถานประกอบการที่ยังไม่ถูกจัดกลุ่ม</div>
+            </div>
+          </div>
+
+          <div class="space-y-2">
+            <div><label class="text-xs font-medium text-highlighted">กำหนดการนิเทศรายสถานประกอบการ *</label><p class="mt-0.5 text-xs text-muted">ระบุวันและช่วงเวลา โดยหลายสถานประกอบการสามารถใช้วันและช่วงเวลาเดียวกันได้</p></div>
+            <div v-if="selectedCompanyDetails.length" class="space-y-2">
+              <div v-for="item in selectedCompanyDetails" :key="item.plan.companyId" class="rounded-lg border border-default bg-muted/5 p-3">
+                <div class="mb-2 text-sm font-medium text-highlighted">{{ item.company?.companyName || 'สถานประกอบการ' }}</div>
+                <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div><label class="mb-1 block text-xs text-muted">วันนิเทศ</label><UInput v-model="item.plan.scheduledDate" type="date" class="w-full" aria-label="วันนิเทศ" /></div>
+                  <div><label class="mb-1 block text-xs text-muted">ช่วงเวลา</label><USelect v-model="item.plan.period" :items="periodOptions" class="w-full" aria-label="ช่วงเวลานิเทศ" /></div>
+                </div>
               </div>
             </div>
-          </template>
+            <div v-else class="rounded-lg border border-dashed border-default p-3 text-center text-xs text-muted">เลือกสถานประกอบการเพื่อกำหนดตารางนิเทศ</div>
+          </div>
+
+          <div class="space-y-3 rounded-lg border border-primary/30 bg-primary/5 p-3">
+            <div><label class="text-xs font-semibold text-highlighted">ประมาณการค่าใช้จ่ายของกลุ่ม</label><p class="mt-0.5 text-xs text-muted">ระบบจะสร้างแผนเดินทางแยกตามวันที่นิเทศ และคำนวณจากข้อมูลนี้</p></div>
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div><label class="mb-1 block text-xs text-muted">จุดเริ่มต้นเดินทาง</label><UInput v-model="budgetForm.startLocation" class="w-full" aria-label="จุดเริ่มต้นเดินทาง" /></div>
+              <div><label class="mb-1 block text-xs text-muted">อัตราค่าน้ำมัน (บาท/กม.)</label><UInput v-model.number="budgetForm.fuelRate" type="number" min="0" step="0.5" class="w-full" aria-label="ค่าน้ำมันต่อกิโลเมตร" /></div>
+              <div><label class="mb-1 block text-xs text-muted">เบี้ยเลี้ยง (บาท/วัน/คน)</label><UInput v-model.number="budgetForm.perDiemRate" type="number" min="0" class="w-full" aria-label="เบี้ยเลี้ยงต่อวัน" /></div>
+              <div><label class="mb-1 block text-xs text-muted">จำนวนวันเบี้ยเลี้ยง</label><UInput v-model.number="budgetForm.perDiemDays" type="number" min="0" step="0.5" class="w-full" aria-label="จำนวนวันเบี้ยเลี้ยง" /></div>
+              <div><label class="mb-1 block text-xs text-muted">ค่าที่พัก (บาท/ห้อง/คืน)</label><UInput v-model.number="budgetForm.lodgingRate" type="number" min="0" class="w-full" aria-label="ค่าที่พักต่อห้อง" /></div>
+              <div><label class="mb-1 block text-xs text-muted">จำนวนคืน</label><UInput v-model.number="budgetForm.nights" type="number" min="0" class="w-full" aria-label="จำนวนคืน" /></div>
+              <div><label class="mb-1 block text-xs text-muted">จำนวนห้องพัก</label><UInput v-model.number="budgetForm.rooms" type="number" min="0" class="w-full" aria-label="จำนวนห้องพัก" /></div>
+              <div><label class="mb-1 block text-xs text-muted">หมายเหตุงบประมาณ</label><UInput v-model="budgetForm.note" class="w-full" aria-label="หมายเหตุงบประมาณ" /></div>
+            </div>
+            <div class="rounded-md border border-primary/30 bg-default p-3 text-sm">
+              <div class="font-semibold text-highlighted">สรุปค่าใช้จ่ายประมาณการทั้งหมด</div>
+              <div class="mt-1 text-xs text-muted">เดินทาง {{ groupBudgetSummary.travelDays }} วัน · เบี้ยเลี้ยง ฿{{ formatCurrency(groupBudgetSummary.perDiem) }} · ที่พัก ฿{{ formatCurrency(groupBudgetSummary.lodging) }}</div>
+              <div class="mt-1 text-lg font-bold text-primary">รวม ฿{{ formatCurrency(groupBudgetSummary.total) }}</div>
+            </div>
+          </div>
         </div>
       </template>
       <template #footer>

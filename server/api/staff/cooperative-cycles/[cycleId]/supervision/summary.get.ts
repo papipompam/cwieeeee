@@ -57,6 +57,9 @@ export default defineEventHandler(async (event) => {
       where: { supervisionRound: { cooperativeCycleId: cycleId } },
       select: {
         fuelRate: true,
+        lodgingRate: true,
+        lodgingNights: true,
+        lodgingRooms: true,
         stops: { select: { distanceKmFromPrevious: true } },
         travellers: {
           select: {
@@ -76,7 +79,9 @@ export default defineEventHandler(async (event) => {
     const dist = plan.stops.reduce((sum: number, s: { distanceKmFromPrevious: number }) => sum + s.distanceKmFromPrevious, 0)
     const fuel = dist * plan.fuelRate
     const perDiem = plan.travellers.reduce((sum: number, t: { perDiemRate: number; perDiemDays: number }) => sum + t.perDiemRate * t.perDiemDays, 0)
-    const lodging = plan.travellers.reduce(
+    const lodging = plan.lodgingRooms > 0
+      ? plan.lodgingRate * plan.lodgingNights * plan.lodgingRooms
+      : plan.travellers.reduce(
       (sum: number, t: { lodgingRate: number; nights: number; personsPerRoom: number }) => sum + (t.lodgingRate * t.nights) / Math.max(1, t.personsPerRoom),
       0
     )

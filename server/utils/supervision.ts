@@ -359,18 +359,22 @@ export const calculateTravelBudget = (
     lodgingRate: number
     nights: number
     personsPerRoom: number
-  }>
+  }>,
+  lodging?: { rate: number; nights: number; rooms: number }
 ): TravelCalculationBreakdown => {
   const totalDistanceKm = stops.reduce((acc, s) => acc + (Number(s.distanceKmFromPrevious) || 0), 0)
   const fuelCost = Math.round(totalDistanceKm * (Number(fuelRate) || 0) * 100) / 100
+  const hasLodgingBreakdown = Boolean(lodging && Number(lodging.rooms) > 0)
 
   let perDiemTotal = 0
-  let lodgingTotal = 0
+  let lodgingTotal = hasLodgingBreakdown && lodging
+    ? Math.round((Math.max(0, lodging.rate) * Math.max(0, lodging.nights) * Math.max(0, lodging.rooms)) * 100) / 100
+    : 0
 
   const travellerDetails = travellers.map((t) => {
     const perDiemCost = Math.round((Number(t.perDiemRate) || 0) * (Number(t.perDiemDays) || 0) * 100) / 100
     const personsPerRoom = Math.max(1, Number(t.personsPerRoom) || 1)
-    const lodgingCost = Math.round((((Number(t.lodgingRate) || 0) * (Number(t.nights) || 0)) / personsPerRoom) * 100) / 100
+    const lodgingCost = hasLodgingBreakdown ? 0 : Math.round((((Number(t.lodgingRate) || 0) * (Number(t.nights) || 0)) / personsPerRoom) * 100) / 100
     const totalCost = Math.round((perDiemCost + lodgingCost) * 100) / 100
 
     perDiemTotal += perDiemCost

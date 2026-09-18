@@ -66,6 +66,7 @@ async function run() {
   const unassignedCompaniesHandler = (await import('../server/api/staff/cooperative-cycles/[cycleId]/supervision/rounds/[roundId]/unassigned-companies.get')).default
   const listGroupsHandler = (await import('../server/api/staff/cooperative-cycles/[cycleId]/supervision/rounds/[roundId]/groups/index.get')).default
   const createGroupHandler = (await import('../server/api/staff/cooperative-cycles/[cycleId]/supervision/rounds/[roundId]/groups/index.post')).default
+  const updateGroupHandler = (await import('../server/api/staff/cooperative-cycles/[cycleId]/supervision/rounds/[roundId]/groups/[groupId]/index.patch')).default
   const addCompanyToGroupHandler = (await import('../server/api/staff/cooperative-cycles/[cycleId]/supervision/rounds/[roundId]/groups/[groupId]/companies/index.post')).default
   const addTeacherToGroupHandler = (await import('../server/api/staff/cooperative-cycles/[cycleId]/supervision/rounds/[roundId]/groups/[groupId]/teachers/index.post')).default
   const listAppointmentsHandler = (await import('../server/api/staff/cooperative-cycles/[cycleId]/supervision/rounds/[roundId]/appointments/index.get')).default
@@ -344,6 +345,56 @@ async function run() {
     })
     const groupARes: any = await createGroupHandler(createGroupAEvent as any)
     const groupAId = groupARes.group.id
+
+    // The planning flow creates group members, draft appointments, and travel budget together.
+    const createPlannedGroupEvent = createMockEvent({
+      params: { cycleId: String(cycle1.id), roundId: String(round2Id) },
+      body: {
+        name: 'กลุ่มแผนทดสอบ',
+        teacherUserIds: [teacher1User.id, teacher2User.id],
+        companyIds: [company1.id, company2.id],
+        companyPlans: [
+          { companyId: company1.id, scheduledDate: '2055-04-12', period: 'MORNING', timeNote: 'นัดหมายจากการจัดกลุ่ม', distanceKmFromPrevious: 18 },
+          { companyId: company2.id, scheduledDate: '2055-04-12', period: 'MORNING', timeNote: 'นัดหมายจากการจัดกลุ่ม', distanceKmFromPrevious: 12 }
+        ],
+        budget: {
+          startLocation: 'มหาวิทยาลัย', fuelRate: 4, perDiemRate: 240, perDiemDays: 1,
+          lodgingRate: 1500, nights: 1, rooms: 2
+        }
+      },
+      staffUser
+    })
+    const plannedGroupRes: any = await createGroupHandler(createPlannedGroupEvent as any)
+    const plannedAppointments = await prisma.supervisionAppointment.findMany({
+      where: { supervisionGroupId: plannedGroupRes.group.id },
+      include: { teachers: true, students: true, travelStops: { include: { travelPlan: { include: { travellers: true } } } } }
+    })
+    assert.equal(plannedAppointments.length, 2, 'Complete group creation should create draft appointments for every company')
+    assert.deepEqual(new Set(plannedAppointments.map(appointment => appointment.teachers[0]?.teacherUserId)), new Set([teacher1User.id, teacher2User.id]), 'Companies in the same slot should receive different selected teachers')
+    assert.equal(plannedAppointments[0]!.students.length, 1)
+    assert.equal(plannedAppointments[0]!.travelStops.length, 1, 'Appointment should be included in its travel budget')
+    assert.equal(plannedAppointments[0]!.travelStops[0]!.travelPlan.travellers.length, 2)
+
+    const updatePlannedGroupEvent = createMockEvent({
+      params: { cycleId: String(cycle1.id), roundId: String(round2Id), groupId: String(plannedGroupRes.group.id) },
+      body: {
+        name: 'กลุ่มแผนทดสอบ (แก้ไข)',
+        teacherUserIds: [teacher1User.id],
+        companyPlans: [{ companyId: company1.id, scheduledDate: '2055-04-13', period: 'AFTERNOON', distanceKmFromPrevious: 24 }],
+        budget: { startLocation: 'มหาวิทยาลัย', fuelRate: 5, perDiemRate: 300, perDiemDays: 1, lodgingRate: 1200, nights: 1, rooms: 2 }
+      },
+      staffUser
+    })
+    await updateGroupHandler(updatePlannedGroupEvent as any)
+    const updatedAppointment = await prisma.supervisionAppointment.findFirst({
+      where: { supervisionGroupId: plannedGroupRes.group.id },
+      include: { travelStops: { include: { travelPlan: true } } }
+    })
+    assert.equal(updatedAppointment?.scheduledDate.toISOString().slice(0, 10), '2055-04-13', 'Draft group plan should remain editable')
+    assert.equal(updatedAppointment?.period, 'AFTERNOON')
+    assert.equal(updatedAppointment?.travelStops[0]?.distanceKmFromPrevious, 24)
+    assert.equal(updatedAppointment?.travelStops[0]?.travelPlan.fuelRate, 5)
+    assert.equal(updatedAppointment?.travelStops[0]?.travelPlan.lodgingRooms, 2)
 
     const createGroupBEvent = createMockEvent({
       params: { cycleId: String(cycle1.id), roundId: String(round1Id) },
@@ -683,8 +734,8 @@ async function run() {
     const summaryRes: any = await supervisionSummaryHandler(summaryEvent as any)
     assert.equal(summaryRes.roundsCount, 2)
     assert.equal(summaryRes.confirmedCompaniesCount, 2)
-    assert.equal(summaryRes.travelPlansCount, 1)
-    assert.equal(summaryRes.totalBudgetEstimate, 1470)
+    assert.equal(summaryRes.travelPlansCount, 2)
+    assert.equal(summaryRes.totalBudgetEstimate, 4290)
 
     console.log('\n🎉 ALL 14 INTEGRATION TESTS PASSED PERFECTLY!')
   } finally {

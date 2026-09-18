@@ -406,6 +406,9 @@ model SupervisionTravelPlan {
   travelDate         DateTime                     @map("travel_date") @db.Date
   startLocation      String                       @default("มหาวิทยาลัย") @map("start_location")
   fuelRate           Float                        @default(4.0) @map("fuel_rate")
+  lodgingRate        Float                        @default(0.0) @map("lodging_rate")
+  lodgingNights      Int                          @default(0) @map("lodging_nights")
+  lodgingRooms       Int                          @default(0) @map("lodging_rooms")
   note               String?
   stops              SupervisionTravelStop[]
   travellers         SupervisionTravelTraveller[]

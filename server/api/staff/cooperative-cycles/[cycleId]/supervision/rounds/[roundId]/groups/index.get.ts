@@ -33,7 +33,23 @@ export default defineEventHandler(async (event) => {
           status: true,
           companyId: true,
           scheduledDate: true,
-          period: true
+          period: true,
+          timeNote: true
+        }
+      },
+      travelPlans: {
+        orderBy: { travelDate: 'asc' },
+        select: {
+          startLocation: true,
+          fuelRate: true,
+          lodgingRate: true,
+          lodgingNights: true,
+          lodgingRooms: true,
+          note: true,
+          travellers: {
+            orderBy: { id: 'asc' },
+            select: { perDiemRate: true, perDiemDays: true, lodgingRate: true, nights: true, personsPerRoom: true }
+          }
         }
       }
     }
@@ -124,6 +140,7 @@ export default defineEventHandler(async (event) => {
       })),
       appointmentsCount: g.appointments.length,
       appointments: g.appointments,
+      travelPlans: g.travelPlans,
       createdAt: g.createdAt,
       updatedAt: g.updatedAt
     }

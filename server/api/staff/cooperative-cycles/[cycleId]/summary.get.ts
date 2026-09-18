@@ -82,7 +82,10 @@ export default defineEventHandler(async (event) => {
     prisma.supervisionTravelPlan.findMany({
       where: { supervisionRound: { cooperativeCycleId: cycleId } },
       select: {
-        fuelRate: true,
+            fuelRate: true,
+            lodgingRate: true,
+            lodgingNights: true,
+            lodgingRooms: true,
         stops: { select: { distanceKmFromPrevious: true } },
         travellers: {
           select: {
@@ -102,10 +105,12 @@ export default defineEventHandler(async (event) => {
     const dist = plan.stops.reduce((sum, s) => sum + s.distanceKmFromPrevious, 0)
     const fuel = dist * plan.fuelRate
     const perDiem = plan.travellers.reduce((sum, t) => sum + t.perDiemRate * t.perDiemDays, 0)
-    const lodging = plan.travellers.reduce(
-      (sum, t) => sum + (t.lodgingRate * t.nights) / Math.max(1, t.personsPerRoom),
-      0
-    )
+      const lodging = plan.lodgingRooms > 0
+        ? plan.lodgingRate * plan.lodgingNights * plan.lodgingRooms
+        : plan.travellers.reduce(
+        (sum, t) => sum + (t.lodgingRate * t.nights) / Math.max(1, t.personsPerRoom),
+        0
+      )
     supervisionBudgetEstimate += fuel + perDiem + lodging
   }
 
