@@ -43,10 +43,10 @@ export default defineEventHandler(async (event) => {
   }
   const groupAppointments = await prisma.supervisionAppointment.findMany({
     where: { supervisionGroupId: groupId },
-    select: { status: true }
+    select: { _count: { select: { studentEvaluations: true, companyEvaluations: true } } }
   })
-  if (groupAppointments.some((appointment: any) => appointment.status === 'COMPLETED')) {
-    throw createError({ statusCode: 400, message: 'ไม่สามารถแก้ไขกลุ่มที่มีรายการนิเทศประเมินเสร็จแล้ว' })
+  if (groupAppointments.some((appointment: any) => appointment._count.studentEvaluations || appointment._count.companyEvaluations)) {
+    throw createError({ statusCode: 400, message: 'ไม่สามารถแก้ไขแผนกลุ่มที่มีผลประเมินแล้ว' })
   }
 
   const teacherUserIds: number[] = [...new Set<number>(body.teacherUserIds.map((id: unknown): number => validatePositiveId(id, 'รหัสอาจารย์')))]

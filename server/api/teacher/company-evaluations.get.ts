@@ -1,7 +1,7 @@
 export default defineEventHandler(async (event) => {
   const user = await requireRole(event, 'TEACHER')
   const appointments = await prisma.supervisionAppointment.findMany({
-    where: { teachers: { some: { teacherUserId: user.id } }, status: { in: ['PUBLISHED', 'RESCHEDULED', 'COMPLETED'] } },
+    where: { supervisionGroup: { teachers: { some: { teacherUserId: user.id } } }, status: { in: ['PUBLISHED', 'RESCHEDULED', 'COMPLETED'] } },
     include: { supervisionGroup: { select: { name: true } }, supervisionRound: { select: { roundNo: true, cooperativeCycle: { select: { term: true, academicYear: true } } } }, companyEvaluations: { where: { teacherUserId: user.id } } },
     orderBy: { scheduledDate: 'asc' }
   })

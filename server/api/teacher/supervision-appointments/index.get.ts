@@ -3,7 +3,7 @@ export default defineEventHandler(async (event) => {
   const appointments = await prisma.supervisionAppointment.findMany({
     where: {
       status: { in: ['PUBLISHED', 'RESCHEDULED', 'COMPLETED'] },
-      teachers: { some: { teacherUserId: teacher.id } }
+      supervisionGroup: { teachers: { some: { teacherUserId: teacher.id } } }
     },
     orderBy: [{ scheduledDate: 'asc' }, { id: 'asc' }],
     include: {

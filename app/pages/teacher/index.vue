@@ -15,47 +15,28 @@ interface Appointment {
   students: Array<{ studentUser: { id: number; loginId: string; prefix: string | null; firstName: string | null; lastName: string | null } }>
 }
 
-const notify = useNotify()
-const selectedAppointment = ref<Appointment | null>(null)
-const evaluationNote = ref('')
-const isCompleteOpen = ref(false)
-const isCompleting = ref(false)
 const { data, status, refresh } = await useFetch<{ appointments: Appointment[] }>('/api/teacher/supervision-appointments')
-const appointments = computed(() => data.value?.appointments || [])
+const statusFilter = ref<'ALL' | Appointment['status']>('ALL')
+const appointments = computed(() => (data.value?.appointments || []).filter(appointment => statusFilter.value === 'ALL' || appointment.status === statusFilter.value))
+const statusOptions = [
+  { label: 'ทุกสถานะ', value: 'ALL' },
+  { label: 'รอการนิเทศ', value: 'PUBLISHED' },
+  { label: 'เลื่อนนัด', value: 'RESCHEDULED' },
+  { label: 'นิเทศเสร็จแล้ว', value: 'COMPLETED' }
+]
 const formatDate = (date: string) => new Date(date).toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' })
 const periodLabel = (period: string) => ({ MORNING: 'ช่วงเช้า', AFTERNOON: 'ช่วงบ่าย', FULL_DAY: 'เต็มวัน' }[period] || period)
-const openComplete = (appointment: Appointment) => {
-  selectedAppointment.value = appointment
-  evaluationNote.value = appointment.evaluationNote || ''
-  isCompleteOpen.value = true
-}
-const completeEvaluation = async () => {
-  if (!selectedAppointment.value) return
-  isCompleting.value = true
-  try {
-    await $fetch(`/api/teacher/supervision-appointments/${selectedAppointment.value.id}/complete`, { method: 'POST', body: { evaluationNote: evaluationNote.value } })
-    notify.success('บันทึกผลและจบการประเมินเรียบร้อยแล้ว')
-    isCompleteOpen.value = false
-    await refresh()
-  } catch (error: any) {
-    notify.error(error.data?.message || 'ไม่สามารถบันทึกผลการประเมินได้')
-  } finally {
-    isCompleting.value = false
-  }
-}
 </script>
 
 <template>
   <UDashboardPanel id="teacher-overview">
     <template #header>
-      <UDashboardNavbar title="งานนิเทศและการประเมิน">
-        <template #leading><UDashboardSidebarCollapse /></template>
-        <template #right><UIButtonRefresh :loading="status === 'pending'" @refresh="refresh" /></template>
-      </UDashboardNavbar>
+      <UDashboardNavbar title="งานนิเทศและการประเมิน"><template #leading><UDashboardSidebarCollapse /></template></UDashboardNavbar>
     </template>
     <template #body>
       <div class="space-y-4">
-        <UAlert color="info" variant="subtle" icon="i-lucide-clipboard-check" title="รายการที่ได้รับมอบหมาย" description="เลือกงานนิเทศของท่านเพื่อบันทึกผลและจบการประเมิน" />
+        <UAlert color="info" variant="subtle" icon="i-lucide-clipboard-check" title="รายการที่ได้รับมอบหมาย" description="อาจารย์ทุกคนในกลุ่มสามารถประเมินและแก้ไขผลได้ทันทีจากตารางนิเทศ" />
+        <div class="flex flex-col gap-3 sm:flex-row sm:justify-end"><USelect v-model="statusFilter" :items="statusOptions" value-key="value" class="sm:w-48" aria-label="กรองตามสถานะ" /><UIButtonRefresh class="self-start sm:self-auto" :loading="status === 'pending'" @refresh="refresh" /></div>
         <div v-if="status === 'pending'" class="py-12 text-center text-muted"><UIcon name="i-lucide-loader-2" class="size-7 animate-spin mx-auto" /></div>
         <div v-else-if="appointments.length" class="grid gap-3">
           <article v-for="appointment in appointments" :key="appointment.id" class="rounded-lg border border-default bg-default p-4">
@@ -67,7 +48,7 @@ const completeEvaluation = async () => {
                 <p class="mt-2 text-sm text-muted">นักศึกษา: {{ appointment.students.map(item => `${item.studentUser.prefix || ''}${item.studentUser.firstName || ''} ${item.studentUser.lastName || ''}`).join(', ') }}</p>
                 <p v-if="appointment.evaluationNote" class="mt-2 rounded bg-muted/30 p-2 text-sm text-muted">บันทึกผล: {{ appointment.evaluationNote }}</p>
               </div>
-              <UButton v-if="appointment.status !== 'COMPLETED'" label="ประเมินและจบงาน" icon="i-lucide-clipboard-check" color="primary" @click="openComplete(appointment)" />
+              <UButton label="ดูรายละเอียด" icon="i-lucide-calendar-days" color="primary" :to="{ path: '/teacher/visits', query: { appointmentId: String(appointment.id) } }" />
             </div>
           </article>
         </div>
@@ -76,8 +57,4 @@ const completeEvaluation = async () => {
     </template>
   </UDashboardPanel>
 
-  <UModal v-model:open="isCompleteOpen" title="บันทึกผลการประเมิน">
-    <template #body><div class="space-y-3"><p class="text-sm text-muted">{{ selectedAppointment?.companyName }}</p><label class="block text-sm font-medium text-highlighted" for="evaluation-note">บันทึกผลการนิเทศ</label><UTextarea id="evaluation-note" v-model="evaluationNote" class="w-full" :rows="5" placeholder="สรุปผลการนิเทศหรือข้อเสนอแนะ (ถ้ามี)" /></div></template>
-    <template #footer><div class="flex w-full justify-end gap-2"><UButton label="ยกเลิก" color="neutral" variant="outline" @click="isCompleteOpen = false" /><UButton label="บันทึกและจบการประเมิน" color="success" :loading="isCompleting" @click="completeEvaluation" /></div></template>
-  </UModal>
 </template>

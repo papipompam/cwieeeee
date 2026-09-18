@@ -12,8 +12,9 @@ import assert from 'node:assert/strict'
 ;(globalThis as any).getQuery = (event: any) => event.context?.query || {}
 ;(globalThis as any).readBody = async (event: any) => event._body
 
-import { prisma } from '../server/utils/db'
+import { isUniqueConstraintError, prisma } from '../server/utils/db'
 ;(globalThis as any).prisma = prisma
+;(globalThis as any).isUniqueConstraintError = isUniqueConstraintError
 
 import * as cycleUtils from '../server/utils/cycle'
 import * as supervisionUtils from '../server/utils/supervision'
@@ -79,7 +80,8 @@ async function run() {
   const listTravelPlansHandler = (await import('../server/api/staff/cooperative-cycles/[cycleId]/supervision/rounds/[roundId]/travel-plans/index.get')).default
   const supervisionSummaryHandler = (await import('../server/api/staff/cooperative-cycles/[cycleId]/supervision/summary.get')).default
   const listTeacherAppointmentsHandler = (await import('../server/api/teacher/supervision-appointments/index.get')).default
-  const completeTeacherAppointmentHandler = (await import('../server/api/teacher/supervision-appointments/[appointmentId]/complete.post')).default
+  const submitStudentEvaluationHandler = (await import('../server/api/teacher/student-evaluations/[appointmentId]/[studentId].put')).default
+  const submitCompanyEvaluationHandler = (await import('../server/api/teacher/company-evaluations/[appointmentId].put')).default
 
   let staffUser: any
   let teacher1User: any
@@ -740,35 +742,71 @@ async function run() {
     assert.equal(summaryRes.travelPlansCount, 2)
     assert.equal(summaryRes.totalBudgetEstimate, 4290)
 
-    // TEST 15: Teachers can see only their assigned work and complete an evaluation once.
-    console.log('\n--- TEST 15: Teacher evaluation workflow ---')
+    // TEST 15: Every teacher in the group can access an appointment, including one not assigned to them individually.
+    console.log('\n--- TEST 15: Teacher group access ---')
     const teacher1Appointments: any = await listTeacherAppointmentsHandler(createMockEvent({ staffUser: teacher1User }) as any)
     assert(teacher1Appointments.appointments.every((appointment: any) => appointment.id !== apptId), 'Cancelled appointments must not be shown to teachers')
 
+    assert(updatedAppointment, 'Planned appointment must exist for teacher group access test')
+    await prisma.supervisionGroupTeacher.create({
+      data: { supervisionRoundId: round2Id, supervisionGroupId: plannedGroupRes.group.id, teacherUserId: teacher2User.id }
+    })
     const teacher2Appointments: any = await listTeacherAppointmentsHandler(createMockEvent({ staffUser: teacher2User }) as any)
-    assert(teacher2Appointments.appointments.some((appointment: any) => appointment.id === appt2Id), 'Teacher must see their published assignment')
+    assert(teacher2Appointments.appointments.some((appointment: any) => appointment.id === updatedAppointment.id), 'A teacher in the group must see a published appointment even when it is assigned to another teacher')
 
-    const completeEvent = createMockEvent({
-      params: { appointmentId: String(appt2Id) },
-      body: { evaluationNote: 'นิเทศเรียบร้อย นักศึกษาได้รับคำแนะนำแล้ว' },
+    // TEST 16: Evaluations can be saved before the visit and edited later by the same group teacher.
+    console.log('\n--- TEST 16: Immediate and editable teacher evaluations ---')
+    const studentEvaluationEvent = createMockEvent({
+      params: { appointmentId: String(updatedAppointment.id), studentId: String(student1User.id) },
+      body: { responsibilityScore: 4, disciplineScore: 4, communicationScore: 4, knowledgeScore: 4, workQualityScore: 4, problemSolvingScore: 4 },
       staffUser: teacher2User
     })
-    await completeTeacherAppointmentHandler(completeEvent as any)
-    const completedAppointment = await prisma.supervisionAppointment.findUniqueOrThrow({ where: { id: appt2Id } })
-    assert.equal(completedAppointment.status, 'COMPLETED')
-    assert.equal(completedAppointment.evaluationNote, 'นิเทศเรียบร้อย นักศึกษาได้รับคำแนะนำแล้ว')
-    assert(completedAppointment.evaluatedAt, 'Completing an evaluation must record the completion time')
+    await assert.rejects(
+      async () => await submitStudentEvaluationHandler(createMockEvent({ params: studentEvaluationEvent.context.params, body: {}, staffUser: teacher2User }) as any),
+      (err: any) => err.statusCode === 400,
+      'Incomplete student evaluation must be rejected'
+    )
+    await submitStudentEvaluationHandler(studentEvaluationEvent as any)
+    await submitStudentEvaluationHandler(createMockEvent({
+      params: studentEvaluationEvent.context.params,
+      body: { responsibilityScore: 5, disciplineScore: 4, communicationScore: 4, knowledgeScore: 4, workQualityScore: 4, problemSolvingScore: 4 },
+      staffUser: teacher2User
+    }) as any)
+    const editedStudentEvaluation = await prisma.studentEvaluation.findUniqueOrThrow({
+      where: { appointment_student_teacher: { appointmentId: updatedAppointment.id, studentUserId: student1User.id, teacherUserId: teacher2User.id } }
+    })
+    assert.equal(editedStudentEvaluation.responsibilityScore, 5, 'A teacher must be able to edit their submitted student evaluation')
+
+    const companyEvaluationEvent = createMockEvent({
+      params: { appointmentId: String(updatedAppointment.id) },
+      body: Object.fromEntries(['workAlignmentScore', 'workScopeScore', 'learningOpportunityScore', 'supervisorReadinessScore', 'studentSupportScore', 'environmentScore', 'safetyScore', 'resourcesScore', 'welfareScore', 'travelScore', 'transportScore', 'accommodationScore', 'coordinationScore'].map(key => [key, 4])),
+      staffUser: teacher2User
+    })
+    await submitCompanyEvaluationHandler(companyEvaluationEvent as any)
+    await submitCompanyEvaluationHandler(createMockEvent({
+      params: companyEvaluationEvent.context.params,
+      body: Object.fromEntries(['workAlignmentScore', 'workScopeScore', 'learningOpportunityScore', 'supervisorReadinessScore', 'studentSupportScore', 'environmentScore', 'safetyScore', 'resourcesScore', 'welfareScore', 'travelScore', 'transportScore', 'accommodationScore', 'coordinationScore'].map(key => [key, 5])),
+      staffUser: teacher2User
+    }) as any)
+    const editedCompanyEvaluation = await prisma.companyEvaluation.findUniqueOrThrow({
+      where: { appointment_teacher_company_evaluation: { appointmentId: updatedAppointment.id, teacherUserId: teacher2User.id } }
+    })
+    assert.equal(editedCompanyEvaluation.workAlignmentScore, 5, 'A teacher must be able to edit their submitted company evaluation')
 
     await assert.rejects(
-      async () => await completeTeacherAppointmentHandler(completeEvent as any),
-      (err: any) => {
-        assert.equal(err.statusCode, 409)
-        return true
-      },
-      'A completed evaluation cannot be completed twice'
+      async () => await updateGroupHandler(createMockEvent({
+        params: { cycleId: String(cycle1.id), roundId: String(round2Id), groupId: String(plannedGroupRes.group.id) },
+        body: {
+          teacherUserIds: [teacher1User.id, teacher2User.id],
+          companyPlans: [{ companyId: company1.id, scheduledDate: '2055-04-13', period: 'AFTERNOON', distanceKmFromPrevious: 24 }]
+        },
+        staffUser
+      }) as any),
+      (err: any) => err.statusCode === 400,
+      'Updating a group must not delete appointments that already have evaluations'
     )
 
-    console.log('\n🎉 ALL 15 INTEGRATION TESTS PASSED PERFECTLY!')
+    console.log('\n🎉 ALL 16 INTEGRATION TESTS PASSED PERFECTLY!')
   } finally {
     // Teardown / Cleanup
     console.log('\n🧹 Cleaning up test fixtures...')

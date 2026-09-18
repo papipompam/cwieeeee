@@ -4,7 +4,7 @@ export default defineEventHandler(async (event) => {
   const appointments = await prisma.supervisionAppointment.findMany({
     where: {
       status: { in: ['PUBLISHED', 'RESCHEDULED', 'COMPLETED', 'CANCELLED'] },
-      teachers: { some: { teacherUserId: user.id } }
+      supervisionGroup: { teachers: { some: { teacherUserId: user.id } } }
     },
     include: {
       supervisionGroup: { select: { id: true, name: true } },

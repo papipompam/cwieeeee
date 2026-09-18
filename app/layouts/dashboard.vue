@@ -141,7 +141,7 @@ const teacherLinks: NavigationMenuItem[] = [
   },
   {
     label: 'ข้อมูลสถานประกอบการ',
-    icon: 'i-lucide-building-2',
+    icon: 'i-lucide-building-complex',
     to: '/teacher/companies',
     onSelect: handleSelect
   }

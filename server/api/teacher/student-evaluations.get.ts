@@ -1,7 +1,7 @@
 export default defineEventHandler(async (event) => {
   const user = await requireRole(event, 'TEACHER')
   const appointments = await prisma.supervisionAppointment.findMany({
-    where: { teachers: { some: { teacherUserId: user.id } }, status: { in: ['PUBLISHED', 'RESCHEDULED', 'COMPLETED'] } },
+    where: { supervisionGroup: { teachers: { some: { teacherUserId: user.id } } }, status: { in: ['PUBLISHED', 'RESCHEDULED', 'COMPLETED'] } },
     include: {
       supervisionGroup: { select: { name: true } },
       supervisionRound: { select: { roundNo: true, cooperativeCycle: { select: { term: true, academicYear: true } } } },
@@ -22,7 +22,6 @@ export default defineEventHandler(async (event) => {
       cycle: appointment.supervisionRound.cooperativeCycle,
       student: { id: studentUser.id, studentId: studentUser.loginId, name: [studentUser.prefix, studentUser.firstName, studentUser.lastName].filter(Boolean).join(' '), position: cooperativeRequest?.position ?? null },
       evaluation: evaluation ? {
-        status: evaluation.status,
         responsibilityScore: evaluation.responsibilityScore,
         disciplineScore: evaluation.disciplineScore,
         communicationScore: evaluation.communicationScore,

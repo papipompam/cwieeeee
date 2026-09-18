@@ -275,11 +275,6 @@ enum SupervisionAppointmentStatus {
   CANCELLED
 }
 
-enum StudentEvaluationStatus {
-  DRAFT
-  SUBMITTED
-}
-
 model SupervisionRound {
   id                 Int                    @id @default(autoincrement())
   cooperativeCycleId Int                    @map("cooperative_cycle_id")
@@ -427,13 +422,12 @@ model StudentEvaluation {
   problems            String?
   recommendations     String?
   followUp            String?                 @map("follow_up")
-  status              StudentEvaluationStatus @default(DRAFT)
-  submittedAt         DateTime?               @map("submitted_at")
+  submittedAt         DateTime                 @default(now()) @map("submitted_at")
   createdAt           DateTime                @default(now()) @map("created_at")
   updatedAt           DateTime                @updatedAt @map("updated_at")
 
   @@unique([appointmentId, studentUserId, teacherUserId], name: "appointment_student_teacher")
-  @@index([teacherUserId, status])
+  @@index([teacherUserId])
   @@index([studentUserId])
   @@map("student_evaluations")
 }
@@ -462,13 +456,12 @@ model CompanyEvaluation {
   problems               String?
   recommendations        String?
   futureRecommendation   String?                 @map("future_recommendation")
-  status                 StudentEvaluationStatus @default(DRAFT)
-  submittedAt            DateTime?               @map("submitted_at")
+  submittedAt            DateTime                 @default(now()) @map("submitted_at")
   createdAt              DateTime                @default(now()) @map("created_at")
   updatedAt              DateTime                @updatedAt @map("updated_at")
 
   @@unique([appointmentId, teacherUserId], name: "appointment_teacher_company_evaluation")
-  @@index([teacherUserId, status])
+  @@index([teacherUserId])
   @@map("company_evaluations")
 }
 
