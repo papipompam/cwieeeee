@@ -7,5 +7,10 @@ export default defineEventHandler(async (event) => {
     return
   }
 
+  if (path.startsWith('/api/teacher/')) {
+    await requireRole(event, 'TEACHER')
+    return
+  }
+
   await requireRole(event, 'STAFF')
 })
