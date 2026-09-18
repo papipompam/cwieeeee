@@ -78,6 +78,8 @@ async function run() {
   const createTravelPlanHandler = (await import('../server/api/staff/cooperative-cycles/[cycleId]/supervision/rounds/[roundId]/travel-plans/index.post')).default
   const listTravelPlansHandler = (await import('../server/api/staff/cooperative-cycles/[cycleId]/supervision/rounds/[roundId]/travel-plans/index.get')).default
   const supervisionSummaryHandler = (await import('../server/api/staff/cooperative-cycles/[cycleId]/supervision/summary.get')).default
+  const listTeacherAppointmentsHandler = (await import('../server/api/teacher/supervision-appointments/index.get')).default
+  const completeTeacherAppointmentHandler = (await import('../server/api/teacher/supervision-appointments/[appointmentId]/complete.post')).default
 
   let staffUser: any
   let teacher1User: any
@@ -346,7 +348,7 @@ async function run() {
     const groupARes: any = await createGroupHandler(createGroupAEvent as any)
     const groupAId = groupARes.group.id
 
-    // The planning flow creates group members, draft appointments, and travel budget together.
+    // The planning flow creates group members, published appointments, and travel budget together.
     const createPlannedGroupEvent = createMockEvent({
       params: { cycleId: String(cycle1.id), roundId: String(round2Id) },
       body: {
@@ -369,7 +371,8 @@ async function run() {
       where: { supervisionGroupId: plannedGroupRes.group.id },
       include: { teachers: true, students: true, travelStops: { include: { travelPlan: { include: { travellers: true } } } } }
     })
-    assert.equal(plannedAppointments.length, 2, 'Complete group creation should create draft appointments for every company')
+    assert.equal(plannedAppointments.length, 2, 'Complete group creation should create an appointment for every company')
+    assert(plannedAppointments.every(appointment => appointment.status === 'PUBLISHED'), 'Group scheduling must publish appointments without a separate draft step')
     assert.deepEqual(new Set(plannedAppointments.map(appointment => appointment.teachers[0]?.teacherUserId)), new Set([teacher1User.id, teacher2User.id]), 'Companies in the same slot should receive different selected teachers')
     assert.equal(plannedAppointments[0]!.students.length, 1)
     assert.equal(plannedAppointments[0]!.travelStops.length, 1, 'Appointment should be included in its travel budget')
@@ -390,7 +393,7 @@ async function run() {
       where: { supervisionGroupId: plannedGroupRes.group.id },
       include: { travelStops: { include: { travelPlan: true } } }
     })
-    assert.equal(updatedAppointment?.scheduledDate.toISOString().slice(0, 10), '2055-04-13', 'Draft group plan should remain editable')
+    assert.equal(updatedAppointment?.scheduledDate.toISOString().slice(0, 10), '2055-04-13', 'Published group plan should remain editable before evaluation is completed')
     assert.equal(updatedAppointment?.period, 'AFTERNOON')
     assert.equal(updatedAppointment?.travelStops[0]?.distanceKmFromPrevious, 24)
     assert.equal(updatedAppointment?.travelStops[0]?.travelPlan.fuelRate, 5)
@@ -737,7 +740,35 @@ async function run() {
     assert.equal(summaryRes.travelPlansCount, 2)
     assert.equal(summaryRes.totalBudgetEstimate, 4290)
 
-    console.log('\n🎉 ALL 14 INTEGRATION TESTS PASSED PERFECTLY!')
+    // TEST 15: Teachers can see only their assigned work and complete an evaluation once.
+    console.log('\n--- TEST 15: Teacher evaluation workflow ---')
+    const teacher1Appointments: any = await listTeacherAppointmentsHandler(createMockEvent({ staffUser: teacher1User }) as any)
+    assert(teacher1Appointments.appointments.every((appointment: any) => appointment.id !== apptId), 'Cancelled appointments must not be shown to teachers')
+
+    const teacher2Appointments: any = await listTeacherAppointmentsHandler(createMockEvent({ staffUser: teacher2User }) as any)
+    assert(teacher2Appointments.appointments.some((appointment: any) => appointment.id === appt2Id), 'Teacher must see their published assignment')
+
+    const completeEvent = createMockEvent({
+      params: { appointmentId: String(appt2Id) },
+      body: { evaluationNote: 'นิเทศเรียบร้อย นักศึกษาได้รับคำแนะนำแล้ว' },
+      staffUser: teacher2User
+    })
+    await completeTeacherAppointmentHandler(completeEvent as any)
+    const completedAppointment = await prisma.supervisionAppointment.findUniqueOrThrow({ where: { id: appt2Id } })
+    assert.equal(completedAppointment.status, 'COMPLETED')
+    assert.equal(completedAppointment.evaluationNote, 'นิเทศเรียบร้อย นักศึกษาได้รับคำแนะนำแล้ว')
+    assert(completedAppointment.evaluatedAt, 'Completing an evaluation must record the completion time')
+
+    await assert.rejects(
+      async () => await completeTeacherAppointmentHandler(completeEvent as any),
+      (err: any) => {
+        assert.equal(err.statusCode, 409)
+        return true
+      },
+      'A completed evaluation cannot be completed twice'
+    )
+
+    console.log('\n🎉 ALL 15 INTEGRATION TESTS PASSED PERFECTLY!')
   } finally {
     // Teardown / Cleanup
     console.log('\n🧹 Cleaning up test fixtures...')

@@ -10,6 +10,7 @@ export default defineEventHandler(async (event) => {
   const status = typeof query.status === 'string' && query.status.trim() ? query.status.trim() : undefined
   const province = typeof query.province === 'string' && query.province.trim() ? query.province.trim() : undefined
   const search = typeof query.search === 'string' ? query.search.trim() : ''
+  const excludeDrafts = query.excludeDrafts === 'true'
 
   const where: any = {
     supervisionRoundId: roundId
@@ -21,6 +22,8 @@ export default defineEventHandler(async (event) => {
 
   if (status) {
     where.status = status
+  } else if (excludeDrafts) {
+    where.status = { not: 'DRAFT' }
   }
 
   if (province) {
@@ -128,6 +131,8 @@ export default defineEventHandler(async (event) => {
       changeReason: a.changeReason,
       cancelReason: a.cancelReason,
       publishedAt: a.publishedAt,
+      evaluationNote: a.evaluationNote,
+      evaluatedAt: a.evaluatedAt,
       studentsCount: a.students.length,
       students: a.students.map((s: any) => ({
         id: s.studentUser.id,

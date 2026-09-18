@@ -4,44 +4,34 @@ import type { Ref } from 'vue'
 
 interface AppointmentStudent {
   id: number
-  studentUserId: number
-  student: {
-    id: number
-    loginId: string
-    prefix: string | null
-    firstName: string | null
-    lastName: string | null
-  }
+  loginId: string
+  prefix: string | null
+  firstName: string | null
+  lastName: string | null
 }
 
 interface AppointmentTeacher {
   id: number
-  teacherUserId: number
-  teacher: {
-    id: number
-    loginId: string
-    prefix: string | null
-    firstName: string | null
-    lastName: string | null
-  }
+  teacherId: string
+  prefix: string | null
+  firstName: string | null
+  lastName: string | null
 }
 
 interface SupervisionAppointmentRow {
   id: number
   scheduledDate: string
   period: string
-  visitType: string
   status: string
+  evaluationNote: string | null
+  evaluatedAt: string | null
   group: {
     id: number
     name: string
     color: string | null
   }
-  company: {
-    id: number
-    name: string
-    province: string | null
-  }
+  companyName: string
+  province: string | null
   students: AppointmentStudent[]
   teachers: AppointmentTeacher[]
 }
@@ -91,9 +81,14 @@ const { data, status: fetchStatus, refresh } = await useFetch<AppointmentsRespon
       search: searchQuery.value || undefined,
       pageSize: 100
     })),
-    watch: [selectedRoundId, searchQuery]
+    immediate: false,
+    watch: false
   }
 )
+
+watch([selectedRoundId, searchQuery], () => {
+  if (selectedRoundId.value) refresh()
+}, { immediate: true })
 
 const appointments = computed<SupervisionAppointmentRow[]>(() => data.value?.appointments || [])
 
@@ -116,6 +111,12 @@ const formatDate = (dateStr: string) => {
   if (isNaN(d.getTime())) return dateStr
   return d.toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' })
 }
+
+const periodLabel = (period: string) => ({
+  MORNING: 'ช่วงเช้า',
+  AFTERNOON: 'ช่วงบ่าย',
+  FULL_DAY: 'เต็มวัน'
+}[period] || period)
 
 const columns: TableColumn<SupervisionAppointmentRow>[] = [
   {
@@ -183,7 +184,7 @@ const columns: TableColumn<SupervisionAppointmentRow>[] = [
       <div class="text-xs">
         <div class="font-semibold text-highlighted">หมายเหตุการให้คะแนนและบันทึกผลการประเมิน</div>
         <p class="text-muted mt-0.5 leading-relaxed">
-          การกรอกแบบประเมินและให้คะแนนผลการนิเทศเป็นหน้าที่ของอาจารย์นิเทศผ่านระบบอาจารย์ในเฟสถัดไป หน้าจอนี้มีไว้สำหรับเจ้าหน้าที่ใช้ติดตามสถานะความคืบหน้าว่าการนิเทศรายการใดดำเนินการเสร็จสิ้นแล้วและพร้อมส่งต่อเข้าสู่กระบวนการประเมินผล
+          อาจารย์ที่ได้รับมอบหมายจะบันทึกผลและจบการประเมินจากหน้าของตนเอง หน้านี้สำหรับเจ้าหน้าที่ใช้ติดตามผลเท่านั้น
         </p>
       </div>
     </div>
@@ -212,7 +213,7 @@ const columns: TableColumn<SupervisionAppointmentRow>[] = [
       </div>
 
       <div class="p-3.5 rounded-lg border border-default bg-default shadow-xs">
-        <div class="text-xs text-muted">นิเทศแล้ว/รอส่งผลประเมิน</div>
+          <div class="text-xs text-muted">ประเมินเสร็จแล้ว</div>
         <div class="text-xl font-bold text-success mt-1">
           {{ trackingMetrics.completed }} รายการ
         </div>
@@ -251,11 +252,11 @@ const columns: TableColumn<SupervisionAppointmentRow>[] = [
           <template #company-cell="{ row }">
             <div>
               <div class="font-semibold text-xs text-highlighted">
-                {{ row.original.company.name }}
+                {{ row.original.companyName }}
               </div>
               <div class="text-[11px] text-muted mt-0.5 flex items-center gap-1">
                 <UIcon name="i-lucide-map-pin" class="size-3 shrink-0" />
-                <span>{{ row.original.company.province || 'ไม่ระบุจังหวัด' }}</span>
+                <span>{{ row.original.province || 'ไม่ระบุจังหวัด' }}</span>
                 <span>· {{ row.original.group.name }}</span>
               </div>
             </div>
@@ -269,7 +270,7 @@ const columns: TableColumn<SupervisionAppointmentRow>[] = [
                 {{ formatDate(row.original.scheduledDate) }}
               </div>
               <div class="text-[11px] text-muted mt-0.5">
-                {{ row.original.visitType === 'ON_SITE' ? 'ลงพื้นที่ (On-site)' : 'ออนไลน์ (Online)' }}
+                {{ periodLabel(row.original.period) }}
               </div>
             </div>
           </template>
@@ -282,7 +283,7 @@ const columns: TableColumn<SupervisionAppointmentRow>[] = [
                 :key="t.id"
                 class="truncate text-highlighted font-medium"
               >
-                {{ t.teacher.prefix }}{{ t.teacher.firstName }} {{ t.teacher.lastName }}
+                {{ t.prefix }}{{ t.firstName }} {{ t.lastName }}
               </div>
               <div v-if="row.original.teachers.length === 0" class="text-muted italic text-[11px]">
                 ยังไม่ระบุอาจารย์
@@ -297,7 +298,7 @@ const columns: TableColumn<SupervisionAppointmentRow>[] = [
                 {{ row.original.students.length }} คน
               </div>
               <div class="text-[11px] text-muted truncate">
-                {{ row.original.students.map(s => `${s.student.prefix || ''}${s.student.firstName}`).join(', ') }}
+                {{ row.original.students.map(s => `${s.prefix || ''}${s.firstName}`).join(', ') }}
               </div>
             </div>
           </template>
@@ -306,8 +307,9 @@ const columns: TableColumn<SupervisionAppointmentRow>[] = [
           <template #evaluationStatus-cell="{ row }">
             <div>
               <template v-if="row.original.status === 'COMPLETED'">
-                <UBadge label="นิเทศแล้ว - รอผลประเมินจากอาจารย์" color="info" variant="subtle" size="xs" />
-                <div class="text-[11px] text-muted mt-0.5">รออาจารย์บันทึกผลในระบบ</div>
+                <UBadge label="ประเมินเสร็จแล้ว" color="success" variant="subtle" size="xs" />
+                <div v-if="row.original.evaluatedAt" class="text-[11px] text-muted mt-0.5">บันทึกเมื่อ {{ formatDate(row.original.evaluatedAt) }}</div>
+                <div v-if="row.original.evaluationNote" class="mt-1 line-clamp-2 text-[11px] text-muted">{{ row.original.evaluationNote }}</div>
               </template>
               <template v-else-if="row.original.status === 'PUBLISHED' || row.original.status === 'RESCHEDULED'">
                 <UBadge label="รอออกตรวจนิเทศตามนัดหมาย" color="warning" variant="subtle" size="xs" />

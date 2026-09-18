@@ -45,8 +45,8 @@ export default defineEventHandler(async (event) => {
     where: { supervisionGroupId: groupId },
     select: { status: true }
   })
-  if (groupAppointments.some((appointment: any) => appointment.status !== 'DRAFT')) {
-    throw createError({ statusCode: 400, message: 'ไม่สามารถแก้ไขแผนกลุ่มที่มีตารางนิเทศเผยแพร่หรือเสร็จสิ้นแล้ว กรุณาแก้ไขรายการนัดหมายโดยตรง' })
+  if (groupAppointments.some((appointment: any) => appointment.status === 'COMPLETED')) {
+    throw createError({ statusCode: 400, message: 'ไม่สามารถแก้ไขกลุ่มที่มีรายการนิเทศประเมินเสร็จแล้ว' })
   }
 
   const teacherUserIds: number[] = [...new Set<number>(body.teacherUserIds.map((id: unknown): number => validatePositiveId(id, 'รหัสอาจารย์')))]
@@ -119,7 +119,7 @@ export default defineEventHandler(async (event) => {
     for (const plan of companyPlans) {
       const company = companyById.get(plan.companyId)!
       const companyAddress = [company.addressNo, company.moo ? `หมู่ ${company.moo}` : '', company.soi ? `ซอย${company.soi}` : '', company.street ? `ถนน${company.street}` : '', company.subdistrict ? `ต.${company.subdistrict}` : '', company.district ? `อ.${company.district}` : '', company.province ? `จ.${company.province}` : '', company.postalCode].filter(Boolean).join(' ')
-      const appointment = await tx.supervisionAppointment.create({ data: { supervisionRoundId: roundId, supervisionGroupId: groupId, companyId: plan.companyId, companyName: company.name, companyAddress, province: company.province, latitude: company.latitude, longitude: company.longitude, scheduledDate: plan.scheduledDate, period: plan.period, timeNote: plan.timeNote, students: { create: (studentsByCompany.get(plan.companyId) || []).map(student => ({ studentUserId: student.studentUserId, cooperativeRequestId: student.requestId })) }, teachers: { create: appointmentTeacherIds.get(plan.companyId)!.map(teacherUserId => ({ teacherUserId })) } } })
+      const appointment = await tx.supervisionAppointment.create({ data: { supervisionRoundId: roundId, supervisionGroupId: groupId, companyId: plan.companyId, companyName: company.name, companyAddress, province: company.province, latitude: company.latitude, longitude: company.longitude, scheduledDate: plan.scheduledDate, period: plan.period, timeNote: plan.timeNote, status: 'PUBLISHED', publishedAt: new Date(), students: { create: (studentsByCompany.get(plan.companyId) || []).map(student => ({ studentUserId: student.studentUserId, cooperativeRequestId: student.requestId })) }, teachers: { create: appointmentTeacherIds.get(plan.companyId)!.map(teacherUserId => ({ teacherUserId })) } } })
       appointments.push({ id: appointment.id, scheduledDate: plan.scheduledDate, distanceKmFromPrevious: plan.distanceKmFromPrevious })
     }
     if (budget) {

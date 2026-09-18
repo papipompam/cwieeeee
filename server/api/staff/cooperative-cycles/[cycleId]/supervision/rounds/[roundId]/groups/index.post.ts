@@ -170,7 +170,7 @@ export default defineEventHandler(async (event) => {
             supervisionRoundId: roundId, supervisionGroupId: group.id, companyId: plan.companyId,
             companyName: company.name, companyAddress, province: company.province, latitude: company.latitude,
             longitude: company.longitude, scheduledDate: plan.scheduledDate, period: plan.period,
-            timeNote: plan.timeNote,
+            timeNote: plan.timeNote, status: 'PUBLISHED', publishedAt: new Date(),
             students: { create: students.map(student => ({ studentUserId: student.studentUserId, cooperativeRequestId: student.requestId })) },
             teachers: { create: appointmentTeacherIds.get(plan.companyId)!.map(teacherUserId => ({ teacherUserId })) }
           }

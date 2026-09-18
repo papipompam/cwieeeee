@@ -358,6 +358,8 @@ model SupervisionAppointment {
   changeReason       String?                      @map("change_reason")
   cancelReason       String?                      @map("cancel_reason")
   publishedAt        DateTime?                    @map("published_at")
+  evaluationNote     String?                      @map("evaluation_note")
+  evaluatedAt        DateTime?                    @map("evaluated_at")
   students           SupervisionAppointmentStudent[]
   teachers           SupervisionAppointmentTeacher[]
   travelStops        SupervisionTravelStop[]
