@@ -126,6 +126,7 @@ model Company {
   longitude           Float?
   travelNote          String?              @map("travel_note")
   isActive            Boolean              @default(true) @map("is_active")
+  companyIdentityKey  String               @unique @map("company_identity_key")
   companyApplications CompanyApplication[]
   createdAt           DateTime             @default(now()) @map("created_at")
   updatedAt           DateTime             @updatedAt @map("updated_at")

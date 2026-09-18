@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Ref } from "vue"
+import type { Ref } from 'vue'
 
 interface CooperativeCycle {
   id: number
@@ -9,150 +9,197 @@ interface CooperativeCycle {
   status: string
 }
 
+interface SummaryData {
+  cohortStudentsCount: number
+  studentsWithApplicationCount: number
+  submittedRequestsCount: number
+  letterReadyRequestsCount: number
+  pendingReviewRequestsCount: number
+  returnedRequestsCount: number
+  confirmedPlacementsCount: number
+  rejectedRequestsCount: number
+}
+
 const route = useRoute()
 const cycleId = computed(() => Number(route.params.cycleId))
-const cycle = inject<Ref<CooperativeCycle | null>>("currentCycle")
+const cycle = inject<Ref<CooperativeCycle | null>>('currentCycle')
 
-// Fetch students count matching this cohort
-const { data: students } = await useFetch<any[]>("/api/students")
-const cohortStudentsCount = computed(() => {
-  if (!students.value || !cycle?.value) return 0
-  return students.value.filter(s => s.cohortYear === cycle.value?.cohortYear).length
-})
+const { data: summary, status: fetchStatus, refresh } = await useFetch<SummaryData>(
+  () => `/api/staff/cooperative-cycles/${cycleId.value}/summary`
+)
 
 // Summary metrics
-const summaryMetrics = computed(() => [
-  {
-    label: "นักศึกษารุ่นนี้",
-    value: `${cohortStudentsCount.value} คน`,
-    icon: "i-lucide-graduation-cap",
-    color: "primary"
-  },
-  {
-    label: "คำร้องรอตรวจสอบ",
-    value: "0 รายการ",
-    icon: "i-lucide-file-check-2",
-    color: "warning"
-  },
-  {
-    label: "รอจัดอาจารย์นิเทศ",
-    value: "0 คน",
-    icon: "i-lucide-users-round",
-    color: "neutral"
-  },
-  {
-    label: "การนิเทศรอกำหนดวัน",
-    value: "0 ครั้ง",
-    icon: "i-lucide-calendar-days",
-    color: "neutral"
-  },
-  {
-    label: "แบบประเมินคงค้าง",
-    value: "0 ฉบับ",
-    icon: "i-lucide-clipboard-check",
-    color: "neutral"
-  },
-  {
-    label: "งบประมาณรอจัดสรร",
-    value: "0 รายการ",
-    icon: "i-lucide-wallet-cards",
-    color: "neutral"
-  }
-])
+const summaryMetrics = computed(() => {
+  const s = summary.value
+  return [
+    {
+      label: 'นักศึกษารุ่นนี้',
+      value: `${s?.cohortStudentsCount ?? 0} คน`,
+      icon: 'i-lucide-graduation-cap',
+      color: 'primary',
+      to: `/staff/cooperative-cycles/${cycleId.value}/students`
+    },
+    {
+      label: 'คำร้องรอดำเนินการ',
+      value: `${s?.submittedRequestsCount ?? 0} รายการ`,
+      icon: 'i-lucide-file-text',
+      color: (s?.submittedRequestsCount ?? 0) > 0 ? 'warning' : 'neutral',
+      to: `/staff/cooperative-cycles/${cycleId.value}/applications?status=SUBMITTED`
+    },
+    {
+      label: 'เอกสารรอตรวจสอบ',
+      value: `${s?.pendingReviewRequestsCount ?? 0} ฉบับ`,
+      icon: 'i-lucide-file-check-2',
+      color: (s?.pendingReviewRequestsCount ?? 0) > 0 ? 'warning' : 'neutral',
+      to: `/staff/cooperative-cycles/${cycleId.value}/applications?status=DOCUMENT_UNDER_REVIEW`
+    },
+    {
+      label: 'หนังสือพร้อมแล้ว',
+      value: `${s?.letterReadyRequestsCount ?? 0} ฉบับ`,
+      icon: 'i-lucide-stamp',
+      color: 'info',
+      to: `/staff/cooperative-cycles/${cycleId.value}/applications?status=LETTER_READY`
+    },
+    {
+      label: 'ยืนยันสถานที่แล้ว',
+      value: `${s?.confirmedPlacementsCount ?? 0} แห่ง`,
+      icon: 'i-lucide-building-2',
+      color: (s?.confirmedPlacementsCount ?? 0) > 0 ? 'success' : 'neutral',
+      to: `/staff/cooperative-cycles/${cycleId.value}/placements`
+    },
+    {
+      label: 'ส่งกลับแก้ไข',
+      value: `${s?.returnedRequestsCount ?? 0} รายการ`,
+      icon: 'i-lucide-undo-2',
+      color: (s?.returnedRequestsCount ?? 0) > 0 ? 'error' : 'neutral',
+      to: `/staff/cooperative-cycles/${cycleId.value}/applications?status=RETURNED_FOR_REVISION`
+    }
+  ]
+})
 
 // Actionable tasks checklist
-const tasks = computed(() => [
-  {
-    name: "ตรวจสอบคำร้องนักศึกษา",
-    progress: `0/${cohortStudentsCount.value || 0}`,
-    remaining: `${cohortStudentsCount.value || 0} คน`,
-    statusLabel: "เตรียมเปิดรับ",
-    statusColor: "info" as const,
-    actionLabel: "ดูคำร้อง",
-    actionTo: `/staff/cooperative-cycles/${cycleId.value}/applications`
-  },
-  {
-    name: "จัดสถานประกอบการและผู้รับหนังสือ",
-    progress: "0/0",
-    remaining: "0 แห่ง",
-    statusLabel: "ยังไม่เริ่ม",
-    statusColor: "neutral" as const,
-    actionLabel: "จัดสถานประกอบการ",
-    actionTo: `/staff/cooperative-cycles/${cycleId.value}/placements`
-  },
-  {
-    name: "จัดอาจารย์นิเทศประจำกลุ่ม",
-    progress: "0/0",
-    remaining: "0 คน",
-    statusLabel: "ยังไม่เริ่ม",
-    statusColor: "neutral" as const,
-    actionLabel: "จัดกลุ่มอาจารย์",
-    actionTo: `/staff/cooperative-cycles/${cycleId.value}/supervisors`
-  },
-  {
-    name: "กำหนดการนิเทศและตารางตรวจเยี่ยม",
-    progress: "0/0",
-    remaining: "0 ครั้ง",
-    statusLabel: "ยังไม่เริ่ม",
-    statusColor: "neutral" as const,
-    actionLabel: "จัดตารางนิเทศ",
-    actionTo: `/staff/cooperative-cycles/${cycleId.value}/visits`
-  },
-  {
-    name: "ติดตามการประเมิน (นักศึกษา/สถานประกอบการ)",
-    progress: "0/0",
-    remaining: "0 ฉบับ",
-    statusLabel: "ยังไม่เริ่ม",
-    statusColor: "neutral" as const,
-    actionLabel: "ดูการประเมิน",
-    actionTo: `/staff/cooperative-cycles/${cycleId.value}/evaluations`
-  },
-  {
-    name: "จัดสรรงบประมาณนิเทศ",
-    progress: "0/0",
-    remaining: "0 รายการ",
-    statusLabel: "ยังไม่เริ่ม",
-    statusColor: "neutral" as const,
-    actionLabel: "จัดการงบประมาณ",
-    actionTo: `/staff/cooperative-cycles/${cycleId.value}/budgets`
-  }
-])
+const tasks = computed(() => {
+  const s = summary.value
+  const totalRequests = (s?.submittedRequestsCount ?? 0) + (s?.letterReadyRequestsCount ?? 0) + (s?.pendingReviewRequestsCount ?? 0) + (s?.confirmedPlacementsCount ?? 0)
+  const processedLetters = (s?.letterReadyRequestsCount ?? 0) + (s?.pendingReviewRequestsCount ?? 0) + (s?.confirmedPlacementsCount ?? 0)
+
+  return [
+    {
+      name: 'ตรวจสอบคำร้องและออกหนังสือขอความอนุเคราะห์',
+      progress: `${processedLetters}/${totalRequests}`,
+      remaining: `${s?.submittedRequestsCount ?? 0} รายการ`,
+      statusLabel: (s?.submittedRequestsCount ?? 0) > 0 ? 'รอดำเนินการ' : 'เรียบร้อย',
+      statusColor: (s?.submittedRequestsCount ?? 0) > 0 ? 'warning' as const : 'success' as const,
+      actionLabel: 'ดูคำร้อง',
+      actionTo: `/staff/cooperative-cycles/${cycleId.value}/applications`
+    },
+    {
+      name: 'ตรวจสอบเอกสารตอบรับจากสถานประกอบการ',
+      progress: `${s?.confirmedPlacementsCount ?? 0}/${(s?.pendingReviewRequestsCount ?? 0) + (s?.confirmedPlacementsCount ?? 0)}`,
+      remaining: `${s?.pendingReviewRequestsCount ?? 0} ฉบับ`,
+      statusLabel: (s?.pendingReviewRequestsCount ?? 0) > 0 ? 'รอตรวจ' : 'เรียบร้อย',
+      statusColor: (s?.pendingReviewRequestsCount ?? 0) > 0 ? 'warning' as const : 'neutral' as const,
+      actionLabel: 'ตรวจเอกสาร',
+      actionTo: `/staff/cooperative-cycles/${cycleId.value}/applications?status=DOCUMENT_UNDER_REVIEW`
+    },
+    {
+      name: 'สถานที่ฝึกงานที่ยืนยันแล้ว',
+      progress: `${s?.confirmedPlacementsCount ?? 0}/${s?.studentsWithApplicationCount ?? 0}`,
+      remaining: `${s?.confirmedPlacementsCount ?? 0} แห่ง`,
+      statusLabel: (s?.confirmedPlacementsCount ?? 0) > 0 ? 'ยืนยันแล้ว' : 'ยังไม่เริ่ม',
+      statusColor: (s?.confirmedPlacementsCount ?? 0) > 0 ? 'success' as const : 'neutral' as const,
+      actionLabel: 'ดูสถานที่ฝึกงาน',
+      actionTo: `/staff/cooperative-cycles/${cycleId.value}/placements`
+    },
+    {
+      name: 'จัดอาจารย์นิเทศประจำกลุ่ม',
+      progress: '0/0',
+      remaining: '0 คน',
+      statusLabel: 'ยังไม่เริ่ม',
+      statusColor: 'neutral' as const,
+      actionLabel: 'จัดกลุ่มอาจารย์',
+      actionTo: `/staff/cooperative-cycles/${cycleId.value}/supervisors`
+    },
+    {
+      name: 'กำหนดการนิเทศและตารางตรวจเยี่ยม',
+      progress: '0/0',
+      remaining: '0 ครั้ง',
+      statusLabel: 'ยังไม่เริ่ม',
+      statusColor: 'neutral' as const,
+      actionLabel: 'จัดตารางนิเทศ',
+      actionTo: `/staff/cooperative-cycles/${cycleId.value}/visits`
+    },
+    {
+      name: 'ติดตามการประเมิน (นักศึกษา/สถานประกอบการ)',
+      progress: '0/0',
+      remaining: '0 ฉบับ',
+      statusLabel: 'ยังไม่เริ่ม',
+      statusColor: 'neutral' as const,
+      actionLabel: 'ดูการประเมิน',
+      actionTo: `/staff/cooperative-cycles/${cycleId.value}/evaluations`
+    },
+    {
+      name: 'จัดสรรงบประมาณนิเทศ',
+      progress: '0/0',
+      remaining: '0 รายการ',
+      statusLabel: 'ยังไม่เริ่ม',
+      statusColor: 'neutral' as const,
+      actionLabel: 'จัดการงบประมาณ',
+      actionTo: `/staff/cooperative-cycles/${cycleId.value}/budgets`
+    }
+  ]
+})
 </script>
 
 <template>
   <div class="space-y-6">
+    <!-- Header banner -->
+    <div class="flex items-center justify-between">
+      <div>
+        <h2 class="text-base font-semibold text-highlighted flex items-center gap-2">
+          <UIcon name="i-lucide-layout-grid" class="size-5 text-primary" />
+          สรุปภาพรวมรอบสหกิจ
+        </h2>
+        <p class="text-xs text-muted mt-0.5">
+          ภาพรวมความคืบหน้ากระบวนการสหกิจศึกษา ภาคเรียนที่ {{ cycle?.term }}/{{ cycle?.academicYear }}
+        </p>
+      </div>
+
+      <UIButtonRefresh
+        :loading="fetchStatus === 'pending'"
+        @refresh="refresh"
+      />
+    </div>
+
     <!-- Section 1: Summary Cards Grid -->
     <div>
-      <h2 class="text-sm font-semibold text-highlighted mb-3 flex items-center gap-2">
-        <UIcon name="i-lucide-layout-grid" class="size-4 text-primary" />
-        สรุปภาพรวมรอบสหกิจ
-      </h2>
       <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-        <div
+        <NuxtLink
           v-for="(item, idx) in summaryMetrics"
           :key="idx"
-          class="rounded-lg border border-default p-3.5 bg-default shadow-xs flex flex-col justify-between"
+          :to="item.to"
+          class="rounded-lg border border-default p-3.5 bg-default shadow-xs flex flex-col justify-between hover:border-primary/50 transition-colors group cursor-pointer"
         >
           <div class="flex items-center justify-between mb-2">
-            <span class="text-xs text-muted leading-snug">{{ item.label }}</span>
-            <div class="p-1 rounded-md bg-muted/20 text-muted">
-              <UIcon :name="item.icon" class="size-4 text-primary" />
+            <span class="text-xs text-muted leading-snug group-hover:text-highlighted transition-colors">{{ item.label }}</span>
+            <div class="p-1 rounded-md bg-muted/20 text-muted group-hover:text-primary transition-colors">
+              <UIcon :name="item.icon" class="size-4" />
             </div>
           </div>
           <div class="text-lg font-bold text-highlighted">
             {{ item.value }}
           </div>
-        </div>
+        </NuxtLink>
       </div>
     </div>
 
     <!-- Section 2: Actionable Tasks Checklist Table -->
     <div>
       <div class="flex items-center justify-between mb-3">
-        <h2 class="text-sm font-semibold text-highlighted flex items-center gap-2">
+        <h3 class="text-sm font-semibold text-highlighted flex items-center gap-2">
           <UIcon name="i-lucide-list-checks" class="size-4 text-primary" />
           ตารางงานที่ต้องดำเนินการในรอบนี้
-        </h2>
+        </h3>
         <span class="text-xs text-muted">ติดตามความคืบหน้ากระบวนการสหกิจศึกษา</span>
       </div>
 
@@ -176,7 +223,7 @@ const tasks = computed(() => [
               <td class="px-4 py-3.5 font-medium text-highlighted">
                 {{ task.name }}
               </td>
-              <td class="px-4 py-3.5  text-muted">
+              <td class="px-4 py-3.5 text-muted">
                 {{ task.progress }}
               </td>
               <td class="px-4 py-3.5 text-muted">

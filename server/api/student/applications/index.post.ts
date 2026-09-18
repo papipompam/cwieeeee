@@ -92,10 +92,24 @@ export default defineEventHandler(async (event) => {
       companyId = existingCompany.id
     } else if (body.newCompany && typeof body.newCompany === 'object') {
       const companyInput = readCompanyInput({ ...body.newCompany, isActive: true })
-      const createdCompany = await tx.company.create({
-        data: companyInput
+      const [k1, k2] = hashIdentityKeyToLockKeys(companyInput.companyIdentityKey)
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(${k1}, ${k2})`
+
+      let company = await tx.company.findUnique({
+        where: { companyIdentityKey: companyInput.companyIdentityKey }
       })
-      companyId = createdCompany.id
+
+      if (!company) {
+        company = await tx.company.create({
+          data: companyInput
+        })
+      }
+
+      if (!company.isActive) {
+        throw createError({ statusCode: 400, message: 'สถานประกอบการนี้ถูกปิดใช้งาน' })
+      }
+
+      companyId = company.id
     } else {
       throw createError({ statusCode: 400, message: 'กรุณาเลือกสถานประกอบการ หรือระบุข้อมูลสถานประกอบการใหม่' })
     }

@@ -1,0 +1,749 @@
+<script setup lang="ts">
+import type { Ref } from 'vue'
+
+interface StudentUser {
+  id: number
+  loginId: string
+  prefix: string
+  firstName: string
+  lastName: string
+  cohortYear: number
+  classGroup: number
+  phone: string | null
+}
+
+interface RequestDocument {
+  id: number
+  fileName: string
+  fileSize: number
+  mimeType: string
+  status: string
+  version: number
+  createdAt: string
+}
+
+interface RequestDetail {
+  id: number
+  companyApplicationId: number
+  status: string
+  companyName: string
+  internshipLocationName: string | null
+  position: string | null
+  address: string | null
+  province: string | null
+  recipientName: string | null
+  recipientPosition: string | null
+  letterAddress: string | null
+  appliedAt: string | null
+  confirmedAt: string
+  returnedReason: string | null
+  rejectedReason: string | null
+  studentNote: string | null
+  letterFilePath: string | null
+  letterOriginalName: string | null
+  letterIssuedAt: string | null
+  signedDocumentPath: string | null
+  signedDocumentOriginalName: string | null
+  signedDocumentSubmittedAt: string | null
+  companyApplication: {
+    studentUser: StudentUser
+  }
+  documents: RequestDocument[]
+}
+
+interface CooperativeCycle {
+  id: number
+  term: number
+  academicYear: number
+  cohortYear: number
+  status: string
+}
+
+const route = useRoute()
+const router = useRouter()
+const cycleId = computed(() => Number(route.params.cycleId))
+const requestId = computed(() => Number(route.params.requestId))
+const cycle = inject<Ref<CooperativeCycle | null>>('currentCycle')
+const notify = useNotify()
+
+const { data: request, status: fetchStatus, refresh, error } = await useFetch<RequestDetail>(
+  () => `/api/staff/cooperative-cycles/${cycleId.value}/requests/${requestId.value}`
+)
+
+const isClosed = computed(() => cycle?.value?.status === 'CLOSED')
+
+const formatDate = (dStr?: string | null) => {
+  if (!dStr) return '—'
+  const d = new Date(dStr)
+  if (isNaN(d.getTime())) return '—'
+  return d.toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+}
+
+const formatFileSize = (bytes?: number) => {
+  if (!bytes) return '—'
+  const kb = bytes / 1024
+  if (kb < 1024) return `${kb.toFixed(1)} KB`
+  return `${(kb / 1024).toFixed(1)} MB`
+}
+
+const requestStatusDisplay: Record<string, { label: string; color: 'info' | 'warning' | 'error' | 'success' | 'neutral' }> = {
+  DRAFT: { label: 'ฉบับร่าง', color: 'neutral' },
+  SUBMITTED: { label: 'ยื่นคำร้องแล้ว', color: 'info' },
+  STAFF_PROCESSING: { label: 'กำลังดำเนินการ', color: 'info' },
+  LETTER_READY: { label: 'หนังสือพร้อมแล้ว', color: 'warning' },
+  DOCUMENT_UNDER_REVIEW: { label: 'รอตรวจสอบเอกสาร', color: 'warning' },
+  RETURNED_FOR_REVISION: { label: 'ส่งกลับแก้ไข', color: 'error' },
+  PLACEMENT_CONFIRMED: { label: 'ยืนยันสถานที่แล้ว', color: 'success' },
+  REJECTED: { label: 'ปฏิเสธ', color: 'neutral' },
+  CANCELLED: { label: 'ยกเลิก', color: 'neutral' }
+}
+
+// Letter upload & replace
+const letterFileInput = ref<HTMLInputElement | null>(null)
+const isLetterUploading = ref(false)
+const isConfirmReplaceOpen = ref(false)
+
+const triggerLetterUpload = () => {
+  if (request.value?.letterFilePath) {
+    isConfirmReplaceOpen.value = true
+  } else {
+    letterFileInput.value?.click()
+  }
+}
+
+const onConfirmedReplace = () => {
+  isConfirmReplaceOpen.value = false
+  letterFileInput.value?.click()
+}
+
+const handleLetterUpload = async (event: Event) => {
+  const target = event.target as HTMLInputElement
+  const file = target.files?.[0]
+  if (!file) return
+
+  if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+    notify.error('อนุญาตเฉพาะไฟล์ PDF เท่านั้น')
+    target.value = ''
+    return
+  }
+
+  if (file.size > 10 * 1024 * 1024) {
+    notify.error('ขนาดไฟล์ต้องไม่เกิน 10MB')
+    target.value = ''
+    return
+  }
+
+  isLetterUploading.value = true
+  const formData = new FormData()
+  formData.append('file', file)
+
+  try {
+    await $fetch(`/api/staff/cooperative-cycles/${cycleId.value}/requests/${requestId.value}/letter`, {
+      method: 'POST',
+      body: formData
+    })
+    notify.success('แนบหนังสือขอความอนุเคราะห์สำเร็จ')
+    await refresh()
+  } catch (err: any) {
+    notify.error(err?.data?.message || err?.message || 'เกิดข้อผิดพลาดในการอัปโหลดไฟล์')
+  } finally {
+    isLetterUploading.value = false
+    target.value = ''
+  }
+}
+
+// Return for revision modal state
+const isReturnOpen = ref(false)
+const returnReason = ref('')
+const returnReasonError = ref('')
+const isReturning = ref(false)
+
+const openReturnModal = () => {
+  returnReason.value = ''
+  returnReasonError.value = ''
+  isReturnOpen.value = true
+}
+
+const handleReturn = async () => {
+  if (!returnReason.value.trim()) {
+    returnReasonError.value = 'กรุณาระบุสิ่งที่นักศึกษาต้องแก้ไข'
+    return
+  }
+  returnReasonError.value = ''
+  isReturning.value = true
+
+  try {
+    await $fetch(`/api/staff/cooperative-cycles/${cycleId.value}/requests/${requestId.value}/return`, {
+      method: 'POST',
+      body: { reason: returnReason.value.trim() }
+    })
+    notify.success('ส่งกลับให้นักศึกษาแก้ไขเรียบร้อยแล้ว')
+    isReturnOpen.value = false
+    await refresh()
+  } catch (err: any) {
+    notify.error(err?.data?.message || err?.message || 'ไม่สามารถส่งกลับแก้ไขได้')
+  } finally {
+    isReturning.value = false
+  }
+}
+
+// Reject modal state
+const isRejectOpen = ref(false)
+const rejectReason = ref('')
+const rejectReasonError = ref('')
+const isRejecting = ref(false)
+
+const openRejectModal = () => {
+  rejectReason.value = ''
+  rejectReasonError.value = ''
+  isRejectOpen.value = true
+}
+
+const handleReject = async () => {
+  if (!rejectReason.value.trim()) {
+    rejectReasonError.value = 'กรุณาระบุเหตุผลในการปฏิเสธ'
+    return
+  }
+  rejectReasonError.value = ''
+  isRejecting.value = true
+
+  try {
+    await $fetch(`/api/staff/cooperative-cycles/${cycleId.value}/requests/${requestId.value}/reject`, {
+      method: 'POST',
+      body: { reason: rejectReason.value.trim() }
+    })
+    notify.success('ปฏิเสธคำร้องเรียบร้อยแล้ว')
+    isRejectOpen.value = false
+    await refresh()
+  } catch (err: any) {
+    notify.error(err?.data?.message || err?.message || 'ไม่สามารถปฏิเสธคำร้องได้')
+  } finally {
+    isRejecting.value = false
+  }
+}
+
+// Confirm placement modal state
+const isConfirmPlacementOpen = ref(false)
+const isConfirmingPlacement = ref(false)
+
+const handleConfirmPlacement = async () => {
+  isConfirmingPlacement.value = true
+
+  try {
+    await $fetch(`/api/staff/cooperative-cycles/${cycleId.value}/requests/${requestId.value}/confirm-placement`, {
+      method: 'POST'
+    })
+    notify.success('ยืนยันสถานที่ฝึกงานเรียบร้อยแล้ว')
+    isConfirmPlacementOpen.value = false
+    await refresh()
+  } catch (err: any) {
+    notify.error(err?.data?.message || err?.message || 'ไม่สามารถยืนยันสถานที่ฝึกงานได้')
+  } finally {
+    isConfirmingPlacement.value = false
+  }
+}
+</script>
+
+<template>
+  <div class="space-y-6">
+    <!-- Breadcrumb & Back Action -->
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <UButton
+          icon="i-lucide-arrow-left"
+          color="neutral"
+          variant="ghost"
+          size="sm"
+          :to="`/staff/cooperative-cycles/${cycleId}/applications`"
+          aria-label="กลับไปคิวคำร้อง"
+        />
+        <div>
+          <h2 class="text-base font-bold text-highlighted flex items-center gap-2">
+            รายละเอียดคำร้อง #{{ requestId }}
+            <UBadge
+              v-if="request"
+              :label="requestStatusDisplay[request.status]?.label || request.status"
+              :color="requestStatusDisplay[request.status]?.color || 'neutral'"
+              variant="subtle"
+            />
+          </h2>
+          <p v-if="request" class="text-xs text-muted">
+            {{ request.companyApplication.studentUser.prefix }}{{ request.companyApplication.studentUser.firstName }}
+            {{ request.companyApplication.studentUser.lastName }} ({{ request.companyApplication.studentUser.loginId }})
+          </p>
+        </div>
+      </div>
+
+      <!-- Action buttons -->
+      <div v-if="request && !isClosed" class="flex items-center gap-2">
+        <!-- Reject action: available in pre-confirmed states -->
+        <UButton
+          v-if="['SUBMITTED', 'STAFF_PROCESSING', 'DOCUMENT_UNDER_REVIEW'].includes(request.status)"
+          label="ปฏิเสธคำร้อง"
+          icon="i-lucide-x-circle"
+          color="error"
+          variant="ghost"
+          size="sm"
+          @click="openRejectModal"
+        />
+
+        <!-- Return for revision: only in DOCUMENT_UNDER_REVIEW -->
+        <UButton
+          v-if="request.status === 'DOCUMENT_UNDER_REVIEW'"
+          label="ส่งกลับแก้ไข"
+          icon="i-lucide-undo-2"
+          color="warning"
+          variant="outline"
+          size="sm"
+          @click="openReturnModal"
+        />
+
+        <!-- Confirm placement: only in DOCUMENT_UNDER_REVIEW -->
+        <UButton
+          v-if="request.status === 'DOCUMENT_UNDER_REVIEW'"
+          label="ยืนยันสถานที่ฝึกงาน"
+          icon="i-lucide-check-circle"
+          color="success"
+          size="sm"
+          @click="isConfirmPlacementOpen = true"
+        />
+      </div>
+    </div>
+
+    <!-- Error or Loading -->
+    <div v-if="fetchStatus === 'pending'" class="py-16 text-center text-muted">
+      <UIcon name="i-lucide-loader-2" class="size-8 animate-spin mx-auto mb-2 text-primary" />
+      <p>กำลังโหลดข้อมูลคำร้อง...</p>
+    </div>
+
+    <div v-else-if="error || !request" class="p-6">
+      <UAlert
+        color="error"
+        icon="i-lucide-alert-circle"
+        title="ไม่พบข้อมูลคำร้อง"
+        :description="error?.message || 'คำร้องนี้อาจไม่ได้อยู่ในรอบสหกิจที่เลือก'"
+      />
+      <div class="mt-4">
+        <UButton label="กลับไปคิวคำร้อง" :to="`/staff/cooperative-cycles/${cycleId}/applications`" />
+      </div>
+    </div>
+
+    <div v-else class="space-y-6">
+      <!-- Status Notice Banners -->
+      <UAlert
+        v-if="request.returnedReason && request.status === 'RETURNED_FOR_REVISION'"
+        color="warning"
+        icon="i-lucide-alert-triangle"
+        title="คำร้องนี้ถูกส่งกลับให้นักศึกษาแก้ไข"
+        :description="`เหตุผลที่แจ้งนักศึกษา: ${request.returnedReason}`"
+      />
+
+      <UAlert
+        v-if="request.rejectedReason && request.status === 'REJECTED'"
+        color="error"
+        icon="i-lucide-x-circle"
+        title="คำร้องนี้ถูกปฏิเสธ"
+        :description="`เหตุผล: ${request.rejectedReason}`"
+      />
+
+      <UAlert
+        v-if="request.status === 'PLACEMENT_CONFIRMED'"
+        color="success"
+        icon="i-lucide-check-check"
+        title="ยืนยันสถานที่ฝึกงานเรียบร้อยแล้ว"
+        description="คำร้องนี้เสร็จสิ้นกระบวนการและบันทึกเป็นสถานที่ฝึกงานที่ยืนยันแล้วของรอบนี้"
+      />
+
+      <!-- Grid: 2 columns on large screens -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Left 2 Cols: Main details -->
+        <div class="lg:col-span-2 space-y-6">
+          <!-- Card: Snapshot Information -->
+          <div class="rounded-lg border border-default bg-default p-5 shadow-xs space-y-4">
+            <h3 class="text-sm font-semibold text-highlighted flex items-center gap-2">
+              <UIcon name="i-lucide-building-2" class="size-4 text-primary" />
+              ข้อมูลสถานประกอบการและตำแหน่ง (Snapshot จากคำร้อง)
+            </h3>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+              <div>
+                <span class="text-xs text-muted block">ชื่อสถานประกอบการ</span>
+                <span class="font-medium text-highlighted">{{ request.companyName }}</span>
+              </div>
+
+              <div>
+                <span class="text-xs text-muted block">ตำแหน่งที่สมัคร</span>
+                <span class="font-medium text-highlighted">{{ request.position || '—' }}</span>
+              </div>
+
+              <div>
+                <span class="text-xs text-muted block">สถานที่ฝึกงานจริง</span>
+                <span>{{ request.internshipLocationName || 'สำนักงานใหญ่ / ตามที่อยู่' }}</span>
+              </div>
+
+              <div>
+                <span class="text-xs text-muted block">จังหวัด</span>
+                <span>{{ request.province || '—' }}</span>
+              </div>
+
+              <div class="sm:col-span-2">
+                <span class="text-xs text-muted block">ที่อยู่</span>
+                <span>{{ request.address || '—' }}</span>
+              </div>
+            </div>
+
+            <div class="border-t border-default pt-4 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+              <div>
+                <span class="text-xs text-muted block">ผู้รับหนังสือขอความอนุเคราะห์</span>
+                <span class="font-medium text-highlighted">
+                  {{ request.recipientName || 'ผู้จัดการฝ่ายบุคคล' }}
+                  <span v-if="request.recipientPosition" class="text-muted text-xs">({{ request.recipientPosition }})</span>
+                </span>
+              </div>
+
+              <div class="sm:col-span-2">
+                <span class="text-xs text-muted block">ที่อยู่ระบุในหนังสือ</span>
+                <span>{{ request.letterAddress || request.address || '—' }}</span>
+              </div>
+
+              <div v-if="request.studentNote" class="sm:col-span-2 bg-muted/15 p-3 rounded-md">
+                <span class="text-xs text-muted block font-medium mb-1">หมายเหตุเพิ่มเติมจากนักศึกษา:</span>
+                <p class="text-xs text-highlighted">{{ request.studentNote }}</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card: Student Acceptance Document (เอกสารตอบรับ) -->
+          <div class="rounded-lg border border-default bg-default p-5 shadow-xs space-y-4">
+            <div class="flex items-center justify-between">
+              <h3 class="text-sm font-semibold text-highlighted flex items-center gap-2">
+                <UIcon name="i-lucide-file-badge" class="size-4 text-primary" />
+                หนังสือตอบรับจากสถานประกอบการ
+              </h3>
+              <UBadge
+                v-if="request.documents.length > 0"
+                :label="`มี ${request.documents.length} ฉบับ`"
+                color="neutral"
+                variant="subtle"
+                size="xs"
+              />
+            </div>
+
+            <div v-if="request.documents.length === 0" class="py-8 text-center text-muted">
+              <UIcon name="i-lucide-file-question" class="size-8 mx-auto mb-1.5 text-muted" />
+              <p class="text-sm">นักศึกษายังไม่ได้อัปโหลดหนังสือตอบรับ</p>
+              <p class="text-xs text-muted mt-0.5">
+                เมื่อเจ้าหน้าที่แนบหนังสือขอความอนุเคราะห์แล้ว นักศึกษาจะนำไปยื่นและอัปโหลดหนังสือตอบรับกลับมา
+              </p>
+            </div>
+
+            <div v-else class="space-y-3">
+              <div
+                v-for="doc in request.documents"
+                :key="doc.id"
+                class="flex items-center justify-between p-3 rounded-lg border border-default bg-muted/10"
+              >
+                <div class="flex items-center gap-3 min-w-0">
+                  <div class="size-9 rounded bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                    <UIcon name="i-lucide-file-text" class="size-5" />
+                  </div>
+                  <div class="min-w-0">
+                    <div class="flex items-center gap-2">
+                      <span class="text-sm font-medium text-highlighted truncate">{{ doc.fileName }}</span>
+                      <UBadge
+                        :label="`ฉบับที่ ${doc.version}`"
+                        color="neutral"
+                        variant="subtle"
+                        size="xs"
+                      />
+                      <UBadge
+                        v-if="doc.status === 'APPROVED'"
+                        label="อนุมัติแล้ว"
+                        color="success"
+                        variant="subtle"
+                        size="xs"
+                      />
+                      <UBadge
+                        v-else-if="doc.status === 'RETURNED_FOR_REVISION'"
+                        label="ส่งกลับแก้ไข"
+                        color="error"
+                        variant="subtle"
+                        size="xs"
+                      />
+                      <UBadge
+                        v-else
+                        label="รอตรวจ"
+                        color="warning"
+                        variant="subtle"
+                        size="xs"
+                      />
+                    </div>
+                    <div class="text-xs text-muted mt-0.5 flex items-center gap-2">
+                      <span>ขนาด {{ formatFileSize(doc.fileSize) }}</span>
+                      <span>•</span>
+                      <span>อัปโหลดเมื่อ {{ formatDate(doc.createdAt) }}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <UButton
+                  label="ดาวน์โหลด / เปิดดู"
+                  icon="i-lucide-download"
+                  color="neutral"
+                  variant="outline"
+                  size="xs"
+                  :to="`/api/staff/cooperative-cycles/${cycleId}/requests/${requestId}/documents/${doc.id}`"
+                  target="_blank"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right 1 Col: Official Letter & Timeline -->
+        <div class="space-y-6">
+          <!-- Card: Official Letter from Staff -->
+          <div class="rounded-lg border border-default bg-default p-5 shadow-xs space-y-4">
+            <h3 class="text-sm font-semibold text-highlighted flex items-center gap-2">
+              <UIcon name="i-lucide-stamp" class="size-4 text-primary" />
+              หนังสือขอความอนุเคราะห์
+            </h3>
+
+            <!-- Hidden file input -->
+            <input
+              ref="letterFileInput"
+              type="file"
+              accept="application/pdf"
+              class="sr-only"
+              aria-label="เลือกไฟล์ PDF หนังสือขอความอนุเคราะห์"
+              @change="handleLetterUpload"
+            />
+
+            <!-- Case: Has letter -->
+            <div v-if="request.letterFilePath" class="space-y-3">
+              <div class="p-3 rounded-lg border border-default bg-muted/10 flex items-start gap-3">
+                <UIcon name="i-lucide-file-check" class="size-6 text-success shrink-0 mt-0.5" />
+                <div class="min-w-0 flex-1">
+                  <div class="text-sm font-medium text-highlighted truncate">
+                    {{ request.letterOriginalName || 'official-letter.pdf' }}
+                  </div>
+                  <div class="text-xs text-muted mt-0.5">
+                    ออกเมื่อ: {{ formatDate(request.letterIssuedAt) }}
+                  </div>
+                </div>
+              </div>
+
+              <div class="flex items-center gap-2">
+                <UButton
+                  label="ดาวน์โหลดหนังสือ"
+                  icon="i-lucide-download"
+                  color="primary"
+                  variant="outline"
+                  size="sm"
+                  class="flex-1 justify-center"
+                  :to="`/api/staff/cooperative-cycles/${cycleId}/requests/${requestId}/letter`"
+                  target="_blank"
+                />
+                <UButton
+                  v-if="!isClosed && !['PLACEMENT_CONFIRMED', 'REJECTED', 'CANCELLED'].includes(request.status)"
+                  label="แทนที่ไฟล์"
+                  icon="i-lucide-refresh-cw"
+                  color="neutral"
+                  variant="ghost"
+                  size="sm"
+                  :loading="isLetterUploading"
+                  @click="triggerLetterUpload"
+                />
+              </div>
+            </div>
+
+            <!-- Case: No letter -->
+            <div v-else class="space-y-3">
+              <div class="p-4 text-center rounded-lg border border-dashed border-default bg-muted/5 text-muted">
+                <UIcon name="i-lucide-file-up" class="size-6 mx-auto mb-1 text-muted" />
+                <p class="text-xs">ยังไม่มีการแนบหนังสือขอความอนุเคราะห์</p>
+              </div>
+
+              <UButton
+                v-if="!isClosed && !['PLACEMENT_CONFIRMED', 'REJECTED', 'CANCELLED'].includes(request.status)"
+                label="แนบหนังสือขอความอนุเคราะห์ (PDF)"
+                icon="i-lucide-upload"
+                color="primary"
+                size="sm"
+                class="w-full justify-center"
+                :loading="isLetterUploading"
+                @click="triggerLetterUpload"
+              />
+            </div>
+          </div>
+
+          <!-- Card: Student Profile Summary -->
+          <div class="rounded-lg border border-default bg-default p-5 shadow-xs space-y-3">
+            <h3 class="text-sm font-semibold text-highlighted flex items-center gap-2">
+              <UIcon name="i-lucide-user" class="size-4 text-primary" />
+              ข้อมูลนักศึกษา
+            </h3>
+
+            <div class="space-y-2 text-xs">
+              <div class="flex justify-between">
+                <span class="text-muted">ชื่อ-นามสกุล:</span>
+                <span class="font-medium text-highlighted">
+                  {{ request.companyApplication.studentUser.prefix }}{{ request.companyApplication.studentUser.firstName }}
+                  {{ request.companyApplication.studentUser.lastName }}
+                </span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-muted">รหัสนักศึกษา:</span>
+                <span class=" font-medium text-highlighted">{{ request.companyApplication.studentUser.loginId }}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-muted">รุ่น / หมู่เรียน:</span>
+                <span>รุ่น {{ request.companyApplication.studentUser.cohortYear }} · หมู่ {{ request.companyApplication.studentUser.classGroup }}</span>
+              </div>
+              <div v-if="request.companyApplication.studentUser.phone" class="flex justify-between">
+                <span class="text-muted">เบอร์โทรศัพท์:</span>
+                <span>{{ request.companyApplication.studentUser.phone }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card: Timestamps Timeline -->
+          <div class="rounded-lg border border-default bg-default p-5 shadow-xs space-y-3">
+            <h3 class="text-sm font-semibold text-highlighted flex items-center gap-2">
+              <UIcon name="i-lucide-clock" class="size-4 text-primary" />
+              ลำดับเวลาในระบบ
+            </h3>
+
+            <div class="space-y-2 text-xs">
+              <div class="flex justify-between">
+                <span class="text-muted">นักศึกษายืนยันคำร้อง:</span>
+                <span>{{ formatDate(request.confirmedAt) }}</span>
+              </div>
+              <div v-if="request.letterIssuedAt" class="flex justify-between">
+                <span class="text-muted">เจ้าหน้าที่ออกหนังสือ:</span>
+                <span>{{ formatDate(request.letterIssuedAt) }}</span>
+              </div>
+              <div v-if="request.signedDocumentSubmittedAt" class="flex justify-between">
+                <span class="text-muted">ส่งเอกสารตอบรับล่าสุด:</span>
+                <span>{{ formatDate(request.signedDocumentSubmittedAt) }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal: Return for revision -->
+    <UModal
+      v-model:open="isReturnOpen"
+      title="ส่งกลับเอกสารให้นักศึกษาแก้ไข"
+      description="ระบุข้อผิดพลาดหรือสิ่งที่นักศึกษาต้องดำเนินการแก้ไขและส่งกลับมาใหม่"
+    >
+      <template #body>
+        <div class="space-y-3">
+          <div>
+            <label class="block text-xs font-medium text-highlighted mb-1.5">
+              ข้อความแจ้งให้นักศึกษาแก้ไข <span class="text-error">*</span>
+            </label>
+            <UTextarea
+              v-model="returnReason"
+              placeholder="เช่น เอกสารยังไม่มีตราประทับบริษัท หรือเอกสารไม่สมบูรณ์..."
+              :rows="4"
+              class="w-full"
+            />
+            <p v-if="returnReasonError" class="text-xs text-error mt-1">
+              {{ returnReasonError }}
+            </p>
+          </div>
+        </div>
+      </template>
+
+      <template #footer>
+        <div class="flex w-full justify-end gap-2">
+          <UButton
+            label="ยกเลิก"
+            color="neutral"
+            variant="outline"
+            @click="isReturnOpen = false"
+          />
+          <UButton
+            label="ยืนยันส่งกลับแก้ไข"
+            color="warning"
+            :loading="isReturning"
+            @click="handleReturn"
+          />
+        </div>
+      </template>
+    </UModal>
+
+    <!-- Modal: Reject Request -->
+    <UModal
+      v-model:open="isRejectOpen"
+      title="ปฏิเสธคำร้อง"
+      description="คำร้องนี้จะไม่สามารถดำเนินการต่อได้ และจะแจ้งให้นักศึกษาทราบ"
+    >
+      <template #body>
+        <div class="space-y-3">
+          <div>
+            <label class="block text-xs font-medium text-highlighted mb-1.5">
+              เหตุผลในการปฏิเสธ <span class="text-error">*</span>
+            </label>
+            <UTextarea
+              v-model="rejectReason"
+              placeholder="ระบุเหตุผลในการปฏิเสธคำร้อง..."
+              :rows="4"
+              class="w-full"
+            />
+            <p v-if="rejectReasonError" class="text-xs text-error mt-1">
+              {{ rejectReasonError }}
+            </p>
+          </div>
+        </div>
+      </template>
+
+      <template #footer>
+        <div class="flex w-full justify-end gap-2">
+          <UButton
+            label="ยกเลิก"
+            color="neutral"
+            variant="outline"
+            @click="isRejectOpen = false"
+          />
+          <UButton
+            label="ยืนยันปฏิเสธคำร้อง"
+            color="error"
+            :loading="isRejecting"
+            @click="handleReject"
+          />
+        </div>
+      </template>
+    </UModal>
+
+    <!-- Modal: Confirm Placement -->
+    <UIConfirmModal
+      :open="isConfirmPlacementOpen"
+      title="ยืนยันสถานที่ฝึกงาน"
+      message="ยืนยันว่าเอกสารตอบรับถูกต้องครบถ้วน และรับรองสถานที่ฝึกงานนี้เป็นสถานที่ปฏิบัติงานจริงในรอบนี้?"
+      confirm-label="ยืนยันสถานที่ฝึกงาน"
+      confirm-color="success"
+      icon="i-lucide-check-circle"
+      icon-color="success"
+      :loading="isConfirmingPlacement"
+      @update:open="isConfirmPlacementOpen = $event"
+      @confirm="handleConfirmPlacement"
+    />
+
+    <!-- Modal: Confirm Replace Letter -->
+    <UIConfirmModal
+      :open="isConfirmReplaceOpen"
+      title="แทนที่หนังสือขอความอนุเคราะห์"
+      message="คำร้องนี้มีไฟล์หนังสือเดิมอยู่แล้ว ต้องการอัปโหลดไฟล์ใหม่แทนที่ไฟล์เดิมหรือไม่?"
+      confirm-label="เลือกไฟล์ใหม่"
+      confirm-color="primary"
+      icon="i-lucide-refresh-cw"
+      icon-color="info"
+      @update:open="isConfirmReplaceOpen = $event"
+      @confirm="onConfirmedReplace"
+    />
+  </div>
+</template>

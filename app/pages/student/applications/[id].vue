@@ -167,7 +167,7 @@ const handleDeleteConfirm = async () => {
           <div class="rounded-xl border border-default bg-default p-6 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div class="space-y-1">
               <div class="flex items-center gap-2">
-                <span class="font-mono text-xs text-muted">#{{ app.id }}</span>
+                <span class=" text-xs text-muted">#{{ app.id }}</span>
                 <UBadge :color="getStatusBadge(app.status).color" variant="subtle" size="md">
                   {{ getStatusBadge(app.status).label }}
                 </UBadge>

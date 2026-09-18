@@ -240,7 +240,7 @@ const handleDeleteConfirm = async () => {
           >
             <!-- ID Column -->
             <template #id-cell="{ row }">
-              <span class="font-mono text-xs text-muted">#{{ row.original.id }}</span>
+              <span class=" text-xs text-muted">#{{ row.original.id }}</span>
             </template>
 
             <!-- Company Name -->

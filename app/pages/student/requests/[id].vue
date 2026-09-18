@@ -119,7 +119,7 @@ const handleUpload = async () => {
           <div class="rounded-xl border border-default bg-default p-6 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div class="space-y-1">
               <div class="flex items-center gap-2">
-                <span class="font-mono text-xs text-muted">REQ-{{ String(request.id).padStart(4, '0') }}</span>
+                <span class=" text-xs text-muted">REQ-{{ String(request.id).padStart(4, '0') }}</span>
                 <UBadge :color="getReqStatusBadge(request.status).color" variant="subtle" size="md">
                   {{ getReqStatusBadge(request.status).label }}
                 </UBadge>

@@ -50,3 +50,134 @@ export const validatePositiveYear = (year: unknown, label: string): number => {
   }
   return y
 }
+
+export const validatePositiveId = (id: unknown, label = 'รหัส'): number => {
+  const num = Number(id)
+  if (!Number.isInteger(num) || num <= 0) {
+    throw createError({ statusCode: 400, message: `${label}ไม่ถูกต้อง` })
+  }
+  return num
+}
+
+export const getStaffCycle = async (event: any, options?: { mustNotBeClosed?: boolean }) => {
+  const user = await requireRole(event, 'STAFF')
+  const cycleIdParam = getRouterParam(event, 'cycleId') || getRouterParam(event, 'id')
+  const cycleId = validatePositiveId(cycleIdParam, 'รหัสรอบสหกิจ')
+
+  const cycle = await prisma.cooperativeCycle.findUnique({
+    where: { id: cycleId }
+  })
+
+  if (!cycle) {
+    throw createError({ statusCode: 404, message: 'ไม่พบข้อมูลรอบสหกิจ' })
+  }
+
+  if (options?.mustNotBeClosed && cycle.status === 'CLOSED') {
+    throw createError({ statusCode: 400, message: 'รอบสหกิจนี้ปิดรอบแล้ว ไม่สามารถดำเนินการได้' })
+  }
+
+  return { user, cycle, cycleId }
+}
+
+export const getStaffCycleRequest = async (event: any, cycleId: number, requestId: number) => {
+  const request = await prisma.cooperativeRequest.findFirst({
+    where: {
+      id: requestId,
+      companyApplication: {
+        cooperativeCycleId: cycleId
+      }
+    },
+    include: {
+      companyApplication: {
+        include: {
+          studentUser: {
+            select: {
+              id: true,
+              loginId: true,
+              prefix: true,
+              firstName: true,
+              lastName: true,
+              cohortYear: true,
+              classGroup: true,
+              phone: true
+            }
+          }
+        }
+      },
+      documents: {
+        orderBy: { version: 'desc' }
+      }
+    }
+  })
+
+  if (!request) {
+    throw createError({ statusCode: 404, message: 'ไม่พบข้อมูลคำร้องในรอบสหกิจนี้' })
+  }
+
+  return request
+}
+
+export type StudentCycleStatusKey =
+  | 'NOT_APPLIED'
+  | 'APPLYING'
+  | 'ACCEPTED'
+  | 'REQUEST_SUBMITTED'
+  | 'WAITING_DOCUMENT'
+  | 'DOCUMENT_UNDER_REVIEW'
+  | 'PLACEMENT_CONFIRMED'
+  | 'TERMINATED'
+
+export interface StudentCycleStatusInfo {
+  key: StudentCycleStatusKey
+  label: string
+  color: 'neutral' | 'info' | 'warning' | 'success' | 'error'
+}
+
+export const deriveStudentCycleStatus = (
+  applications: Array<{
+    status: string
+    cooperativeRequest?: { status: string } | null
+  }>
+): StudentCycleStatusInfo => {
+  if (!applications || applications.length === 0) {
+    return { key: 'NOT_APPLIED', label: 'ยังไม่ยื่น', color: 'neutral' }
+  }
+
+  // Requests take precedence over application status
+  const appsWithRequest = applications.filter(a => a.cooperativeRequest)
+  if (appsWithRequest.length > 0) {
+    // Pick the most relevant request status
+    const reqStatus = appsWithRequest[0]?.cooperativeRequest?.status
+    if (reqStatus === 'PLACEMENT_CONFIRMED') {
+      return { key: 'PLACEMENT_CONFIRMED', label: 'ยืนยันสถานที่แล้ว', color: 'success' }
+    }
+    if (reqStatus === 'DOCUMENT_UNDER_REVIEW') {
+      return { key: 'DOCUMENT_UNDER_REVIEW', label: 'รอตรวจเอกสาร', color: 'warning' }
+    }
+    if (reqStatus === 'LETTER_READY' || reqStatus === 'RETURNED_FOR_REVISION') {
+      return { key: 'WAITING_DOCUMENT', label: 'รอเอกสาร', color: 'warning' }
+    }
+    if (reqStatus === 'SUBMITTED' || reqStatus === 'STAFF_PROCESSING') {
+      return { key: 'REQUEST_SUBMITTED', label: 'ส่งคำร้องแล้ว', color: 'info' }
+    }
+    // If request was REJECTED or CANCELLED, fall through to check other applications
+  }
+
+  // Check active applications
+  const hasAccepted = applications.some(a => a.status === 'ACCEPTED')
+  if (hasAccepted) {
+    return { key: 'ACCEPTED', label: 'รอยืนยันสถานประกอบการ', color: 'info' }
+  }
+
+  const hasActive = applications.some(a => ['SUBMITTED', 'AWAITING_RESPONSE', 'INTERVIEW'].includes(a.status))
+  if (hasActive) {
+    return { key: 'APPLYING', label: 'กำลังสมัคร', color: 'info' }
+  }
+
+  const allTerminated = applications.every(a => ['REJECTED', 'WITHDRAWN'].includes(a.status))
+  if (allTerminated) {
+    return { key: 'TERMINATED', label: 'ไม่ดำเนินการต่อ', color: 'neutral' }
+  }
+
+  return { key: 'NOT_APPLIED', label: 'ยังไม่ยื่น', color: 'neutral' }
+}

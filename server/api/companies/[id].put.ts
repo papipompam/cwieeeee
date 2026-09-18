@@ -13,8 +13,15 @@ export default defineEventHandler(async (event) => {
   }
 
   const company = readCompanyInput({ ...current, ...await readBody(event) })
-  return await prisma.company.update({
-    where: { id },
-    data: company
-  })
+  try {
+    return await prisma.company.update({
+      where: { id },
+      data: company
+    })
+  } catch (error) {
+    if (isUniqueConstraintError(error)) {
+      throw createError({ statusCode: 409, message: 'มีข้อมูลสถานประกอบการนี้ในระบบแล้ว' })
+    }
+    throw error
+  }
 })

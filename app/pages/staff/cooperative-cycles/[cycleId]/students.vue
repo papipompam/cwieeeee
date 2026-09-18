@@ -2,6 +2,69 @@
 import type { TableColumn } from '@nuxt/ui'
 import type { Ref } from 'vue'
 
+interface StudentCycleStatusInfo {
+  key: string
+  label: string
+  color: 'neutral' | 'info' | 'warning' | 'success' | 'error'
+}
+
+interface StudentRow {
+  id: number
+  studentId: string
+  prefix: string
+  firstName: string
+  lastName: string
+  gender: string | null
+  cohortYear: number
+  classGroup: number
+  isActive: boolean
+  cycleStatus: StudentCycleStatusInfo
+  latestCompany: string | null
+  latestRequestId: number | null
+}
+
+interface StudentsResponse {
+  students: StudentRow[]
+  total: number
+  page: number
+  pageSize: number
+  totalPages: number
+}
+
+interface StudentHistoryResponse {
+  student: {
+    id: number
+    studentId: string
+    prefix: string
+    firstName: string
+    lastName: string
+    gender: string | null
+    phone: string | null
+    cohortYear: number
+    classGroup: number
+    isActive: boolean
+  }
+  currentCycleStatus: StudentCycleStatusInfo
+  currentCycleApplicationsCount: number
+  applications: Array<{
+    id: number
+    cycleId: number
+    cycleLabel: string
+    isCurrentCycle: boolean
+    companyName: string
+    position: string
+    appliedAt: string
+    status: string
+    request: {
+      id: number
+      status: string
+      confirmedAt: string
+      returnedReason: string | null
+      rejectedReason: string | null
+    } | null
+  }>
+}
+
 interface CooperativeCycle {
   id: number
   term: number
@@ -10,23 +73,9 @@ interface CooperativeCycle {
   status: string
 }
 
-interface Student {
-  id: number
-  studentId: string
-  prefix: string
-  firstName: string
-  lastName: string
-  gender: string
-  cohortYear: number
-  classGroup: number
-  isActive: boolean
-  createdAt: string
-  updatedAt: string
-}
-
+const route = useRoute()
+const cycleId = computed(() => Number(route.params.cycleId))
 const cycle = inject<Ref<CooperativeCycle | null>>('currentCycle')
-
-const { data: allStudents, status: fetchStatus, refresh } = await useFetch<Student[]>('/api/students')
 
 const searchQuery = ref('')
 const classGroupFilter = ref<string>('all')
@@ -34,107 +83,110 @@ const statusFilter = ref<'all' | 'active' | 'inactive'>('all')
 const page = ref(1)
 const pageSize = 10
 
-// Detail Modal state
-const isDetailOpen = ref(false)
-const selectedStudent = ref<Student | null>(null)
+// Fetch students for this cycle with server-side pagination & filters
+const { data, status: fetchStatus, refresh } = await useFetch<StudentsResponse>(
+  () => `/api/staff/cooperative-cycles/${cycleId.value}/students`,
+  {
+    query: computed(() => ({
+      page: page.value,
+      pageSize,
+      search: searchQuery.value || undefined,
+      classGroup: classGroupFilter.value !== 'all' ? classGroupFilter.value : undefined,
+      status: statusFilter.value !== 'all' ? statusFilter.value : undefined
+    })),
+    watch: [page, searchQuery, classGroupFilter, statusFilter]
+  }
+)
 
-const openDetail = (student: Student) => {
-  selectedStudent.value = student
-  isDetailOpen.value = true
-}
-
-// Filter only students belonging to this cycle's cohort
-const cycleStudents = computed(() => {
-  if (!allStudents.value) return []
-  if (!cycle?.value) return allStudents.value
-  return allStudents.value.filter(s => s.cohortYear === cycle.value?.cohortYear)
-})
-
+// Dynamic class groups from students list
 const classGroupOptions = computed(() => {
-  const list = cycleStudents.value
-  const uniqueGroups = Array.from(new Set(list.map(s => s.classGroup))).sort((a, b) => a - b)
+  const groups = new Set<number>()
+  data.value?.students?.forEach(s => {
+    if (s.classGroup) groups.add(s.classGroup)
+  })
+  const sorted = Array.from(groups).sort((a, b) => a - b)
   return [
     { label: 'ทุกหมู่เรียน', value: 'all' },
-    ...uniqueGroups.map(g => ({ label: `หมู่ ${g}`, value: String(g) }))
+    ...sorted.map(g => ({ label: `หมู่ ${g}`, value: String(g) }))
   ]
 })
 
 const statusOptions = [
-  { label: 'ทุกสถานะ', value: 'all' },
+  { label: 'ทุกสถานะบัญชี', value: 'all' },
   { label: 'ใช้งาน', value: 'active' },
   { label: 'ไม่ใช้งาน', value: 'inactive' }
 ]
 
-const filteredStudents = computed(() => {
-  const list = cycleStudents.value
-  const keyword = searchQuery.value.trim().toLowerCase()
-
-  return list.filter((student) => {
-    const fullName = `${student.prefix}${student.firstName} ${student.lastName}`
-    const matchesSearch = !keyword || [
-      student.studentId,
-      student.firstName,
-      student.lastName,
-      fullName
-    ].join(' ').toLowerCase().includes(keyword)
-
-    const matchesGroup = classGroupFilter.value === 'all' || String(student.classGroup) === classGroupFilter.value
-    const matchesStatus = statusFilter.value === 'all'
-      || (statusFilter.value === 'active' && student.isActive)
-      || (statusFilter.value === 'inactive' && !student.isActive)
-
-    return matchesSearch && matchesGroup && matchesStatus
-  })
-})
-
-const paginatedStudents = computed(() => {
-  const start = (page.value - 1) * pageSize
-  return filteredStudents.value.slice(start, start + pageSize)
-})
-
-const totalPages = computed(() => Math.max(1, Math.ceil(filteredStudents.value.length / pageSize)))
 const hasFilters = computed(() => Boolean(searchQuery.value) || classGroupFilter.value !== 'all' || statusFilter.value !== 'all')
-const pageStart = computed(() => filteredStudents.value.length ? (page.value - 1) * pageSize + 1 : 0)
-const pageEnd = computed(() => Math.min(page.value * pageSize, filteredStudents.value.length))
-
-watch([searchQuery, classGroupFilter, statusFilter], () => {
-  page.value = 1
-})
-
-watch(totalPages, () => {
-  page.value = Math.min(page.value, totalPages.value)
-})
 
 const clearFilters = () => {
   searchQuery.value = ''
   classGroupFilter.value = 'all'
   statusFilter.value = 'all'
+  page.value = 1
 }
 
-const columns: TableColumn<Student>[] = [
+watch([searchQuery, classGroupFilter, statusFilter], () => {
+  page.value = 1
+})
+
+// History Modal state
+const isHistoryOpen = ref(false)
+const selectedStudentId = ref<number | null>(null)
+
+const { data: studentHistory, status: historyFetchStatus } = await useFetch<StudentHistoryResponse>(
+  () => `/api/staff/cooperative-cycles/${cycleId.value}/students/${selectedStudentId.value}/history`,
+  {
+    immediate: false,
+    watch: [selectedStudentId]
+  }
+)
+
+const openHistory = (studentId: number) => {
+  selectedStudentId.value = studentId
+  isHistoryOpen.value = true
+}
+
+const formatDate = (dStr?: string | null) => {
+  if (!dStr) return '—'
+  const d = new Date(dStr)
+  if (isNaN(d.getTime())) return '—'
+  return d.toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' })
+}
+
+const appStatusDisplayMap: Record<string, { label: string; color: 'neutral' | 'info' | 'warning' | 'success' | 'error' }> = {
+  SUBMITTED: { label: 'ยื่นแล้ว', color: 'info' },
+  AWAITING_RESPONSE: { label: 'รอการตอบรับ', color: 'warning' },
+  INTERVIEW: { label: 'นัดสัมภาษณ์', color: 'info' },
+  ACCEPTED: { label: 'ตอบรับแล้ว', color: 'success' },
+  REJECTED: { label: 'ปฏิเสธ', color: 'error' },
+  WITHDRAWN: { label: 'สละสิทธิ์', color: 'neutral' },
+  CONFIRMED: { label: 'ยืนยันแล้ว', color: 'success' }
+}
+
+const columns: TableColumn<StudentRow>[] = [
   {
     accessorKey: 'studentId',
     header: 'รหัสนักศึกษา',
-    meta: { class: { th: 'w-36', td: 'w-36  text-sm' } }
+    meta: { class: { th: 'w-36 ', td: 'w-36  text-sm' } }
   },
   {
     id: 'name',
-    header: 'ชื่อ-สกุล'
-  },
-  {
-    accessorKey: 'gender',
-    header: 'เพศ',
-    meta: { class: { th: 'w-24', td: 'w-24' } }
+    header: 'ชื่อ-นามสกุล'
   },
   {
     accessorKey: 'classGroup',
     header: 'หมู่เรียน',
-    meta: { class: { th: 'w-28 text-center', td: 'w-28 text-center' } }
+    meta: { class: { th: 'w-24 text-center', td: 'w-24 text-center' } }
   },
   {
-    accessorKey: 'isActive',
-    header: 'สถานะ',
-    meta: { class: { th: 'w-28 text-center', td: 'w-28 text-center' } }
+    id: 'cycleStatus',
+    header: 'สถานะในรอบ',
+    meta: { class: { th: 'w-40 text-center', td: 'w-40 text-center' } }
+  },
+  {
+    id: 'latestCompany',
+    header: 'สถานประกอบการล่าสุด'
   },
   {
     id: 'actions',
@@ -142,6 +194,15 @@ const columns: TableColumn<Student>[] = [
     meta: { class: { th: 'w-28 text-end', td: 'w-28 text-end' } }
   }
 ]
+
+const pageStart = computed(() => {
+  if (!data.value || data.value.total === 0) return 0
+  return (page.value - 1) * pageSize + 1
+})
+const pageEnd = computed(() => {
+  if (!data.value) return 0
+  return Math.min(page.value * pageSize, data.value.total)
+})
 </script>
 
 <template>
@@ -150,10 +211,10 @@ const columns: TableColumn<Student>[] = [
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
       <div>
         <h2 class="text-base font-semibold text-highlighted">
-          รายชื่อนักศึกษาในรอบ
+          นักศึกษาที่มีสิทธิ์ในรอบ
         </h2>
         <p class="text-xs text-muted">
-          นักศึกษารุ่น {{ cycle?.cohortYear ?? '-' }} ทั้งหมดที่มีสิทธิ์เข้าร่วมรอบสหกิจศึกษานี้ ({{ cycleStudents.length }} คน)
+          นักศึกษารุ่น {{ cycle?.cohortYear ?? '-' }} ทั้งหมดที่มีสิทธิ์เข้าร่วมรอบสหกิจศึกษานี้ ({{ data?.total ?? 0 }} คน)
         </p>
       </div>
 
@@ -214,109 +275,178 @@ const columns: TableColumn<Student>[] = [
     </div>
 
     <!-- Table -->
-    <div class="rounded-lg border border-default overflow-hidden bg-default">
-      <UTable
-        :data="paginatedStudents"
-        :columns="columns"
-        :loading="fetchStatus === 'pending'"
-        class="min-w-full"
-      >
-        <template #name-cell="{ row }">
-          <span class="font-medium text-highlighted">
-            {{ row.original.prefix }}{{ row.original.firstName }} {{ row.original.lastName }}
-          </span>
-        </template>
+    <div class="rounded-lg border border-default overflow-hidden bg-default shadow-xs">
+      <div class="overflow-x-auto">
+        <UTable
+          :data="data?.students || []"
+          :columns="columns"
+          :loading="fetchStatus === 'pending'"
+          class="min-w-full"
+        >
+          <template #name-cell="{ row }">
+            <span class="font-medium text-highlighted">
+              {{ row.original.prefix }}{{ row.original.firstName }} {{ row.original.lastName }}
+            </span>
+          </template>
 
-        <template #classGroup-cell="{ row }">
-          <span>หมู่ {{ row.original.classGroup }}</span>
-        </template>
+          <template #classGroup-cell="{ row }">
+            <span>หมู่ {{ row.original.classGroup }}</span>
+          </template>
 
-        <template #isActive-cell="{ row }">
-          <UBadge
-            :label="row.original.isActive ? 'ใช้งาน' : 'ไม่ใช้งาน'"
-            :color="row.original.isActive ? 'success' : 'neutral'"
-            variant="subtle"
-          />
-        </template>
-
-        <template #actions-cell="{ row }">
-          <div class="flex justify-end gap-1.5">
-            <UButton
-              label="ดูข้อมูล"
-              icon="i-lucide-eye"
-              color="neutral"
-              variant="ghost"
-              size="xs"
-              @click="openDetail(row.original)"
+          <template #cycleStatus-cell="{ row }">
+            <UBadge
+              :label="row.original.cycleStatus.label"
+              :color="row.original.cycleStatus.color"
+              variant="subtle"
             />
-          </div>
-        </template>
+          </template>
 
-        <template #empty>
-          <div class="py-12 text-center text-muted">
-            <UIcon name="i-lucide-users" class="size-8 mx-auto mb-2 text-muted" />
-            <p>ไม่พบข้อมูลนักศึกษาในรอบนี้</p>
-          </div>
-        </template>
-      </UTable>
+          <template #latestCompany-cell="{ row }">
+            <div v-if="row.original.latestCompany" class="flex items-center gap-1.5 truncate">
+              <span class="text-highlighted font-medium text-sm truncate">{{ row.original.latestCompany }}</span>
+              <UButton
+                v-if="row.original.latestRequestId"
+                icon="i-lucide-file-text"
+                color="primary"
+                variant="ghost"
+                size="xs"
+                :to="`/staff/cooperative-cycles/${cycleId}/applications/${row.original.latestRequestId}`"
+                title="เปิดคำร้อง"
+              />
+            </div>
+            <span v-else class="text-muted text-xs">—</span>
+          </template>
+
+          <template #actions-cell="{ row }">
+            <div class="flex justify-end">
+              <UButton
+                label="ดูประวัติ"
+                icon="i-lucide-history"
+                color="neutral"
+                variant="ghost"
+                size="xs"
+                @click="openHistory(row.original.id)"
+              />
+            </div>
+          </template>
+
+          <template #empty>
+            <div class="py-12 text-center text-muted">
+              <UIcon name="i-lucide-users" class="size-8 mx-auto mb-2 text-muted" />
+              <p>ไม่พบข้อมูลนักศึกษาในรอบนี้</p>
+            </div>
+          </template>
+        </UTable>
+      </div>
 
       <!-- Pagination Footer -->
-      <div v-if="filteredStudents.length > 0" class="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t border-default text-xs text-muted">
+      <div v-if="data && data.total > 0" class="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t border-default text-xs text-muted">
         <div>
-          แสดง {{ pageStart }} - {{ pageEnd }} จากทั้งหมด {{ filteredStudents.length }} รายการ
+          แสดง {{ pageStart }} - {{ pageEnd }} จากทั้งหมด {{ data.total }} รายการ
         </div>
 
         <UPagination
           v-model:page="page"
-          :total="filteredStudents.length"
+          :total="data.total"
           :items-per-page="pageSize"
           size="sm"
         />
       </div>
     </div>
 
-    <!-- Detail Modal -->
+    <!-- Student History Modal -->
     <UModal
-      v-model:open="isDetailOpen"
-      :title="selectedStudent ? `ข้อมูลนักศึกษา: ${selectedStudent.prefix}${selectedStudent.firstName} ${selectedStudent.lastName}` : 'รายละเอียดนักศึกษา'"
-      :description="selectedStudent ? `รหัสนักศึกษา: ${selectedStudent.studentId}` : ''"
+      v-model:open="isHistoryOpen"
+      :title="studentHistory?.student ? `ประวัตินักศึกษา: ${studentHistory.student.prefix}${studentHistory.student.firstName} ${studentHistory.student.lastName}` : 'ประวัตินักศึกษา'"
+      :description="studentHistory?.student ? `รหัสนักศึกษา: ${studentHistory.student.studentId} · หมู่เรียน ${studentHistory.student.classGroup}` : ''"
+      class="max-w-2xl"
     >
       <template #body>
-        <div v-if="selectedStudent" class="space-y-4">
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 rounded-lg border border-default p-4 bg-muted/10 text-sm">
+        <div v-if="historyFetchStatus === 'pending'" class="py-12 text-center text-muted">
+          <UIcon name="i-lucide-loader-2" class="size-6 animate-spin mx-auto mb-2 text-primary" />
+          <p class="text-xs">กำลังโหลดประวัติการสมัคร...</p>
+        </div>
+
+        <div v-else-if="studentHistory" class="space-y-4">
+          <!-- Current cycle status card -->
+          <div class="p-3.5 rounded-lg border border-default bg-muted/10 flex items-center justify-between">
             <div>
-              <span class="text-xs text-muted block">รหัสนักศึกษา</span>
-              <span class=" font-semibold text-highlighted text-base">{{ selectedStudent.studentId }}</span>
+              <span class="text-xs text-muted block">สถานะในรอบปัจจุบัน</span>
+              <span class="font-medium text-highlighted text-sm">
+                ภาคเรียนที่ {{ cycle?.term }}/{{ cycle?.academicYear }}
+              </span>
+            </div>
+            <UBadge
+              :label="studentHistory.currentCycleStatus.label"
+              :color="studentHistory.currentCycleStatus.color"
+              variant="subtle"
+            />
+          </div>
+
+          <!-- History timeline -->
+          <div>
+            <h4 class="text-xs font-semibold text-highlighted uppercase tracking-wider mb-2 flex items-center gap-1.5">
+              <UIcon name="i-lucide-list" class="size-3.5 text-primary" />
+              ประวัติการยื่นสถานประกอบการทั้งหมด ({{ studentHistory.applications.length }} รายการ)
+            </h4>
+
+            <div v-if="studentHistory.applications.length === 0" class="py-8 text-center text-muted border border-dashed border-default rounded-lg">
+              <UIcon name="i-lucide-file-x" class="size-6 mx-auto mb-1 text-muted" />
+              <p class="text-xs">ยังไม่มีประวัติการยื่นสถานประกอบการ</p>
             </div>
 
-            <div>
-              <span class="text-xs text-muted block">สถานะการใช้งาน</span>
-              <UBadge
-                :label="selectedStudent.isActive ? 'ใช้งาน' : 'ไม่ใช้งาน'"
-                :color="selectedStudent.isActive ? 'success' : 'neutral'"
-                variant="subtle"
-                class="mt-1"
-              />
-            </div>
+            <div v-else class="space-y-2.5 max-h-96 overflow-y-auto pr-1">
+              <div
+                v-for="app in studentHistory.applications"
+                :key="app.id"
+                class="p-3 rounded-lg border border-default bg-default shadow-2xs space-y-1.5"
+              >
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-2">
+                    <span class="text-xs font-medium text-primary">{{ app.cycleLabel }}</span>
+                    <UBadge
+                      v-if="app.isCurrentCycle"
+                      label="รอบปัจจุบัน"
+                      color="info"
+                      variant="subtle"
+                      size="xs"
+                    />
+                  </div>
+                  <UBadge
+                    :label="appStatusDisplayMap[app.status]?.label || app.status"
+                    :color="appStatusDisplayMap[app.status]?.color || 'neutral'"
+                    variant="subtle"
+                    size="xs"
+                  />
+                </div>
 
-            <div>
-              <span class="text-xs text-muted block">ชื่อ-นามสกุล</span>
-              <span class="font-medium text-highlighted">{{ selectedStudent.prefix }}{{ selectedStudent.firstName }} {{ selectedStudent.lastName }}</span>
-            </div>
+                <div class="text-sm font-medium text-highlighted">
+                  {{ app.companyName }}
+                </div>
 
-            <div>
-              <span class="text-xs text-muted block">เพศ</span>
-              <span>{{ selectedStudent.gender }}</span>
-            </div>
+                <div class="text-xs text-muted flex items-center gap-2">
+                  <span>ตำแหน่ง: {{ app.position }}</span>
+                  <span>•</span>
+                  <span>วันที่สมัคร: {{ formatDate(app.appliedAt) }}</span>
+                </div>
 
-            <div>
-              <span class="text-xs text-muted block">รุ่น (ปีที่เข้าศึกษา)</span>
-              <span>รุ่น {{ selectedStudent.cohortYear }}</span>
-            </div>
-
-            <div>
-              <span class="text-xs text-muted block">หมู่เรียน</span>
-              <span>หมู่ {{ selectedStudent.classGroup }}</span>
+                <!-- Linked request if any -->
+                <div v-if="app.request" class="border-t border-default pt-2 mt-2 flex items-center justify-between text-xs">
+                  <span class="text-muted">
+                    คำร้อง #{{ app.request.id }} ({{ app.request.status }})
+                  </span>
+                  <UButton
+                    v-if="app.isCurrentCycle"
+                    label="เปิดดูคำร้อง"
+                    icon="i-lucide-external-link"
+                    color="primary"
+                    variant="ghost"
+                    size="xs"
+                    :to="`/staff/cooperative-cycles/${cycleId}/applications/${app.request.id}`"
+                    @click="isHistoryOpen = false"
+                  />
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -328,7 +458,7 @@ const columns: TableColumn<Student>[] = [
             label="ปิด"
             color="neutral"
             variant="subtle"
-            @click="isDetailOpen = false"
+            @click="isHistoryOpen = false"
           />
         </div>
       </template>

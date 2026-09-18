@@ -226,7 +226,7 @@ const columns: TableColumn<RequestItem>[] = [
             class="min-w-full"
           >
             <template #id-cell="{ row }">
-              <span class="font-mono text-xs text-muted">REQ-{{ String(row.original.id).padStart(4, '0') }}</span>
+              <span class=" text-xs text-muted">REQ-{{ String(row.original.id).padStart(4, '0') }}</span>
             </template>
 
             <template #companyName-cell="{ row }">

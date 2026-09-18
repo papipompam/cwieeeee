@@ -84,10 +84,17 @@ export default defineEventHandler(async (event) => {
         ...body.company,
         isActive: application.company.isActive
       })
-      await tx.company.update({
-        where: { id: application.companyId },
-        data: companyInput
-      })
+      try {
+        await tx.company.update({
+          where: { id: application.companyId },
+          data: companyInput
+        })
+      } catch (error) {
+        if (isUniqueConstraintError(error)) {
+          throw createError({ statusCode: 409, message: 'มีข้อมูลสถานประกอบการนี้ในระบบแล้ว' })
+        }
+        throw error
+      }
     }
 
     const updated = await tx.companyApplication.update({

@@ -1,3 +1,5 @@
+import crypto from 'node:crypto'
+
 export type CompanyInput = {
   name: string
   contactPerson: string
@@ -15,6 +17,41 @@ export type CompanyInput = {
   longitude: number | null
   travelNote: string | null
   isActive: boolean
+  companyIdentityKey: string
+}
+
+export const hashIdentityKeyToLockKeys = (key: string): [number, number] => {
+  const hash = crypto.createHash('sha256').update(key).digest()
+  return [hash.readInt32BE(0), hash.readInt32BE(4)]
+}
+
+export const normalizeIdentityText = (value: unknown): string => {
+  if (typeof value !== 'string') return ''
+  return value.normalize('NFKC').trim().toLowerCase().replace(/\s+/g, ' ')
+}
+
+export const computeCompanyIdentityKey = (data: {
+  name?: unknown
+  addressNo?: unknown
+  moo?: unknown
+  soi?: unknown
+  street?: unknown
+  subdistrict?: unknown
+  district?: unknown
+  province?: unknown
+  postalCode?: unknown
+}): string => {
+  return [
+    normalizeIdentityText(data.name),
+    normalizeIdentityText(data.addressNo),
+    normalizeIdentityText(data.moo),
+    normalizeIdentityText(data.soi),
+    normalizeIdentityText(data.street),
+    normalizeIdentityText(data.subdistrict),
+    normalizeIdentityText(data.district),
+    normalizeIdentityText(data.province),
+    normalizeIdentityText(data.postalCode)
+  ].join('|')
 }
 
 const readText = (value: unknown) => typeof value === 'string' ? value.trim() : ''
@@ -73,6 +110,18 @@ export const readCompanyInput = (value: Record<string, unknown>): CompanyInput =
     throw createError({ statusCode: 400, message: 'สถานะใช้งานไม่ถูกต้อง' })
   }
 
+  const companyIdentityKey = computeCompanyIdentityKey({
+    name,
+    addressNo,
+    moo,
+    soi,
+    street,
+    subdistrict,
+    district,
+    province,
+    postalCode
+  })
+
   return {
     name,
     contactPerson,
@@ -89,6 +138,7 @@ export const readCompanyInput = (value: Record<string, unknown>): CompanyInput =
     latitude,
     longitude,
     travelNote,
-    isActive: value.isActive ?? true
+    isActive: value.isActive ?? true,
+    companyIdentityKey
   }
 }
