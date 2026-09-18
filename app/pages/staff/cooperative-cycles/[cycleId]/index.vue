@@ -18,6 +18,13 @@ interface SummaryData {
   returnedRequestsCount: number
   confirmedPlacementsCount: number
   rejectedRequestsCount: number
+  supervisionGroupsCount?: number
+  supervisionAppointmentsCount?: number
+  supervisionPublishedAppointmentsCount?: number
+  supervisionCompletedAppointmentsCount?: number
+  supervisionAssignedTeachersCount?: number
+  supervisionTravelPlansCount?: number
+  supervisionBudgetEstimate?: number
 }
 
 const route = useRoute()
@@ -113,37 +120,37 @@ const tasks = computed(() => {
     },
     {
       name: 'จัดอาจารย์นิเทศประจำกลุ่ม',
-      progress: '0/0',
-      remaining: '0 คน',
-      statusLabel: 'ยังไม่เริ่ม',
-      statusColor: 'neutral' as const,
+      progress: `${s?.supervisionGroupsCount ?? 0} กลุ่ม`,
+      remaining: `${s?.supervisionAssignedTeachersCount ?? 0} ท่าน`,
+      statusLabel: (s?.supervisionGroupsCount ?? 0) > 0 ? 'จัดกลุ่มแล้ว' : 'ยังไม่เริ่ม',
+      statusColor: (s?.supervisionGroupsCount ?? 0) > 0 ? 'success' as const : 'neutral' as const,
       actionLabel: 'จัดกลุ่มอาจารย์',
       actionTo: `/staff/cooperative-cycles/${cycleId.value}/supervisors`
     },
     {
       name: 'กำหนดการนิเทศและตารางตรวจเยี่ยม',
-      progress: '0/0',
-      remaining: '0 ครั้ง',
-      statusLabel: 'ยังไม่เริ่ม',
-      statusColor: 'neutral' as const,
+      progress: `${s?.supervisionPublishedAppointmentsCount ?? 0}/${s?.supervisionAppointmentsCount ?? 0}`,
+      remaining: `${(s?.supervisionAppointmentsCount ?? 0) - (s?.supervisionPublishedAppointmentsCount ?? 0)} ร่าง`,
+      statusLabel: (s?.supervisionPublishedAppointmentsCount ?? 0) > 0 ? 'เผยแพร่แล้ว' : ((s?.supervisionAppointmentsCount ?? 0) > 0 ? 'ฉบับร่าง' : 'ยังไม่เริ่ม'),
+      statusColor: (s?.supervisionPublishedAppointmentsCount ?? 0) > 0 ? 'success' as const : ((s?.supervisionAppointmentsCount ?? 0) > 0 ? 'warning' as const : 'neutral' as const),
       actionLabel: 'จัดตารางนิเทศ',
       actionTo: `/staff/cooperative-cycles/${cycleId.value}/visits`
     },
     {
       name: 'ติดตามการประเมิน (นักศึกษา/สถานประกอบการ)',
-      progress: '0/0',
-      remaining: '0 ฉบับ',
-      statusLabel: 'ยังไม่เริ่ม',
-      statusColor: 'neutral' as const,
+      progress: `${s?.supervisionCompletedAppointmentsCount ?? 0}/${s?.supervisionAppointmentsCount ?? 0}`,
+      remaining: `${(s?.supervisionAppointmentsCount ?? 0) - (s?.supervisionCompletedAppointmentsCount ?? 0)} รายการ`,
+      statusLabel: (s?.supervisionCompletedAppointmentsCount ?? 0) > 0 ? 'เสร็จสิ้น' : 'รอการนิเทศ',
+      statusColor: (s?.supervisionCompletedAppointmentsCount ?? 0) > 0 ? 'info' as const : 'neutral' as const,
       actionLabel: 'ดูการประเมิน',
       actionTo: `/staff/cooperative-cycles/${cycleId.value}/evaluations`
     },
     {
       name: 'จัดสรรงบประมาณนิเทศ',
-      progress: '0/0',
-      remaining: '0 รายการ',
-      statusLabel: 'ยังไม่เริ่ม',
-      statusColor: 'neutral' as const,
+      progress: `${s?.supervisionTravelPlansCount ?? 0} แผน`,
+      remaining: `฿${(s?.supervisionBudgetEstimate ?? 0).toLocaleString('th-TH')}`,
+      statusLabel: (s?.supervisionTravelPlansCount ?? 0) > 0 ? 'มีแผนเดินทาง' : 'ยังไม่มีแผน',
+      statusColor: (s?.supervisionTravelPlansCount ?? 0) > 0 ? 'success' as const : 'neutral' as const,
       actionLabel: 'จัดการงบประมาณ',
       actionTo: `/staff/cooperative-cycles/${cycleId.value}/budgets`
     }

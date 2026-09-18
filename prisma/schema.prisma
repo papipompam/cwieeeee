@@ -68,6 +68,10 @@ model User {
   companyApplications CompanyApplication[]
   notifications       Notification[]
   supervisionVisits   SupervisionVisit[]
+  supervisionGroupTeachers SupervisionGroupTeacher[]
+  supervisionAppointmentStudents SupervisionAppointmentStudent[]
+  supervisionAppointmentTeachers SupervisionAppointmentTeacher[]
+  supervisionTravelTravellers SupervisionTravelTraveller[]
   createdAt           DateTime             @default(now()) @map("created_at")
   updatedAt           DateTime             @updatedAt @map("updated_at")
 
@@ -101,6 +105,7 @@ model CooperativeCycle {
   note                 String?
   companyApplications  CompanyApplication[]
   supervisionVisits    SupervisionVisit[]
+  supervisionRounds    SupervisionRound[]
   createdAt            DateTime               @default(now()) @map("created_at")
   updatedAt            DateTime               @updatedAt @map("updated_at")
 
@@ -128,6 +133,8 @@ model Company {
   isActive            Boolean              @default(true) @map("is_active")
   companyIdentityKey  String               @unique @map("company_identity_key")
   companyApplications CompanyApplication[]
+  supervisionGroupCompanies SupervisionGroupCompany[]
+  supervisionAppointments SupervisionAppointment[]
   createdAt           DateTime             @default(now()) @map("created_at")
   updatedAt           DateTime             @updatedAt @map("updated_at")
 
@@ -189,6 +196,7 @@ model CooperativeRequest {
   signedDocumentOriginalName String?                  @map("signed_document_original_name")
   signedDocumentSubmittedAt  DateTime?                @map("signed_document_submitted_at")
   documents                  RequestDocument[]
+  supervisionAppointmentStudents SupervisionAppointmentStudent[]
   createdAt                  DateTime                 @default(now()) @map("created_at")
   updatedAt                  DateTime                 @updatedAt @map("updated_at")
 
@@ -248,4 +256,195 @@ model SupervisionVisit {
 
   @@index([studentUserId, cooperativeCycleId])
   @@map("supervision_visits")
+}
+
+enum SupervisionRoundStatus {
+  PLANNING
+  PUBLISHED
+  COMPLETED
+}
+
+enum SupervisionAppointmentStatus {
+  DRAFT
+  PUBLISHED
+  RESCHEDULED
+  COMPLETED
+  CANCELLED
+}
+
+model SupervisionRound {
+  id                 Int                    @id @default(autoincrement())
+  cooperativeCycleId Int                    @map("cooperative_cycle_id")
+  cooperativeCycle   CooperativeCycle       @relation(fields: [cooperativeCycleId], references: [id], onDelete: Cascade)
+  roundNo            Int                    @default(1) @map("round_no")
+  name               String?
+  status             SupervisionRoundStatus @default(PLANNING)
+  groups             SupervisionGroup[]
+  groupCompanies     SupervisionGroupCompany[]
+  groupTeachers      SupervisionGroupTeacher[]
+  appointments       SupervisionAppointment[]
+  travelPlans        SupervisionTravelPlan[]
+  createdAt          DateTime               @default(now()) @map("created_at")
+  updatedAt          DateTime               @updatedAt @map("updated_at")
+
+  @@unique([cooperativeCycleId, roundNo], name: "cycle_roundNo")
+  @@map("supervision_rounds")
+}
+
+model SupervisionGroup {
+  id                 Int                        @id @default(autoincrement())
+  supervisionRoundId Int                        @map("supervision_round_id")
+  supervisionRound   SupervisionRound           @relation(fields: [supervisionRoundId], references: [id], onDelete: Cascade)
+  name               String
+  note               String?
+  companies          SupervisionGroupCompany[]
+  teachers           SupervisionGroupTeacher[]
+  appointments       SupervisionAppointment[]
+  travelPlans        SupervisionTravelPlan[]
+  createdAt          DateTime                   @default(now()) @map("created_at")
+  updatedAt          DateTime                   @updatedAt @map("updated_at")
+
+  @@unique([supervisionRoundId, name], name: "round_group_name")
+  @@map("supervision_groups")
+}
+
+model SupervisionGroupCompany {
+  id                 Int              @id @default(autoincrement())
+  supervisionRoundId Int              @map("supervision_round_id")
+  supervisionRound   SupervisionRound @relation(fields: [supervisionRoundId], references: [id], onDelete: Cascade)
+  supervisionGroupId Int              @map("supervision_group_id")
+  supervisionGroup   SupervisionGroup @relation(fields: [supervisionGroupId], references: [id], onDelete: Cascade)
+  companyId          Int              @map("company_id")
+  company            Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdAt          DateTime         @default(now()) @map("created_at")
+
+  @@unique([supervisionRoundId, companyId], name: "round_company")
+  @@index([supervisionGroupId])
+  @@map("supervision_group_companies")
+}
+
+model SupervisionGroupTeacher {
+  id                 Int              @id @default(autoincrement())
+  supervisionRoundId Int              @map("supervision_round_id")
+  supervisionRound   SupervisionRound @relation(fields: [supervisionRoundId], references: [id], onDelete: Cascade)
+  supervisionGroupId Int              @map("supervision_group_id")
+  supervisionGroup   SupervisionGroup @relation(fields: [supervisionGroupId], references: [id], onDelete: Cascade)
+  teacherUserId      Int              @map("teacher_user_id")
+  teacherUser        User             @relation(fields: [teacherUserId], references: [id], onDelete: Cascade)
+  createdAt          DateTime         @default(now()) @map("created_at")
+
+  @@unique([supervisionGroupId, teacherUserId], name: "group_teacher")
+  @@unique([supervisionRoundId, teacherUserId], name: "round_teacher")
+  @@map("supervision_group_teachers")
+}
+
+model SupervisionAppointment {
+  id                 Int                          @id @default(autoincrement())
+  supervisionRoundId Int                          @map("supervision_round_id")
+  supervisionRound   SupervisionRound             @relation(fields: [supervisionRoundId], references: [id], onDelete: Cascade)
+  supervisionGroupId Int                          @map("supervision_group_id")
+  supervisionGroup   SupervisionGroup             @relation(fields: [supervisionGroupId], references: [id], onDelete: Cascade)
+  companyId          Int                          @map("company_id")
+  company            Company                      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  companyName        String                       @map("company_name")
+  companyAddress     String?                      @map("company_address")
+  province           String?
+  latitude           Float?
+  longitude          Float?
+  scheduledDate      DateTime                     @map("scheduled_date") @db.Date
+  period             String                       @default("MORNING")
+  timeNote           String?                      @map("time_note")
+  status             SupervisionAppointmentStatus @default(DRAFT)
+  changeReason       String?                      @map("change_reason")
+  cancelReason       String?                      @map("cancel_reason")
+  publishedAt        DateTime?                    @map("published_at")
+  students           SupervisionAppointmentStudent[]
+  teachers           SupervisionAppointmentTeacher[]
+  travelStops        SupervisionTravelStop[]
+  createdAt          DateTime                     @default(now()) @map("created_at")
+  updatedAt          DateTime                     @updatedAt @map("updated_at")
+
+  @@unique([supervisionRoundId, companyId], name: "round_appointment_company")
+  @@index([supervisionGroupId])
+  @@index([scheduledDate])
+  @@index([status])
+  @@map("supervision_appointments")
+}
+
+model SupervisionAppointmentStudent {
+  id                   Int                    @id @default(autoincrement())
+  appointmentId        Int                    @map("appointment_id")
+  appointment          SupervisionAppointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  studentUserId        Int                    @map("student_user_id")
+  studentUser          User                   @relation(fields: [studentUserId], references: [id], onDelete: Cascade)
+  cooperativeRequestId Int?                   @map("cooperative_request_id")
+  cooperativeRequest   CooperativeRequest?    @relation(fields: [cooperativeRequestId], references: [id], onDelete: SetNull)
+  createdAt            DateTime               @default(now()) @map("created_at")
+
+  @@unique([appointmentId, studentUserId], name: "appointment_student")
+  @@map("supervision_appointment_students")
+}
+
+model SupervisionAppointmentTeacher {
+  id            Int                    @id @default(autoincrement())
+  appointmentId Int                    @map("appointment_id")
+  appointment   SupervisionAppointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  teacherUserId Int                    @map("teacher_user_id")
+  teacherUser   User                   @relation(fields: [teacherUserId], references: [id], onDelete: Cascade)
+  createdAt     DateTime               @default(now()) @map("created_at")
+
+  @@unique([appointmentId, teacherUserId], name: "appointment_teacher")
+  @@map("supervision_appointment_teachers")
+}
+
+model SupervisionTravelPlan {
+  id                 Int                          @id @default(autoincrement())
+  supervisionRoundId Int                          @map("supervision_round_id")
+  supervisionRound   SupervisionRound             @relation(fields: [supervisionRoundId], references: [id], onDelete: Cascade)
+  supervisionGroupId Int                          @map("supervision_group_id")
+  supervisionGroup   SupervisionGroup             @relation(fields: [supervisionGroupId], references: [id], onDelete: Cascade)
+  travelDate         DateTime                     @map("travel_date") @db.Date
+  startLocation      String                       @default("มหาวิทยาลัย") @map("start_location")
+  fuelRate           Float                        @default(4.0) @map("fuel_rate")
+  note               String?
+  stops              SupervisionTravelStop[]
+  travellers         SupervisionTravelTraveller[]
+  createdAt          DateTime                     @default(now()) @map("created_at")
+  updatedAt          DateTime                     @updatedAt @map("updated_at")
+
+  @@index([supervisionGroupId])
+  @@index([supervisionRoundId])
+  @@map("supervision_travel_plans")
+}
+
+model SupervisionTravelStop {
+  id                     Int                    @id @default(autoincrement())
+  travelPlanId           Int                    @map("travel_plan_id")
+  travelPlan             SupervisionTravelPlan  @relation(fields: [travelPlanId], references: [id], onDelete: Cascade)
+  appointmentId          Int                    @map("appointment_id")
+  appointment            SupervisionAppointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  sequence               Int                    @default(1)
+  distanceKmFromPrevious Float                  @default(0) @map("distance_km_from_previous")
+  createdAt              DateTime               @default(now()) @map("created_at")
+
+  @@unique([travelPlanId, sequence], name: "plan_sequence")
+  @@unique([travelPlanId, appointmentId], name: "plan_appointment")
+  @@map("supervision_travel_stops")
+}
+
+model SupervisionTravelTraveller {
+  id             Int                   @id @default(autoincrement())
+  travelPlanId   Int                   @map("travel_plan_id")
+  travelPlan     SupervisionTravelPlan @relation(fields: [travelPlanId], references: [id], onDelete: Cascade)
+  teacherUserId  Int                   @map("teacher_user_id")
+  teacherUser    User                  @relation(fields: [teacherUserId], references: [id], onDelete: Cascade)
+  perDiemRate    Float                 @default(300.0) @map("per_diem_rate")
+  perDiemDays    Float                 @default(1.0) @map("per_diem_days")
+  lodgingRate    Float                 @default(0.0) @map("lodging_rate")
+  nights         Int                   @default(0)
+  personsPerRoom Int                   @default(2) @map("persons_per_room")
+  createdAt      DateTime              @default(now()) @map("created_at")
+
+  @@unique([travelPlanId, teacherUserId], name: "plan_teacher")
+  @@map("supervision_travel_travellers")
 }
