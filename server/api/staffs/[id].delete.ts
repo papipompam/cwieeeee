@@ -6,15 +6,29 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, message: 'รหัสเจ้าหน้าที่ในระบบไม่ถูกต้อง' })
   }
 
-  const current = await prisma.staff.findUnique({
-    where: { id }
+  const current = await prisma.user.findFirst({
+    where: { id, role: 'STAFF' },
+    include: {
+      sessions: { select: { id: true }, take: 1 }
+    }
   })
 
   if (!current) {
     throw createError({ statusCode: 404, message: 'ไม่พบข้อมูลเจ้าหน้าที่ที่ระบุ' })
   }
 
-  await prisma.staff.delete({
+  if (current.loginId === 'admin') {
+    throw createError({ statusCode: 400, message: 'ไม่สามารถลบบัญชีผู้ดูแลระบบหลัก (admin) ได้' })
+  }
+
+  if (current.sessions.length > 0) {
+    throw createError({
+      statusCode: 400,
+      message: 'ไม่สามารถลบบัญชีที่มีประวัติการเข้าสู่ระบบได้ กรุณาเปลี่ยนสถานะเป็น "ไม่ใช้งาน" แทน'
+    })
+  }
+
+  await prisma.user.delete({
     where: { id }
   })
 

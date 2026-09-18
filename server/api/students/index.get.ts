@@ -5,11 +5,13 @@ export default defineEventHandler(async (event) => {
   const classGroup = query.classGroup ? Number(query.classGroup) : undefined
   const isActiveQuery = typeof query.isActive === 'string' ? query.isActive : undefined
 
-  const where: Record<string, any> = {}
+  const where: Record<string, any> = {
+    role: 'STUDENT'
+  }
 
   if (search) {
     where.OR = [
-      { studentId: { contains: search, mode: 'insensitive' } },
+      { loginId: { contains: search, mode: 'insensitive' } },
       { firstName: { contains: search, mode: 'insensitive' } },
       { lastName: { contains: search, mode: 'insensitive' } }
     ]
@@ -29,12 +31,26 @@ export default defineEventHandler(async (event) => {
     where.isActive = false
   }
 
-  return await prisma.student.findMany({
+  const users = await prisma.user.findMany({
     where,
     orderBy: [
       { cohortYear: 'desc' },
       { classGroup: 'asc' },
-      { studentId: 'asc' }
+      { loginId: 'asc' }
     ]
   })
+
+  return users.map(u => ({
+    id: u.id,
+    studentId: u.loginId,
+    prefix: u.prefix ?? '',
+    firstName: u.firstName ?? '',
+    lastName: u.lastName ?? '',
+    gender: u.gender ?? '',
+    cohortYear: u.cohortYear ?? 0,
+    classGroup: u.classGroup ?? 0,
+    isActive: u.isActive,
+    createdAt: u.createdAt,
+    updatedAt: u.updatedAt
+  }))
 })

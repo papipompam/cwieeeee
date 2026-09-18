@@ -124,20 +124,41 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  const existing = await prisma.student.findMany({
-    where: { studentId: { in: students.map(student => student.studentId) } },
-    select: { studentId: true }
+  const existing = await prisma.user.findMany({
+    where: { loginId: { in: students.map(student => student.studentId) } },
+    select: { loginId: true }
   })
-  const existingIds = new Set(existing.map(student => student.studentId))
+  const existingIds = new Set(existing.map(user => user.loginId))
   const newStudents = students.filter(student => !existingIds.has(student.studentId))
 
-  const result = newStudents.length
-    ? await prisma.student.createMany({ data: newStudents, skipDuplicates: true })
-    : { count: 0 }
+  let importedCount = 0
+  const chunkSize = 20
+  for (let i = 0; i < newStudents.length; i += chunkSize) {
+    const chunk = newStudents.slice(i, i + chunkSize)
+    const records = await Promise.all(
+      chunk.map(async (student) => ({
+        loginId: student.studentId,
+        passwordHash: await hashPassword(student.studentId),
+        role: 'STUDENT' as const,
+        prefix: student.prefix,
+        firstName: student.firstName,
+        lastName: student.lastName,
+        gender: student.gender,
+        cohortYear: student.cohortYear,
+        classGroup: student.classGroup,
+        isActive: student.isActive
+      }))
+    )
+
+    for (const record of records) {
+      await prisma.user.create({ data: record })
+      importedCount++
+    }
+  }
 
   return {
-    imported: result.count,
-    skipped: students.length - result.count,
+    imported: importedCount,
+    skipped: students.length - importedCount,
     total: students.length
   }
 })

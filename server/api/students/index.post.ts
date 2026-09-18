@@ -2,7 +2,34 @@ export default defineEventHandler(async (event) => {
   const student = readStudentInput(await readBody(event))
 
   try {
-    return await prisma.student.create({ data: student })
+    const user = await prisma.user.create({
+      data: {
+        loginId: student.studentId,
+        passwordHash: await hashPassword(student.studentId),
+        role: 'STUDENT',
+        prefix: student.prefix,
+        firstName: student.firstName,
+        lastName: student.lastName,
+        gender: student.gender,
+        cohortYear: student.cohortYear,
+        classGroup: student.classGroup,
+        isActive: student.isActive
+      }
+    })
+
+    return {
+      id: user.id,
+      studentId: user.loginId,
+      prefix: user.prefix ?? '',
+      firstName: user.firstName ?? '',
+      lastName: user.lastName ?? '',
+      gender: user.gender ?? '',
+      cohortYear: user.cohortYear ?? 0,
+      classGroup: user.classGroup ?? 0,
+      isActive: user.isActive,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt
+    }
   } catch (error) {
     if (isUniqueConstraintError(error)) {
       throw createError({ statusCode: 409, message: `มีรหัสนักศึกษา ${student.studentId} อยู่แล้วในระบบ` })

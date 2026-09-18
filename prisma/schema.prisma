@@ -20,16 +20,59 @@ enum UserRole {
   STUDENT
 }
 
-model User {
-  id           Int         @id @default(autoincrement())
-  loginId      String      @unique @map("login_id")
-  passwordHash String      @map("password_hash")
-  role         UserRole
-  isActive     Boolean     @default(true) @map("is_active")
-  sessions     AuthSession[]
-  createdAt    DateTime    @default(now()) @map("created_at")
-  updatedAt    DateTime    @updatedAt @map("updated_at")
+enum CompanyApplicationStatus {
+  SUBMITTED
+  AWAITING_RESPONSE
+  INTERVIEW
+  ACCEPTED
+  REJECTED
+  WITHDRAWN
+  CONFIRMED
+}
 
+enum CooperativeRequestStatus {
+  DRAFT
+  SUBMITTED
+  STAFF_PROCESSING
+  LETTER_READY
+  DOCUMENT_UNDER_REVIEW
+  RETURNED_FOR_REVISION
+  PLACEMENT_CONFIRMED
+  REJECTED
+  CANCELLED
+}
+
+enum DocumentStatus {
+  WAITING_UPLOAD
+  UPLOADED
+  UNDER_REVIEW
+  APPROVED
+  RETURNED_FOR_REVISION
+  SUPERSEDED
+}
+
+model User {
+  id                  Int                  @id @default(autoincrement())
+  loginId             String               @unique @map("login_id")
+  passwordHash        String               @map("password_hash")
+  role                UserRole
+  prefix              String
+  firstName           String               @map("first_name")
+  lastName            String               @map("last_name")
+  gender              String?
+  phone               String?
+  cohortYear          Int?                 @map("cohort_year")
+  classGroup          Int?                 @map("class_group")
+  isActive            Boolean              @default(true) @map("is_active")
+  sessions            AuthSession[]
+  companyApplications CompanyApplication[]
+  notifications       Notification[]
+  supervisionVisits   SupervisionVisit[]
+  createdAt           DateTime             @default(now()) @map("created_at")
+  updatedAt           DateTime             @updatedAt @map("updated_at")
+
+  @@index([role, isActive])
+  @@index([role, cohortYear, classGroup])
   @@map("users")
 }
 
@@ -56,6 +99,8 @@ model CooperativeCycle {
   internshipEndDate    DateTime               @map("internship_end_date") @db.Date
   status               CooperativeCycleStatus @default(OPEN_FOR_APPLICATION)
   note                 String?
+  companyApplications  CompanyApplication[]
+  supervisionVisits    SupervisionVisit[]
   createdAt            DateTime               @default(now()) @map("created_at")
   updatedAt            DateTime               @updatedAt @map("updated_at")
 
@@ -63,72 +108,143 @@ model CooperativeCycle {
   @@map("cooperative_cycles")
 }
 
-model Student {
-  id         Int      @id @default(autoincrement())
-  studentId  String   @unique @map("student_id")
-  prefix     String
-  firstName  String   @map("first_name")
-  lastName   String   @map("last_name")
-  gender     String
-  cohortYear Int      @map("cohort_year")
-  classGroup Int      @map("class_group")
-  isActive   Boolean  @default(true) @map("is_active")
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
-
-  @@map("students")
-}
-
-model Teacher {
-  id        Int      @id @default(autoincrement())
-  teacherId String   @unique @map("teacher_id")
-  prefix    String
-  firstName String   @map("first_name")
-  lastName  String   @map("last_name")
-  gender    String
-  phone     String
-  isActive  Boolean  @default(true) @map("is_active")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  @@map("teachers")
-}
-
 model Company {
-  id            Int      @id @default(autoincrement())
-  name          String
-  contactPerson String   @map("contact_person")
-  phone         String?
-  email         String?
-  addressNo     String   @map("address_no")
-  moo           String?
-  soi           String?
-  street        String?
-  subdistrict   String
-  district      String
-  province      String
-  postalCode    String   @map("postal_code")
-  latitude      Float?
-  longitude     Float?
-  travelNote    String?  @map("travel_note")
-  isActive      Boolean  @default(true) @map("is_active")
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
+  id                  Int                  @id @default(autoincrement())
+  name                String
+  contactPerson       String               @map("contact_person")
+  phone               String?
+  email               String?
+  addressNo           String               @map("address_no")
+  moo                 String?
+  soi                 String?
+  street              String?
+  subdistrict         String
+  district            String
+  province            String
+  postalCode          String               @map("postal_code")
+  latitude            Float?
+  longitude           Float?
+  travelNote          String?              @map("travel_note")
+  isActive            Boolean              @default(true) @map("is_active")
+  companyApplications CompanyApplication[]
+  createdAt           DateTime             @default(now()) @map("created_at")
+  updatedAt           DateTime             @updatedAt @map("updated_at")
 
   @@map("companies")
 }
 
-model Staff {
-  id        Int      @id @default(autoincrement())
-  staffId   String   @unique @map("staff_id")
-  prefix    String
-  firstName String   @map("first_name")
-  lastName  String   @map("last_name")
-  gender    String
-  phone     String
-  isActive  Boolean  @default(true) @map("is_active")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+model CompanyApplication {
+  id                     Int                      @id @default(autoincrement())
+  studentUserId          Int                      @map("student_user_id")
+  studentUser            User                     @relation(fields: [studentUserId], references: [id], onDelete: Cascade)
+  cooperativeCycleId     Int                      @map("cooperative_cycle_id")
+  cooperativeCycle       CooperativeCycle         @relation(fields: [cooperativeCycleId], references: [id], onDelete: Cascade)
+  companyId              Int                      @map("company_id")
+  company                Company                  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  status                 CompanyApplicationStatus @default(SUBMITTED)
+  applicationPosition    String?                  @map("application_position")
+  applicationMethod      String                   @default("EMAIL") @map("application_method")
+  appliedAt              DateTime                 @default(now()) @map("applied_at") @db.Date
+  note                   String?
+  outcomeAt              DateTime?                @map("outcome_at")
+  recipientName          String?                  @map("recipient_name")
+  letterAddress          String?                  @map("letter_address")
+  internshipLocationName String?                  @map("internship_location_name")
+  internshipLatitude     Float?                   @map("internship_latitude")
+  internshipLongitude    Float?                   @map("internship_longitude")
+  cooperativeRequest     CooperativeRequest?
+  createdAt              DateTime                 @default(now()) @map("created_at")
+  updatedAt              DateTime                 @updatedAt @map("updated_at")
 
-  @@map("staffs")
+  @@index([studentUserId, cooperativeCycleId])
+  @@index([status])
+  @@map("company_applications")
+}
+
+model CooperativeRequest {
+  id                         Int                      @id @default(autoincrement())
+  companyApplicationId       Int                      @unique @map("company_application_id")
+  companyApplication        CompanyApplication       @relation(fields: [companyApplicationId], references: [id], onDelete: Cascade)
+  status                     CooperativeRequestStatus @default(SUBMITTED)
+  companyName                String                   @map("company_name")
+  internshipLocationName     String?                  @map("internship_location_name")
+  position                   String?
+  address                    String?
+  province                   String?
+  latitude                   Float?
+  longitude                  Float?
+  recipientName              String?                  @map("recipient_name")
+  recipientPosition          String?                  @map("recipient_position")
+  letterAddress              String?                  @map("letter_address")
+  appliedAt                  DateTime?                @map("applied_at") @db.Date
+  confirmedAt                DateTime                 @default(now()) @map("confirmed_at")
+  returnedReason             String?                  @map("returned_reason")
+  rejectedReason             String?                  @map("rejected_reason")
+  studentNote                String?                  @map("student_note")
+  letterFilePath             String?                  @map("letter_file_path")
+  letterOriginalName         String?                  @map("letter_original_name")
+  letterIssuedAt             DateTime?                @map("letter_issued_at")
+  signedDocumentPath         String?                  @map("signed_document_path")
+  signedDocumentOriginalName String?                  @map("signed_document_original_name")
+  signedDocumentSubmittedAt  DateTime?                @map("signed_document_submitted_at")
+  documents                  RequestDocument[]
+  createdAt                  DateTime                 @default(now()) @map("created_at")
+  updatedAt                  DateTime                 @updatedAt @map("updated_at")
+
+  @@map("cooperative_requests")
+}
+
+model RequestDocument {
+  id                   Int                @id @default(autoincrement())
+  cooperativeRequestId Int                @map("cooperative_request_id")
+  cooperativeRequest   CooperativeRequest @relation(fields: [cooperativeRequestId], references: [id], onDelete: Cascade)
+  documentType         String             @default("ACCEPTANCE_LETTER") @map("document_type")
+  fileName             String             @map("file_name")
+  filePath             String             @map("file_path")
+  fileSize             Int                @map("file_size")
+  mimeType             String             @map("mime_type")
+  status               DocumentStatus     @default(UPLOADED)
+  version              Int                @default(1)
+  reviewerNote         String?            @map("reviewer_note")
+  reviewedAt           DateTime?          @map("reviewed_at")
+  createdAt            DateTime           @default(now()) @map("created_at")
+  updatedAt            DateTime           @updatedAt @map("updated_at")
+
+  @@index([cooperativeRequestId])
+  @@map("request_documents")
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  message   String
+  link      String?
+  isRead    Boolean  @default(false) @map("is_read")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId, isRead])
+  @@map("notifications")
+}
+
+model SupervisionVisit {
+  id                 Int              @id @default(autoincrement())
+  cooperativeCycleId Int              @map("cooperative_cycle_id")
+  cooperativeCycle   CooperativeCycle @relation(fields: [cooperativeCycleId], references: [id], onDelete: Cascade)
+  studentUserId      Int              @map("student_user_id")
+  studentUser        User             @relation(fields: [studentUserId], references: [id], onDelete: Cascade)
+  visitNo            Int              @default(1) @map("visit_no")
+  visitDate          DateTime         @map("visit_date") @db.Date
+  period             String           @default("MORNING")
+  companyName        String           @map("company_name")
+  companyAddress     String?          @map("company_address")
+  supervisorName     String?          @map("supervisor_name")
+  status             String           @default("PUBLISHED")
+  notes              String?
+  createdAt          DateTime         @default(now()) @map("created_at")
+  updatedAt          DateTime         @updatedAt @map("updated_at")
+
+  @@index([studentUserId, cooperativeCycleId])
+  @@map("supervision_visits")
 }

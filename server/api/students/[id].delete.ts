@@ -6,18 +6,25 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, message: 'รหัสนักศึกษาในระบบไม่ถูกต้อง' })
   }
 
-  const current = await prisma.student.findUnique({
-    where: { id }
+  const current = await prisma.user.findFirst({
+    where: { id, role: 'STUDENT' },
+    include: {
+      sessions: { select: { id: true }, take: 1 }
+    }
   })
 
   if (!current) {
     throw createError({ statusCode: 404, message: 'ไม่พบข้อมูลนักศึกษาที่ระบุ' })
   }
 
-  // Future check: if referenced in applications or cycles, reject with 400
-  // In Phase B, there are no references yet.
+  if (current.sessions.length > 0) {
+    throw createError({
+      statusCode: 400,
+      message: 'ไม่สามารถลบบัญชีที่มีประวัติการเข้าสู่ระบบได้ กรุณาเปลี่ยนสถานะเป็น "ไม่ใช้งาน" แทน'
+    })
+  }
 
-  await prisma.student.delete({
+  await prisma.user.delete({
     where: { id }
   })
 

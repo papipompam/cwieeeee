@@ -122,6 +122,25 @@ const studentLinks: NavigationMenuItem[] = [
     label: 'ภาพรวม',
     icon: 'i-lucide-layout-dashboard',
     to: '/student',
+    exact: true,
+    onSelect: handleSelect
+  },
+  {
+    label: 'การสมัครสถานประกอบการ',
+    icon: 'i-lucide-briefcase-business',
+    to: '/student/applications',
+    onSelect: handleSelect
+  },
+  {
+    label: 'คำร้องสถานที่ฝึกงาน',
+    icon: 'i-lucide-file-text',
+    to: '/student/requests',
+    onSelect: handleSelect
+  },
+  {
+    label: 'ตารางนิเทศ',
+    icon: 'i-lucide-calendar-days',
+    to: '/student/visits',
     onSelect: handleSelect
   }
 ]

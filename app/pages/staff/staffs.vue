@@ -12,7 +12,6 @@ interface Staff {
   prefix: string
   firstName: string
   lastName: string
-  gender: string
   phone: string
   isActive: boolean
   createdAt: string
@@ -47,7 +46,6 @@ const formState = reactive({
   prefix: 'นาย',
   firstName: '',
   lastName: '',
-  gender: 'ชาย',
   phone: '',
   isActive: true
 })
@@ -59,12 +57,6 @@ const prefixOptions = [
   { label: 'นางสาว', value: 'นางสาว' },
   { label: 'นาง', value: 'นาง' },
   { label: 'ดร.', value: 'ดร.' }
-]
-
-const genderOptions = [
-  { label: 'ชาย', value: 'ชาย' },
-  { label: 'หญิง', value: 'หญิง' },
-  { label: 'อื่นๆ / ไม่ระบุ', value: 'อื่นๆ' }
 ]
 
 const statusOptions = [
@@ -141,7 +133,6 @@ const openCreateModal = () => {
   formState.prefix = 'นาย'
   formState.firstName = ''
   formState.lastName = ''
-  formState.gender = 'ชาย'
   formState.phone = ''
   formState.isActive = true
   isFormOpen.value = true
@@ -165,7 +156,6 @@ const openEditModal = (staff: Staff) => {
   formState.prefix = staff.prefix
   formState.firstName = staff.firstName
   formState.lastName = staff.lastName
-  formState.gender = staff.gender
   formState.phone = staff.phone
   formState.isActive = staff.isActive
 
@@ -193,11 +183,6 @@ const validateForm = () => {
 
   if (!formState.lastName.trim()) {
     formErrors.lastName = 'กรุณากรอกนามสกุล'
-    isValid = false
-  }
-
-  if (!formState.gender.trim()) {
-    formErrors.gender = 'กรุณาระบุเพศ'
     isValid = false
   }
 
@@ -299,11 +284,6 @@ const columns: TableColumn<Staff>[] = [
     id: 'fullName',
     header: 'ชื่อ-สกุล',
     cell: ({ row }) => `${row.original.prefix}${row.original.firstName} ${row.original.lastName}`
-  },
-  {
-    accessorKey: 'gender',
-    header: 'เพศ',
-    meta: { class: { th: 'w-24', td: 'w-24' } }
   },
   {
     accessorKey: 'phone',
@@ -515,24 +495,13 @@ const columns: TableColumn<Staff>[] = [
           </UFormField>
         </div>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <UFormField label="เพศ" required :error="formErrors.gender">
-            <USelect
-              v-model="formState.gender"
-              :items="genderOptions"
-              value-key="value"
-              class="w-full"
-            />
-          </UFormField>
-
-          <UFormField label="เบอร์มือถือ" required :error="formErrors.phone">
-            <UInput
-              v-model="formState.phone"
-              placeholder="เช่น 0812345678"
-              class="w-full "
-            />
-          </UFormField>
-        </div>
+        <UFormField label="เบอร์มือถือ" required :error="formErrors.phone">
+          <UInput
+            v-model="formState.phone"
+            placeholder="เช่น 0812345678"
+            class="w-full"
+          />
+        </UFormField>
 
         <div v-if="isEditing" class="border-t border-default pt-3">
           <UFormField label="สถานะการใช้งาน">
@@ -612,11 +581,6 @@ const columns: TableColumn<Staff>[] = [
           </div>
 
           <div>
-            <span class="text-xs text-muted block">เพศ</span>
-            <span>{{ selectedStaff.gender }}</span>
-          </div>
-
-          <div class="sm:col-span-2">
             <span class="text-xs text-muted block">เบอร์มือถือ</span>
             <a
               v-if="selectedStaff.phone"
