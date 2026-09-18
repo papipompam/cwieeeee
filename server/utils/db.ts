@@ -15,3 +15,10 @@ export const prisma = globalForPrisma.prisma ?? createPrismaClient()
 if (process.env.NODE_ENV !== 'production') {
   globalForPrisma.prisma = prisma
 }
+
+export const isUniqueConstraintError = (error: unknown) => (
+  typeof error === 'object'
+  && error !== null
+  && 'code' in error
+  && error.code === 'P2002'
+)

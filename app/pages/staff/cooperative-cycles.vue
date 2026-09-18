@@ -295,12 +295,12 @@ const confirmDelete = async () => {
     rowSelection.value = {}
     pendingDeleteIds.value = []
     isDeleteOpen.value = false
-    await refresh()
   } catch (err: any) {
     const msg = err?.data?.message || err?.message || 'ไม่สามารถลบรอบสหกิจได้'
     notify.error(msg)
   } finally {
     isDeleting.value = false
+    await refresh()
   }
 }
 

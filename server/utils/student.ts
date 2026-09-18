@@ -43,10 +43,3 @@ export const readStudentInput = (value: Record<string, unknown>): StudentInput =
 
   return { studentId, prefix, firstName, lastName, gender, cohortYear, classGroup, isActive: value.isActive ?? true }
 }
-
-export const isUniqueConstraintError = (error: unknown) => (
-  typeof error === 'object'
-  && error !== null
-  && 'code' in error
-  && error.code === 'P2002'
-)

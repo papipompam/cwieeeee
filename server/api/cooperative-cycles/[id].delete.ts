@@ -2,7 +2,7 @@ export default defineEventHandler(async (event) => {
   const idParam = getRouterParam(event, 'id')
   const id = Number(idParam)
 
-  if (!id || isNaN(id)) {
+  if (!Number.isInteger(id) || id <= 0) {
     throw createError({ statusCode: 400, message: 'รหัสรอบสหกิจไม่ถูกต้อง' })
   }
 
