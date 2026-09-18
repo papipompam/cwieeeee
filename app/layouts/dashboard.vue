@@ -1,14 +1,14 @@
 <script setup lang="ts">
 import type { NavigationMenuItem } from '@nuxt/ui'
 
-const { currentRole } = useUserSession()
 const open = ref(false)
+const route = useRoute()
 
 const handleSelect = () => {
   open.value = false
 }
 
-const staffLinks = computed<NavigationMenuItem[]>(() => [
+const staffLinks: NavigationMenuItem[] = [
   {
     label: 'ภาพรวม',
     icon: 'i-lucide-layout-dashboard',
@@ -39,30 +39,40 @@ const staffLinks = computed<NavigationMenuItem[]>(() => [
     to: '/staff/companies',
     onSelect: handleSelect
   }
-])
+]
 
-const teacherLinks = computed<NavigationMenuItem[]>(() => [
+const teacherLinks: NavigationMenuItem[] = [
   {
     label: 'ภาพรวม',
     icon: 'i-lucide-layout-dashboard',
     to: '/teacher',
     onSelect: handleSelect
   }
-])
+]
 
-const studentLinks = computed<NavigationMenuItem[]>(() => [
+const studentLinks: NavigationMenuItem[] = [
   {
     label: 'ภาพรวม',
     icon: 'i-lucide-layout-dashboard',
     to: '/student',
     onSelect: handleSelect
   }
-])
+]
+
+const currentRole = computed<'staff' | 'teacher' | 'student'>(() => {
+  if (route.path.startsWith('/teacher')) return 'teacher'
+  if (route.path.startsWith('/student')) return 'student'
+  return 'staff'
+})
 
 const currentLinks = computed<NavigationMenuItem[]>(() => {
-  if (currentRole.value === 'teacher') return teacherLinks.value
-  if (currentRole.value === 'student') return studentLinks.value
-  return staffLinks.value
+  const links = currentRole.value === 'teacher'
+    ? teacherLinks
+    : currentRole.value === 'student'
+      ? studentLinks
+      : staffLinks
+
+  return links
 })
 </script>
 

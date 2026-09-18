@@ -3,8 +3,6 @@ definePageMeta({
   layout: 'dashboard'
 })
 
-const { setRole } = useUserSession()
-onMounted(() => setRole('student'))
 </script>
 
 <template>
@@ -34,14 +32,8 @@ onMounted(() => setRole('student'))
 
           <div class="text-center py-10 text-muted">
             <UIcon name="i-lucide-file-text" class="size-12 mx-auto mb-2 text-dimmed" />
-            <p class="font-medium text-highlighted">รอบสหกิจศึกษาภาคเรียนที่ 2/2569</p>
-            <p class="text-sm mt-1">สถานะปัจจุบัน: ยังไม่ได้ยื่นคำร้องขอฝึกสหกิจ</p>
-            <UButton
-              label="ยื่นคำร้องขอฝึกงาน"
-              icon="i-lucide-arrow-right"
-              color="primary"
-              class="mt-4"
-            />
+            <p class="font-medium text-highlighted">ยังไม่มีรอบสหกิจที่เปิดให้ดำเนินการ</p>
+            <p class="text-sm mt-1">เมื่อมีรอบที่เปิดรับคำร้อง ข้อมูลจะแสดงที่หน้านี้</p>
           </div>
         </UCard>
       </div>

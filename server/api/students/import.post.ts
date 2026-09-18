@@ -1,0 +1,143 @@
+import ExcelJS from 'exceljs'
+import { Readable } from 'node:stream'
+
+const headers = {
+  studentId: ['studentid', 'รหัสนักศึกษา'],
+  prefix: ['prefix', 'คำนำหน้า'],
+  firstName: ['firstname', 'ชื่อ'],
+  lastName: ['lastname', 'นามสกุล'],
+  gender: ['gender', 'เพศ'],
+  cohortYear: ['cohortyear', 'รุ่น', 'รุ่นนักศึกษา'],
+  classGroup: ['classgroup', 'หมู่', 'หมู่เรียน'],
+  isActive: ['isactive', 'สถานะ', 'สถานะใช้งาน']
+}
+
+const normalizeHeader = (value: string) => value.replace(/^\uFEFF/, '').trim().toLowerCase().replaceAll(' ', '')
+
+const rowValue = (row: Record<string, unknown>, names: string[]) => {
+  const entry = Object.entries(row).find(([key]) => names.includes(normalizeHeader(key)))
+  return entry?.[1]
+}
+
+const readActive = (value: unknown) => {
+  if (value === undefined || value === '') return undefined
+  if (typeof value === 'boolean') return value
+  if (value === 1 || value === '1') return true
+  if (value === 0 || value === '0') return false
+
+  const text = String(value).trim().toLowerCase()
+  if (['true', 'active', 'ใช้งาน'].includes(text)) return true
+  if (['false', 'inactive', 'ไม่ใช้งาน'].includes(text)) return false
+
+  return null
+}
+
+export default defineEventHandler(async (event) => {
+  const parts = await readMultipartFormData(event)
+  const file = parts?.find(part => part.name === 'file' && part.filename)
+
+  if (!file?.data.length) {
+    throw createError({ statusCode: 400, message: 'กรุณาเลือกไฟล์ CSV หรือ Excel (.xlsx)' })
+  }
+
+  if (file.data.length > 2 * 1024 * 1024) {
+    throw createError({ statusCode: 413, message: 'ไฟล์ต้องมีขนาดไม่เกิน 2 MB' })
+  }
+
+  const extension = file.filename?.split('.').pop()?.toLowerCase()
+  if (!['csv', 'xlsx'].includes(extension ?? '')) {
+    throw createError({ statusCode: 400, message: 'รองรับเฉพาะไฟล์ CSV และ XLSX' })
+  }
+
+  let rows: Record<string, unknown>[]
+  try {
+    const workbook = new ExcelJS.Workbook()
+    if (extension === 'csv') {
+      await workbook.csv.read(Readable.from([file.data]))
+    } else {
+      await workbook.xlsx.load(file.data as never)
+    }
+
+    const worksheet = workbook.worksheets[0]
+    const headerRow = worksheet?.getRow(1).values as unknown[] | undefined
+    rows = []
+    worksheet?.eachRow((row, rowNumber) => {
+      if (rowNumber === 1 || !headerRow) return
+      const record: Record<string, unknown> = {}
+      headerRow.forEach((header, index) => {
+        if (index && header !== undefined && header !== null) {
+          record[String(header)] = row.getCell(index).value ?? ''
+        }
+      })
+      rows.push(record)
+    })
+  } catch {
+    throw createError({ statusCode: 400, message: 'ไม่สามารถอ่านไฟล์ที่อัปโหลดได้' })
+  }
+
+  if (!rows.length) {
+    throw createError({ statusCode: 400, message: 'ไม่พบข้อมูลนักศึกษาในไฟล์' })
+  }
+
+  if (rows.length > 1000) {
+    throw createError({ statusCode: 400, message: 'นำเข้าได้ไม่เกิน 1,000 รายการต่อครั้ง' })
+  }
+
+  const errors: string[] = []
+  const seenIds = new Set<string>()
+  const students = rows.flatMap((row, index) => {
+    const isActive = readActive(rowValue(row, headers.isActive))
+    if (isActive === null) {
+      errors.push(`แถว ${index + 2}: สถานะใช้งานต้องเป็น ใช้งาน หรือ ไม่ใช้งาน`)
+      return []
+    }
+
+    try {
+      const student = readStudentInput({
+        studentId: String(rowValue(row, headers.studentId) ?? ''),
+        prefix: rowValue(row, headers.prefix),
+        firstName: rowValue(row, headers.firstName),
+        lastName: rowValue(row, headers.lastName),
+        gender: rowValue(row, headers.gender),
+        cohortYear: rowValue(row, headers.cohortYear),
+        classGroup: rowValue(row, headers.classGroup),
+        ...(isActive === undefined ? {} : { isActive })
+      })
+
+      if (seenIds.has(student.studentId)) {
+        errors.push(`แถว ${index + 2}: รหัสนักศึกษา ${student.studentId} ซ้ำในไฟล์`)
+        return []
+      }
+
+      seenIds.add(student.studentId)
+      return [student]
+    } catch (error) {
+      errors.push(`แถว ${index + 2}: ${error instanceof Error ? error.message : 'ข้อมูลไม่ถูกต้อง'}`)
+      return []
+    }
+  })
+
+  if (errors.length) {
+    throw createError({
+      statusCode: 400,
+      message: `ไม่ได้นำเข้าข้อมูล: ${errors.slice(0, 10).join(' | ')}${errors.length > 10 ? ' | …' : ''}`
+    })
+  }
+
+  const existing = await prisma.student.findMany({
+    where: { studentId: { in: students.map(student => student.studentId) } },
+    select: { studentId: true }
+  })
+  const existingIds = new Set(existing.map(student => student.studentId))
+  const newStudents = students.filter(student => !existingIds.has(student.studentId))
+
+  const result = newStudents.length
+    ? await prisma.student.createMany({ data: newStudents, skipDuplicates: true })
+    : { count: 0 }
+
+  return {
+    imported: result.count,
+    skipped: students.length - result.count,
+    total: students.length
+  }
+})

@@ -7,12 +7,43 @@ datasource db {
   provider = "postgresql"
 }
 
+enum CooperativeCycleStatus {
+  OPEN_FOR_APPLICATION
+  APPLICATION_CLOSED
+  IN_PROGRESS
+  CLOSED
+}
+
+model CooperativeCycle {
+  id                   Int                    @id @default(autoincrement())
+  term                 Int
+  academicYear         Int                    @map("academic_year")
+  cohortYear           Int                    @map("cohort_year")
+  applicationStartDate DateTime               @map("application_start_date") @db.Date
+  applicationEndDate   DateTime               @map("application_end_date") @db.Date
+  internshipStartDate  DateTime               @map("internship_start_date") @db.Date
+  internshipEndDate    DateTime               @map("internship_end_date") @db.Date
+  status               CooperativeCycleStatus @default(OPEN_FOR_APPLICATION)
+  note                 String?
+  createdAt            DateTime               @default(now()) @map("created_at")
+  updatedAt            DateTime               @updatedAt @map("updated_at")
+
+  @@unique([term, academicYear], name: "term_academicYear")
+  @@map("cooperative_cycles")
+}
+
 model Student {
-  id        Int      @id @default(autoincrement())
-  studentId String   @unique @map("student_id")
-  firstName String   @map("first_name")
-  lastName  String   @map("last_name")
-  createdAt DateTime @default(now()) @map("created_at")
+  id         Int      @id @default(autoincrement())
+  studentId  String   @unique @map("student_id")
+  prefix     String
+  firstName  String   @map("first_name")
+  lastName   String   @map("last_name")
+  gender     String
+  cohortYear Int      @map("cohort_year")
+  classGroup Int      @map("class_group")
+  isActive   Boolean  @default(true) @map("is_active")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
 
   @@map("students")
 }

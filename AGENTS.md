@@ -25,6 +25,18 @@ Reuse these project components before creating equivalents:
 
 Treat `app/app.config.ts` as the source of truth for Nuxt UI theme colors and shared component defaults. Use configured semantic roles (`primary`, `secondary`, `success`, `info`, `warning`, `error`, and `neutral`) and semantic utilities such as `text-muted` or `bg-default`; do not introduce raw palette colors or a second icon set. Inspect a primitive's existing props and behavior before extending it.
 
+### Data Table Pages
+
+For staff, teacher, or student pages that list operational records, use `UTable` as the default view. Keep its data and controls meaningful to the page; do not add table features merely for visual consistency.
+
+- Use `UDashboardNavbar` for the page title and a primary action only when that action works.
+- Put search, page-specific filters, `<UIButtonRefresh>`, and active bulk actions in a borderless control row above the table. Include a clear-filter control whenever a filter can be active.
+- Make the table fill its available width (`min-w-full`) and allow horizontal scrolling when columns no longer fit. Do not replace it with mobile cards unless the user explicitly requests that pattern.
+- End the table with a `จัดการ` column. Show direct, labeled buttons for available row actions; do not hide the only action behind a `…` menu. Do not render actions that are not implemented.
+- Add row selection only when a real bulk action exists. Identify rows with a stable ID, state that select-all applies to the current page, and require `<UIConfirmModal>` before destructive mutations.
+- When results span pages, show the current range, result count, selected count where relevant, and `UPagination`. Reset to the first page when search or filters change.
+- Display status as text in a semantic `UBadge`; align numeric columns to the end and use tabular figures where helpful.
+
 ## Documentation
 
 Use the current official documentation as the primary source of truth.
