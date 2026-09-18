@@ -463,6 +463,14 @@ const columns: TableColumn<CooperativeCycle>[] = [
 
             <template #actions-cell="{ row }">
               <div class="flex justify-end items-center gap-1.5 min-h-7">
+                <UButton
+                  label="เข้าสู่รอบ"
+                  icon="i-lucide-arrow-right"
+                  color="primary"
+                  variant="ghost"
+                  size="xs"
+                  :to="`/staff/cooperative-cycles/${row.original.id}`"
+                />
                 <template v-if="row.original.status === 'CLOSED'">
                   <span class="text-xs text-muted">ปิดรอบแล้ว</span>
                 </template>
