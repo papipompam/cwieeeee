@@ -59,6 +59,31 @@ export const validatePositiveId = (id: unknown, label = 'รหัส'): number 
   return num
 }
 
+export const ensureStudentsCanJoinOpenCycle = async (tx: any, cycleId: number, studentIds: number[]) => {
+  for (const studentId of [...new Set(studentIds)].sort((a, b) => a - b)) {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(${studentId}, 0)`
+  }
+
+  const existing = await tx.cooperativeCycleEnrollment.findFirst({
+    where: {
+      studentUserId: { in: studentIds },
+      cooperativeCycleId: { not: cycleId },
+      cooperativeCycle: { status: 'OPEN_FOR_APPLICATION' }
+    },
+    include: {
+      studentUser: { select: { loginId: true } },
+      cooperativeCycle: { select: { term: true, academicYear: true } }
+    }
+  })
+
+  if (existing) {
+    throw createError({
+      statusCode: 409,
+      message: `นักศึกษารหัส ${existing.studentUser.loginId} อยู่ในรอบที่เปิดรับคำร้อง ภาคเรียนที่ ${existing.cooperativeCycle.term}/${existing.cooperativeCycle.academicYear} แล้ว`
+    })
+  }
+}
+
 export const getStaffCycle = async (event: any, options?: { mustNotBeClosed?: boolean }) => {
   const user = await requireRole(event, 'STAFF')
   const cycleIdParam = getRouterParam(event, 'cycleId') || getRouterParam(event, 'id')
@@ -180,4 +205,24 @@ export const deriveStudentCycleStatus = (
   }
 
   return { key: 'NOT_APPLIED', label: 'ยังไม่ยื่น', color: 'neutral' }
+}
+
+export type StudentPlacementOverviewStatus = 'notApplied' | 'inProgress' | 'needsAction' | 'confirmed'
+
+export const deriveStudentPlacementOverviewStatus = (
+  applications: Array<{
+    status: string
+    cooperativeRequest?: { status: string } | null
+  }>
+): StudentPlacementOverviewStatus => {
+  if (applications.length === 0) return 'notApplied'
+  if (applications.some(application => application.cooperativeRequest?.status === 'PLACEMENT_CONFIRMED')) return 'confirmed'
+
+  const hasInProgress = applications.some((application) => {
+    const requestStatus = application.cooperativeRequest?.status
+    if (requestStatus) return !['RETURNED_FOR_REVISION', 'REJECTED'].includes(requestStatus)
+    return !['REJECTED', 'WITHDRAWN'].includes(application.status)
+  })
+
+  return hasInProgress ? 'inProgress' : 'needsAction'
 }

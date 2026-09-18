@@ -200,6 +200,13 @@ async function runTests() {
     }
   })
 
+  await prisma.cooperativeCycleEnrollment.createMany({
+    data: [student1, student2, student3, student4].map(student => ({
+      cooperativeCycleId: cycle.id,
+      studentUserId: student.id
+    }))
+  })
+
   const createdCompanyIds: number[] = []
 
   try {

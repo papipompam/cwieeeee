@@ -56,7 +56,6 @@ export default defineEventHandler(async (event) => {
         status: r.status,
         groupsCount: r.groups.length,
         appointmentsCount: r.appointments.length,
-        appointmentsDraftCount: r.appointments.filter(a => a.status === 'DRAFT').length,
         appointmentsPublishedCount: r.appointments.filter(a => a.status === 'PUBLISHED' || a.status === 'RESCHEDULED').length,
         appointmentsCompletedCount: r.appointments.filter(a => a.status === 'COMPLETED').length,
         travelPlansCount: r.travelPlans.length,

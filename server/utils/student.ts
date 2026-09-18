@@ -3,7 +3,6 @@ export type StudentInput = {
   prefix: string
   firstName: string
   lastName: string
-  gender: string
   cohortYear: number
   classGroup: number
   isActive: boolean
@@ -26,13 +25,11 @@ export const readStudentInput = (value: Record<string, unknown>): StudentInput =
   const prefix = readText(value.prefix)
   const firstName = readText(value.firstName)
   const lastName = readText(value.lastName)
-  const gender = readText(value.gender)
 
   if (!studentId) throw createError({ statusCode: 400, message: 'กรุณากรอกรหัสนักศึกษา' })
   if (!prefix) throw createError({ statusCode: 400, message: 'กรุณาระบุคำนำหน้า' })
   if (!firstName) throw createError({ statusCode: 400, message: 'กรุณากรอกชื่อ' })
   if (!lastName) throw createError({ statusCode: 400, message: 'กรุณากรอกนามสกุล' })
-  if (!gender) throw createError({ statusCode: 400, message: 'กรุณาระบุเพศ' })
 
   const cohortYear = readPositiveInteger(value.cohortYear, 'รุ่นนักศึกษาต้องเป็นจำนวนเต็มบวก (พ.ศ.)')
   const classGroup = readPositiveInteger(value.classGroup, 'หมู่เรียนต้องเป็นจำนวนเต็มบวก')
@@ -41,5 +38,5 @@ export const readStudentInput = (value: Record<string, unknown>): StudentInput =
     throw createError({ statusCode: 400, message: 'สถานะใช้งานไม่ถูกต้อง' })
   }
 
-  return { studentId, prefix, firstName, lastName, gender, cohortYear, classGroup, isActive: value.isActive ?? true }
+  return { studentId, prefix, firstName, lastName, cohortYear, classGroup, isActive: value.isActive ?? true }
 }

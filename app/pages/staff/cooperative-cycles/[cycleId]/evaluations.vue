@@ -97,12 +97,10 @@ const trackingMetrics = computed(() => {
   const all = appointments.value
   const awaitingVisit = all.filter((a: SupervisionAppointmentRow) => a.status === 'PUBLISHED' || a.status === 'RESCHEDULED').length
   const completed = all.filter((a: SupervisionAppointmentRow) => a.status === 'COMPLETED').length
-  const drafts = all.filter((a: SupervisionAppointmentRow) => a.status === 'DRAFT').length
   return {
     total: all.length,
     awaitingVisit,
-    completed,
-    drafts
+    completed
   }
 })
 
@@ -190,18 +188,11 @@ const columns: TableColumn<SupervisionAppointmentRow>[] = [
     </div>
 
     <!-- Summary Metrics Grid -->
-    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+    <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
       <div class="p-3.5 rounded-lg border border-default bg-default shadow-xs">
         <div class="text-xs text-muted">กำหนดการนิเทศทั้งหมด</div>
         <div class="text-xl font-bold text-highlighted mt-1">
           {{ trackingMetrics.total }} รายการ
-        </div>
-      </div>
-
-      <div class="p-3.5 rounded-lg border border-default bg-default shadow-xs">
-        <div class="text-xs text-muted">รอนัดหมาย/ฉบับร่าง</div>
-        <div class="text-xl font-bold text-neutral mt-1">
-          {{ trackingMetrics.drafts }} รายการ
         </div>
       </div>
 
@@ -314,10 +305,6 @@ const columns: TableColumn<SupervisionAppointmentRow>[] = [
               <template v-else-if="row.original.status === 'PUBLISHED' || row.original.status === 'RESCHEDULED'">
                 <UBadge label="รอออกตรวจนิเทศตามนัดหมาย" color="warning" variant="subtle" size="xs" />
                 <div class="text-[11px] text-muted mt-0.5">ยังไม่ถึงวันตรวจหรือยังไม่ได้ตรวจเยี่ยม</div>
-              </template>
-              <template v-else-if="row.original.status === 'DRAFT'">
-                <UBadge label="ยังไม่เผยแพร่กำหนดการ" color="neutral" variant="subtle" size="xs" />
-                <div class="text-[11px] text-muted mt-0.5">ฉบับร่าง</div>
               </template>
               <template v-else-if="row.original.status === 'CANCELLED'">
                 <UBadge label="ยกเลิกการนิเทศแล้ว" color="error" variant="subtle" size="xs" />

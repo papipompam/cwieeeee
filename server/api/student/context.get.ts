@@ -13,36 +13,21 @@ export default defineEventHandler(async (event) => {
     cohortYear: user.cohortYear,
     classGroup: user.classGroup,
     phone: user.phone,
-    gender: user.gender,
     isActive: user.isActive
   }
 
-  if (!user.cohortYear) {
-    return {
-      student: studentProfile,
-      cycle: null,
-      canApply: false,
-      reason: 'ไม่พบข้อมูลรุ่นนักศึกษาของท่านในระบบ กรุณาติดต่อเจ้าหน้าที่',
-      activeApplication: null,
-      latestRequest: null,
-      placement: null,
-      upcomingVisit: null,
-      unreadNotificationsCount: 0,
-      recentNotifications: [],
-      nextAction: null
-    }
-  }
-
-  const openCycle = await prisma.cooperativeCycle.findFirst({
+  const openCycles = await prisma.cooperativeCycle.findMany({
     where: {
       status: 'OPEN_FOR_APPLICATION',
-      cohortYear: user.cohortYear
+      enrollments: { some: { studentUserId: user.id } }
     },
     orderBy: [
       { academicYear: 'desc' },
       { term: 'desc' }
-    ]
+    ],
+    take: 2
   })
+  const openCycle = openCycles.length === 1 ? openCycles[0] : null
 
   // Keep the student's current work visible even after applications close.
   const activeApplication = await prisma.companyApplication.findFirst({
@@ -125,8 +110,10 @@ export default defineEventHandler(async (event) => {
   const hasActiveApplicationInOpenCycle = activeApplication?.cooperativeCycleId === openCycle?.id
   const canApply = Boolean(openCycle) && !hasActiveApplicationInOpenCycle
   let reason: string | null = null
-  if (!openCycle) {
-    reason = `ขณะนี้ยังไม่มีรอบสหกิจศึกษาที่เปิดรับคำร้องสำหรับรุ่น ${user.cohortYear}`
+  if (openCycles.length > 1) {
+    reason = 'ท่านอยู่ในรอบสหกิจที่เปิดรับคำร้องมากกว่าหนึ่งรอบ กรุณาติดต่อเจ้าหน้าที่'
+  } else if (!openCycle) {
+    reason = 'ขณะนี้ท่านยังไม่ได้อยู่ในรอบสหกิจศึกษาที่เปิดรับคำร้อง'
   } else if (hasActiveApplicationInOpenCycle && activeApplication?.status === 'CONFIRMED') {
     reason = 'ท่านยืนยันสถานที่ฝึกงานและส่งคำร้องเรียบร้อยแล้ว'
   } else if (hasActiveApplicationInOpenCycle) {

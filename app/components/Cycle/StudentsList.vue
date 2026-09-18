@@ -17,7 +17,6 @@ interface Student {
   prefix: string
   firstName: string
   lastName: string
-  gender: string
   cohortYear: number
   classGroup: number
   isActive: boolean
@@ -122,11 +121,6 @@ const columns: TableColumn<Student>[] = [
   {
     id: 'name',
     header: 'ชื่อ-สกุล'
-  },
-  {
-    accessorKey: 'gender',
-    header: 'เพศ',
-    meta: { class: { th: 'w-24', td: 'w-24' } }
   },
   {
     accessorKey: 'classGroup',
@@ -306,10 +300,6 @@ const columns: TableColumn<Student>[] = [
               <span class="font-medium text-highlighted">{{ selectedStudent.prefix }}{{ selectedStudent.firstName }} {{ selectedStudent.lastName }}</span>
             </div>
 
-            <div>
-              <span class="text-xs text-muted block">เพศ</span>
-              <span>{{ selectedStudent.gender }}</span>
-            </div>
 
             <div>
               <span class="text-xs text-muted block">รุ่น (ปีที่เข้าศึกษา)</span>

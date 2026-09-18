@@ -12,6 +12,9 @@ node_modules
 # Logs
 logs
 *.log
+uploads
+outputs
+docs/~$*
 
 # Misc
 .DS_Store

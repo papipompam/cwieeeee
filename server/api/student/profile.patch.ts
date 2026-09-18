@@ -17,7 +17,6 @@ export default defineEventHandler(async (event) => {
     lastName: updated.lastName,
     name: [updated.prefix, updated.firstName, updated.lastName].filter(Boolean).join(' '),
     phone: updated.phone,
-    gender: updated.gender,
     cohortYear: updated.cohortYear,
     classGroup: updated.classGroup,
     isActive: updated.isActive

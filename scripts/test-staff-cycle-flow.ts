@@ -44,6 +44,7 @@ import { requireRole } from '../server/utils/auth'
 const TEST_STUDENT_LOGIN = '__staff_test_student_isolated__'
 const TEST_STAFF_LOGIN = '__staff_test_staff_isolated__'
 const TEST_COMPANY_NAME = '__staff_test_company_isolated__'
+const TEST_CYCLE_YEAR = 2999
 
 function createMockEvent(opts: {
   params?: Record<string, string>
@@ -86,10 +87,20 @@ async function runSelfCheck() {
     where: { name: TEST_COMPANY_NAME }
   })
 
-  const testCycle = await prisma.cooperativeCycle.findFirst({
-    where: { status: 'OPEN_FOR_APPLICATION' }
+  const testCycle = await prisma.cooperativeCycle.upsert({
+    where: { term_academicYear: { term: 3, academicYear: TEST_CYCLE_YEAR } },
+    update: { status: 'OPEN_FOR_APPLICATION' },
+    create: {
+      term: 3,
+      academicYear: TEST_CYCLE_YEAR,
+      cohortYear: TEST_CYCLE_YEAR,
+      applicationStartDate: new Date('2999-01-01'),
+      applicationEndDate: new Date('2999-01-31'),
+      internshipStartDate: new Date('2999-02-01'),
+      internshipEndDate: new Date('2999-05-31'),
+      status: 'OPEN_FOR_APPLICATION'
+    }
   })
-  assert.ok(testCycle, 'Found active cycle for testing')
 
   const testStaff = await prisma.user.create({
     data: {
@@ -398,6 +409,9 @@ async function runSelfCheck() {
   })
   await prisma.company.deleteMany({
     where: { name: TEST_COMPANY_NAME }
+  })
+  await prisma.cooperativeCycle.deleteMany({
+    where: { term: 3, academicYear: TEST_CYCLE_YEAR }
   })
   console.log('✔ Cleaned up test records (0 real data modified)')
 

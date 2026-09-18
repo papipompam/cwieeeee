@@ -14,7 +14,6 @@ interface StudentRow {
   prefix: string
   firstName: string
   lastName: string
-  gender: string | null
   cohortYear: number
   classGroup: number
   isActive: boolean
@@ -31,6 +30,16 @@ interface StudentsResponse {
   totalPages: number
 }
 
+interface StudentCandidate {
+  id: number
+  studentId: string
+  prefix: string
+  firstName: string
+  lastName: string
+  cohortYear: number
+  classGroup: number
+}
+
 interface StudentHistoryResponse {
   student: {
     id: number
@@ -38,7 +47,6 @@ interface StudentHistoryResponse {
     prefix: string
     firstName: string
     lastName: string
-    gender: string | null
     phone: string | null
     cohortYear: number
     classGroup: number
@@ -76,12 +84,33 @@ interface CooperativeCycle {
 const route = useRoute()
 const cycleId = computed(() => Number(route.params.cycleId))
 const cycle = inject<Ref<CooperativeCycle | null>>('currentCycle')
+const notify = useNotify()
 
 const searchQuery = ref('')
 const classGroupFilter = ref<string>('all')
 const statusFilter = ref<'all' | 'active' | 'inactive'>('all')
 const page = ref(1)
 const pageSize = 10
+
+const isEnrollmentOpen = ref(false)
+const bulkCohortYear = ref<number | null>(null)
+const candidateSearch = ref('')
+const isEnrollmentSaving = ref(false)
+const studentToRemove = ref<StudentRow | null>(null)
+const isRemoveEnrollmentOpen = ref(false)
+const isRemovingEnrollment = ref(false)
+
+const { data: candidates, status: candidatesFetchStatus, refresh: refreshCandidates } = await useFetch<StudentCandidate[]>(
+  '/api/students',
+  {
+    immediate: false,
+    query: computed(() => ({
+      search: candidateSearch.value || undefined,
+      isActive: 'true'
+    })),
+    watch: [candidateSearch]
+  }
+)
 
 // Fetch students for this cycle with server-side pagination & filters
 const { data, status: fetchStatus, refresh } = await useFetch<StudentsResponse>(
@@ -124,6 +153,61 @@ const clearFilters = () => {
   classGroupFilter.value = 'all'
   statusFilter.value = 'all'
   page.value = 1
+}
+
+const openEnrollment = () => {
+  bulkCohortYear.value ??= cycle?.value?.cohortYear ?? null
+  isEnrollmentOpen.value = true
+  refreshCandidates()
+}
+
+const addEnrollment = async (body: { studentIds?: number[]; cohortYear?: number }) => {
+  isEnrollmentSaving.value = true
+  try {
+    const result = await $fetch<{ addedCount: number; matchedCount: number }>(
+      `/api/staff/cooperative-cycles/${cycleId.value}/students/enroll`,
+      { method: 'POST', body }
+    )
+    notify.success(result.addedCount > 0
+      ? `เพิ่มนักศึกษา ${result.addedCount} คนเข้ารอบแล้ว`
+      : 'นักศึกษาที่เลือกอยู่ในรอบนี้แล้ว')
+    await Promise.all([refresh(), refreshCandidates()])
+  } catch (error) {
+    notify.error(error instanceof Error ? error.message : 'ไม่สามารถเพิ่มนักศึกษาเข้ารอบได้')
+  } finally {
+    isEnrollmentSaving.value = false
+  }
+}
+
+const addCohort = () => {
+  if (!bulkCohortYear.value || bulkCohortYear.value <= 0) {
+    notify.validationError('กรุณาระบุรุ่นนักศึกษาที่ต้องการเพิ่ม')
+    return
+  }
+  return addEnrollment({ cohortYear: bulkCohortYear.value })
+}
+
+const askRemoveEnrollment = (student: StudentRow) => {
+  studentToRemove.value = student
+  isRemoveEnrollmentOpen.value = true
+}
+
+const removeEnrollment = async () => {
+  if (!studentToRemove.value) return
+  isRemovingEnrollment.value = true
+  try {
+    await $fetch(`/api/staff/cooperative-cycles/${cycleId.value}/students/${studentToRemove.value.id}/enrollment`, {
+      method: 'DELETE'
+    })
+    notify.success('นำนักศึกษาออกจากรอบแล้ว')
+    isRemoveEnrollmentOpen.value = false
+    studentToRemove.value = null
+    await refresh()
+  } catch (error) {
+    notify.error(error instanceof Error ? error.message : 'ไม่สามารถนำนักศึกษาออกจากรอบได้')
+  } finally {
+    isRemovingEnrollment.value = false
+  }
 }
 
 watch([searchQuery, classGroupFilter, statusFilter], () => {
@@ -211,21 +295,30 @@ const pageEnd = computed(() => {
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
       <div>
         <h2 class="text-base font-semibold text-highlighted">
-          นักศึกษาที่มีสิทธิ์ในรอบ
+          นักศึกษาในรอบสหกิจ
         </h2>
         <p class="text-xs text-muted">
-          นักศึกษารุ่น {{ cycle?.cohortYear ?? '-' }} ทั้งหมดที่มีสิทธิ์เข้าร่วมรอบสหกิจศึกษานี้ ({{ data?.total ?? 0 }} คน)
+          รายชื่อนักศึกษาที่เจ้าหน้าที่เพิ่มเข้ารอบสหกิจศึกษานี้ ({{ data?.total ?? 0 }} คน)
         </p>
       </div>
 
-      <UButton
-        label="จัดการฐานข้อมูลนักศึกษา"
-        icon="i-lucide-external-link"
-        color="neutral"
-        variant="outline"
-        size="md"
-        to="/staff/students"
-      />
+      <div class="flex flex-wrap items-center gap-2">
+        <UButton
+          label="จัดการฐานข้อมูลนักศึกษา"
+          icon="i-lucide-external-link"
+          color="neutral"
+          variant="outline"
+          size="md"
+          to="/staff/students"
+        />
+        <UButton
+          label="เพิ่มนักศึกษาเข้ารอบ"
+          icon="i-lucide-user-plus"
+          color="primary"
+          size="md"
+          @click="openEnrollment"
+        />
+      </div>
     </div>
 
     <!-- Filters and Control Row -->
@@ -318,7 +411,7 @@ const pageEnd = computed(() => {
           </template>
 
           <template #actions-cell="{ row }">
-            <div class="flex justify-end">
+            <div class="flex justify-end gap-1">
               <UButton
                 label="ดูประวัติ"
                 icon="i-lucide-history"
@@ -326,6 +419,14 @@ const pageEnd = computed(() => {
                 variant="ghost"
                 size="xs"
                 @click="openHistory(row.original.id)"
+              />
+              <UButton
+                label="นำออก"
+                icon="i-lucide-user-minus"
+                color="error"
+                variant="ghost"
+                size="xs"
+                @click="askRemoveEnrollment(row.original)"
               />
             </div>
           </template>
@@ -353,6 +454,67 @@ const pageEnd = computed(() => {
         />
       </div>
     </div>
+
+    <UModal
+      v-model:open="isEnrollmentOpen"
+      title="เพิ่มนักศึกษาเข้ารอบ"
+      description="เพิ่มทั้งรุ่นเพื่อเริ่มต้น หรือค้นหาและเพิ่มรายบุคคลจากทุกรุ่น"
+      class="max-w-2xl"
+    >
+      <template #body>
+        <div class="space-y-5">
+          <div class="rounded-lg border border-default bg-muted/10 p-4">
+            <div class="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+              <UFormField label="เพิ่มนักศึกษาที่ใช้งานทั้งรุ่น">
+                <UInput v-model.number="bulkCohortYear" type="number" placeholder="เช่น 2566" />
+              </UFormField>
+              <UButton
+                label="เพิ่มทั้งรุ่น"
+                icon="i-lucide-users-round"
+                :loading="isEnrollmentSaving"
+                @click="addCohort"
+              />
+            </div>
+          </div>
+
+          <div class="space-y-2">
+            <UFormField label="ค้นหาเพื่อเพิ่มรายบุคคล">
+              <UInput v-model="candidateSearch" icon="i-lucide-search" placeholder="ค้นหารหัสนักศึกษา หรือชื่อ..." />
+            </UFormField>
+            <div class="max-h-72 overflow-y-auto rounded-lg border border-default divide-y divide-default">
+              <div v-if="candidatesFetchStatus === 'pending'" class="p-6 text-center text-sm text-muted">กำลังค้นหานักศึกษา...</div>
+              <div v-else-if="!candidates?.length" class="p-6 text-center text-sm text-muted">ไม่พบนักศึกษาที่ใช้งานได้</div>
+              <div v-for="candidate in candidates" :key="candidate.id" class="flex items-center justify-between gap-3 p-3">
+                <div class="min-w-0">
+                  <p class="truncate text-sm font-medium text-highlighted">{{ candidate.prefix }}{{ candidate.firstName }} {{ candidate.lastName }}</p>
+                  <p class="text-xs text-muted">{{ candidate.studentId }} · รุ่น {{ candidate.cohortYear }} · หมู่ {{ candidate.classGroup }}</p>
+                </div>
+                <UButton
+                  label="เพิ่ม"
+                  icon="i-lucide-plus"
+                  color="primary"
+                  variant="outline"
+                  size="xs"
+                  :loading="isEnrollmentSaving"
+                  @click="addEnrollment({ studentIds: [candidate.id] })"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </template>
+    </UModal>
+
+    <UIConfirmModal
+      v-model:open="isRemoveEnrollmentOpen"
+      title="นำออกจากรอบสหกิจ"
+      :message="`ต้องการนำ ${studentToRemove?.prefix ?? ''}${studentToRemove?.firstName ?? ''} ${studentToRemove?.lastName ?? ''} ออกจากรอบนี้หรือไม่?`"
+      sub-message="หากนักศึกษายื่นสถานประกอบการแล้ว ระบบจะไม่อนุญาตให้นำออก เพื่อรักษาประวัติข้อมูล"
+      confirm-label="นำออกจากรอบ"
+      confirm-color="error"
+      :loading="isRemovingEnrollment"
+      @confirm="removeEnrollment"
+    />
 
     <!-- Student History Modal -->
     <UModal

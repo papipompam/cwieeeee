@@ -70,6 +70,9 @@ export default defineEventHandler(async (event) => {
     : null
 
   const group = await prisma.$transaction(async (tx) => {
+    if (teacherUserIds.length === 0 || companyPlans.length === 0) {
+      throw createError({ statusCode: 400, message: 'กรุณาเลือกอาจารย์และกำหนดแผนนิเทศของสถานประกอบการอย่างน้อยอย่างละ 1 รายการ' })
+    }
     const existing = await tx.supervisionGroup.findFirst({
       where: { supervisionRoundId: roundId, name }
     })
@@ -125,6 +128,21 @@ export default defineEventHandler(async (event) => {
           message: `สถานประกอบการที่เลือกอยู่ในกลุ่ม "${assignedCompanies[0]!.supervisionGroup.name}" แล้วในครั้งนี้`
         })
       }
+    }
+
+    await lockTeacherScheduleSlots(tx, companyPlans.map(plan => ({
+      scheduledDate: plan.scheduledDate,
+      teacherUserIds: appointmentTeacherIds.get(plan.companyId)!
+    })))
+    for (const plan of companyPlans) {
+      await checkTeacherScheduleConflict(
+        cycleId,
+        plan.scheduledDate,
+        plan.period,
+        appointmentTeacherIds.get(plan.companyId)!,
+        undefined,
+        tx
+      )
     }
 
     const group = await tx.supervisionGroup.create({

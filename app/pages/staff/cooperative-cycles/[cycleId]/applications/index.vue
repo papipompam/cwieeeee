@@ -120,7 +120,6 @@ watch([searchQuery, statusFilter, classGroupFilter], () => {
 })
 
 const requestStatusDisplay: Record<string, { label: string; color: 'info' | 'warning' | 'error' | 'success' | 'neutral' }> = {
-  DRAFT: { label: 'ฉบับร่าง', color: 'neutral' },
   SUBMITTED: { label: 'ยื่นคำร้องแล้ว', color: 'info' },
   STAFF_PROCESSING: { label: 'กำลังดำเนินการ', color: 'info' },
   LETTER_READY: { label: 'หนังสือพร้อมแล้ว', color: 'warning' },

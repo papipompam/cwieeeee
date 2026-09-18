@@ -25,9 +25,24 @@ interface CooperativeCycle {
 
 const UCheckbox = resolveComponent('UCheckbox')
 const notify = useNotify()
+const route = useRoute()
+const { activeCycleId, setActiveCycle } = useStaffActiveCycle()
 
 // Data fetching from API
 const { data: cycles, status: fetchStatus, error: fetchError, refresh } = await useFetch<CooperativeCycle[]>('/api/cooperative-cycles')
+
+const defaultCycle = computed(() => {
+  const list = cycles.value ?? []
+  const saved = list.find(cycle => cycle.id === activeCycleId.value)
+  if (saved) return saved
+  const academicYear = new Date().getFullYear() + 543
+  return list.find(cycle => cycle.academicYear === academicYear) ?? list[0] ?? null
+})
+
+if (!route.query.select && defaultCycle.value) {
+  setActiveCycle(defaultCycle.value.id)
+  await navigateTo(`/staff/cooperative-cycles/${defaultCycle.value.id}`)
+}
 
 const searchQuery = ref('')
 const statusFilter = ref<CooperativeCycleStatus | 'all'>('all')
@@ -154,6 +169,11 @@ const handleRefresh = async () => {
   notify.info('อัปเดตข้อมูลรอบสหกิจแล้ว')
 }
 
+const enterCycle = async (cycle: CooperativeCycle) => {
+  setActiveCycle(cycle.id)
+  await navigateTo(`/staff/cooperative-cycles/${cycle.id}`)
+}
+
 // Modal open handlers
 const openCreateModal = () => {
   isEditing.value = false
@@ -212,7 +232,7 @@ const validateForm = () => {
   }
 
   if (!formState.cohortYear || formState.cohortYear <= 0) {
-    formErrors.cohortYear = 'กรุณาระบุรุ่นนักศึกษา (พ.ศ.)'
+  formErrors.cohortYear = 'กรุณาระบุรุ่นหลักเริ่มต้น (พ.ศ.)'
     isValid = false
   }
 
@@ -346,7 +366,7 @@ const columns: TableColumn<CooperativeCycle>[] = [
   },
   {
     accessorKey: 'cohortYear',
-    header: 'รุ่นนักศึกษา',
+    header: 'รุ่นหลัก',
     cell: ({ row }) => `รุ่น ${row.original.cohortYear}`
   },
   {
@@ -469,7 +489,7 @@ const columns: TableColumn<CooperativeCycle>[] = [
                   color="primary"
                   variant="ghost"
                   size="xs"
-                  :to="`/staff/cooperative-cycles/${row.original.id}`"
+                  @click="enterCycle(row.original)"
                 />
                 <template v-if="row.original.status === 'CLOSED'">
                   <span class="text-xs text-muted">ปิดรอบแล้ว</span>
@@ -554,7 +574,7 @@ const columns: TableColumn<CooperativeCycle>[] = [
             />
           </UFormField>
 
-          <UFormField label="รุ่นนักศึกษา (พ.ศ.)" required :error="formErrors.cohortYear">
+          <UFormField label="รุ่นหลักเริ่มต้น (พ.ศ.)" required :error="formErrors.cohortYear">
             <UInput
               v-model.number="formState.cohortYear"
               type="number"

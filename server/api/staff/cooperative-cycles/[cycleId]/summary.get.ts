@@ -2,7 +2,6 @@ export default defineEventHandler(async (event) => {
   const { cycle, cycleId } = await getStaffCycle(event)
 
   const [
-    cohortStudentsCount,
     studentsWithApplicationCount,
     submittedRequestsCount,
     letterReadyRequestsCount,
@@ -15,14 +14,9 @@ export default defineEventHandler(async (event) => {
     supervisionPublishedAppointmentsCount,
     supervisionCompletedAppointmentsCount,
     supervisionAssignedTeachersCount,
-    supervisionTravelPlans
+    supervisionTravelPlans,
+    cohortStudents
   ] = await Promise.all([
-    prisma.user.count({
-      where: {
-        role: 'STUDENT',
-        cohortYear: cycle.cohortYear
-      }
-    }),
     prisma.companyApplication.groupBy({
       by: ['studentUserId'],
       where: { cooperativeCycleId: cycleId }
@@ -97,8 +91,35 @@ export default defineEventHandler(async (event) => {
           }
         }
       }
+    }),
+    prisma.user.findMany({
+      where: {
+        role: 'STUDENT',
+        cycleEnrollments: { some: { cooperativeCycleId: cycleId } }
+      },
+      select: {
+        companyApplications: {
+          where: { cooperativeCycleId: cycleId },
+          select: {
+            status: true,
+            cooperativeRequest: { select: { status: true } }
+          }
+        }
+      }
     })
   ])
+
+  const placementOverview = {
+    notApplied: 0,
+    inProgress: 0,
+    needsAction: 0,
+    confirmed: 0
+  }
+
+  for (const student of cohortStudents) {
+    const status = deriveStudentPlacementOverviewStatus(student.companyApplications)
+    placementOverview[status] += 1
+  }
 
   let supervisionBudgetEstimate = 0
   for (const plan of supervisionTravelPlans) {
@@ -115,7 +136,7 @@ export default defineEventHandler(async (event) => {
   }
 
   return {
-    cohortStudentsCount,
+    cohortStudentsCount: cohortStudents.length,
     studentsWithApplicationCount,
     submittedRequestsCount,
     letterReadyRequestsCount,
@@ -129,6 +150,7 @@ export default defineEventHandler(async (event) => {
     supervisionCompletedAppointmentsCount,
     supervisionAssignedTeachersCount,
     supervisionTravelPlansCount: supervisionTravelPlans.length,
-    supervisionBudgetEstimate: Math.round(supervisionBudgetEstimate * 100) / 100
+    supervisionBudgetEstimate: Math.round(supervisionBudgetEstimate * 100) / 100,
+    placementOverview
   }
 })

@@ -78,13 +78,30 @@ export default defineEventHandler(async (event) => {
 
   const filename = `signed_${request.id}_${Date.now()}${ext || '.pdf'}`
   const filePath = path.join(uploadDir, filename)
-  const latestVersion = request.documents[0]?.version ?? 0
-  const newVersion = latestVersion + 1
-
   fs.writeFileSync(filePath, fileItem.data)
 
   try {
     return await prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(${request.id}, 1)`
+      const requestUpdate = await tx.cooperativeRequest.updateMany({
+        where: { id: request.id, status: { in: ['LETTER_READY', 'RETURNED_FOR_REVISION'] } },
+        data: {
+          status: 'DOCUMENT_UNDER_REVIEW',
+          signedDocumentPath: filePath,
+          signedDocumentOriginalName: fileItem.filename || filename,
+          signedDocumentSubmittedAt: new Date()
+        }
+      })
+      if (!requestUpdate.count) {
+        throw createError({ statusCode: 409, message: 'สถานะคำร้องมีการเปลี่ยนแปลงแล้ว กรุณารีเฟรชหน้าเว็บ' })
+      }
+      const latestDocument = await tx.requestDocument.findFirst({
+        where: { cooperativeRequestId: request.id },
+        orderBy: { version: 'desc' },
+        select: { version: true }
+      })
+      const newVersion = (latestDocument?.version ?? 0) + 1
+
       // If superseding previous documents
       await tx.requestDocument.updateMany({
         where: {
@@ -108,16 +125,7 @@ export default defineEventHandler(async (event) => {
         }
       })
 
-      // Update cooperativeRequest status to DOCUMENT_UNDER_REVIEW
-      const updatedRequest = await tx.cooperativeRequest.update({
-        where: { id: request.id },
-        data: {
-          status: 'DOCUMENT_UNDER_REVIEW',
-          signedDocumentPath: filePath,
-          signedDocumentOriginalName: fileItem.filename || filename,
-          signedDocumentSubmittedAt: new Date()
-        }
-      })
+      const updatedRequest = await tx.cooperativeRequest.findUniqueOrThrow({ where: { id: request.id } })
 
       // Notify student
       await tx.notification.create({

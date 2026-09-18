@@ -107,8 +107,6 @@ const getAppStatusBadge = (s: string) => {
 
 const getReqStatusBadge = (s: string) => {
   switch (s) {
-    case 'DRAFT':
-      return { label: 'แบบร่าง', color: 'neutral' as const }
     case 'SUBMITTED':
       return { label: 'ส่งคำร้องแล้ว', color: 'info' as const }
     case 'STAFF_PROCESSING':

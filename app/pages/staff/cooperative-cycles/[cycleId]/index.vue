@@ -25,6 +25,12 @@ interface SummaryData {
   supervisionAssignedTeachersCount?: number
   supervisionTravelPlansCount?: number
   supervisionBudgetEstimate?: number
+  placementOverview: {
+    notApplied: number
+    inProgress: number
+    needsAction: number
+    confirmed: number
+  }
 }
 
 const route = useRoute()
@@ -40,10 +46,17 @@ const summaryMetrics = computed(() => {
   const s = summary.value
   return [
     {
-      label: 'นักศึกษารุ่นนี้',
+      label: 'นักศึกษาในรอบนี้',
       value: `${s?.cohortStudentsCount ?? 0} คน`,
       icon: 'i-lucide-graduation-cap',
       color: 'primary',
+      to: `/staff/cooperative-cycles/${cycleId.value}/students`
+    },
+    {
+      label: 'เริ่มยื่นสถานประกอบการ',
+      value: `${s?.studentsWithApplicationCount ?? 0} คน`,
+      icon: 'i-lucide-send',
+      color: 'info',
       to: `/staff/cooperative-cycles/${cycleId.value}/students`
     },
     {
@@ -54,70 +67,47 @@ const summaryMetrics = computed(() => {
       to: `/staff/cooperative-cycles/${cycleId.value}/applications?status=SUBMITTED`
     },
     {
-      label: 'เอกสารรอตรวจสอบ',
+      label: 'เอกสารตอบรับรอตรวจ',
       value: `${s?.pendingReviewRequestsCount ?? 0} ฉบับ`,
       icon: 'i-lucide-file-check-2',
       color: (s?.pendingReviewRequestsCount ?? 0) > 0 ? 'warning' : 'neutral',
       to: `/staff/cooperative-cycles/${cycleId.value}/applications?status=DOCUMENT_UNDER_REVIEW`
-    },
-    {
-      label: 'หนังสือพร้อมแล้ว',
-      value: `${s?.letterReadyRequestsCount ?? 0} ฉบับ`,
-      icon: 'i-lucide-stamp',
-      color: 'info',
-      to: `/staff/cooperative-cycles/${cycleId.value}/applications?status=LETTER_READY`
-    },
-    {
-      label: 'ยืนยันสถานที่แล้ว',
-      value: `${s?.confirmedPlacementsCount ?? 0} แห่ง`,
-      icon: 'i-lucide-building-2',
-      color: (s?.confirmedPlacementsCount ?? 0) > 0 ? 'success' : 'neutral',
-      to: `/staff/cooperative-cycles/${cycleId.value}/placements`
-    },
-    {
-      label: 'ส่งกลับแก้ไข',
-      value: `${s?.returnedRequestsCount ?? 0} รายการ`,
-      icon: 'i-lucide-undo-2',
-      color: (s?.returnedRequestsCount ?? 0) > 0 ? 'error' : 'neutral',
-      to: `/staff/cooperative-cycles/${cycleId.value}/applications?status=RETURNED_FOR_REVISION`
     }
   ]
 })
 
+const donutCircumference = 2 * Math.PI * 38
+const placementSegments = computed(() => {
+  const overview = summary.value?.placementOverview
+  const total = summary.value?.cohortStudentsCount ?? 0
+  const segments = [
+    { key: 'notApplied', label: 'ยังไม่เริ่มยื่น', colorClass: 'text-neutral', count: overview?.notApplied ?? 0 },
+    { key: 'inProgress', label: 'อยู่ระหว่างดำเนินการ', colorClass: 'text-info', count: overview?.inProgress ?? 0 },
+    { key: 'needsAction', label: 'ต้องแก้ไขหรือยื่นใหม่', colorClass: 'text-warning', count: overview?.needsAction ?? 0 },
+    { key: 'confirmed', label: 'ยืนยันสถานประกอบการแล้ว', colorClass: 'text-success', count: overview?.confirmed ?? 0 }
+  ]
+  let offset = 0
+
+  return segments.map((segment) => {
+    const length = total ? (segment.count / total) * donutCircumference : 0
+    const result = {
+      ...segment,
+      percent: total ? Math.round((segment.count / total) * 100) : 0,
+      dashArray: `${length} ${donutCircumference - length}`,
+      dashOffset: -offset
+    }
+    offset += length
+    return result
+  })
+})
+
+const openTask = (path: string) => navigateTo(path)
+
 // Actionable tasks checklist
 const tasks = computed(() => {
   const s = summary.value
-  const totalRequests = (s?.submittedRequestsCount ?? 0) + (s?.letterReadyRequestsCount ?? 0) + (s?.pendingReviewRequestsCount ?? 0) + (s?.confirmedPlacementsCount ?? 0)
-  const processedLetters = (s?.letterReadyRequestsCount ?? 0) + (s?.pendingReviewRequestsCount ?? 0) + (s?.confirmedPlacementsCount ?? 0)
 
   return [
-    {
-      name: 'ตรวจสอบคำร้องและออกหนังสือขอความอนุเคราะห์',
-      progress: `${processedLetters}/${totalRequests}`,
-      remaining: `${s?.submittedRequestsCount ?? 0} รายการ`,
-      statusLabel: (s?.submittedRequestsCount ?? 0) > 0 ? 'รอดำเนินการ' : 'เรียบร้อย',
-      statusColor: (s?.submittedRequestsCount ?? 0) > 0 ? 'warning' as const : 'success' as const,
-      actionLabel: 'ดูคำร้อง',
-      actionTo: `/staff/cooperative-cycles/${cycleId.value}/applications`
-    },
-    {
-      name: 'ตรวจสอบเอกสารตอบรับจากสถานประกอบการ',
-      progress: `${s?.confirmedPlacementsCount ?? 0}/${(s?.pendingReviewRequestsCount ?? 0) + (s?.confirmedPlacementsCount ?? 0)}`,
-      remaining: `${s?.pendingReviewRequestsCount ?? 0} ฉบับ`,
-      statusLabel: (s?.pendingReviewRequestsCount ?? 0) > 0 ? 'รอตรวจ' : 'เรียบร้อย',
-      statusColor: (s?.pendingReviewRequestsCount ?? 0) > 0 ? 'warning' as const : 'neutral' as const,
-      actionLabel: 'ตรวจเอกสาร',
-      actionTo: `/staff/cooperative-cycles/${cycleId.value}/applications?status=DOCUMENT_UNDER_REVIEW`
-    },
-    {
-      name: 'สถานที่ฝึกงานที่ยืนยันแล้ว',
-      progress: `${s?.confirmedPlacementsCount ?? 0}/${s?.studentsWithApplicationCount ?? 0}`,
-      remaining: `${s?.confirmedPlacementsCount ?? 0} แห่ง`,
-      statusLabel: (s?.confirmedPlacementsCount ?? 0) > 0 ? 'ยืนยันแล้ว' : 'ยังไม่เริ่ม',
-      statusColor: (s?.confirmedPlacementsCount ?? 0) > 0 ? 'success' as const : 'neutral' as const,
-      actionLabel: 'ดูสถานที่ฝึกงาน',
-      actionTo: `/staff/cooperative-cycles/${cycleId.value}/placements`
-    },
     {
       name: 'จัดอาจารย์นิเทศประจำกลุ่ม',
       progress: `${s?.supervisionGroupsCount ?? 0} กลุ่ม`,
@@ -178,36 +168,73 @@ const tasks = computed(() => {
       />
     </div>
 
-    <!-- Section 1: Summary Cards Grid -->
-    <div>
-      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+    <section class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(20rem,0.9fr)] lg:items-stretch">
+      <div class="grid grid-cols-2 gap-3 content-start">
         <NuxtLink
-          v-for="(item, idx) in summaryMetrics"
-          :key="idx"
+          v-for="item in summaryMetrics"
+          :key="item.label"
           :to="item.to"
-          class="rounded-lg border border-default p-3.5 bg-default shadow-xs flex flex-col justify-between hover:border-primary/50 transition-colors group cursor-pointer"
+          class="rounded-lg border border-default p-3.5 bg-default shadow-xs flex flex-col justify-between hover:border-primary/50 transition-colors group min-h-28"
         >
-          <div class="flex items-center justify-between mb-2">
+          <div class="flex items-center justify-between gap-2 mb-2">
             <span class="text-xs text-muted leading-snug group-hover:text-highlighted transition-colors">{{ item.label }}</span>
             <div class="p-1 rounded-md bg-muted/20 text-muted group-hover:text-primary transition-colors">
               <UIcon :name="item.icon" class="size-4" />
             </div>
           </div>
-          <div class="text-lg font-bold text-highlighted">
+          <div class="text-lg font-bold text-highlighted tabular-nums">
             {{ item.value }}
           </div>
         </NuxtLink>
       </div>
-    </div>
+
+      <UCard variant="outline" class="h-full" :ui="{ body: 'h-full p-4 sm:p-6' }">
+        <div class="flex h-full flex-col items-center justify-center gap-4 sm:flex-row sm:items-center">
+          <div class="relative size-44 shrink-0" role="img" aria-label="แผนภูมิวงกลมแสดงสถานะการได้สถานประกอบการของนักศึกษา">
+            <svg viewBox="0 0 100 100" class="size-full -rotate-90" aria-hidden="true">
+              <circle cx="50" cy="50" r="38" fill="none" stroke="currentColor" stroke-width="13" class="text-muted/40" />
+              <circle
+                v-for="segment in placementSegments"
+                :key="segment.key"
+                cx="50"
+                cy="50"
+                r="38"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="13"
+                :stroke-dasharray="segment.dashArray"
+                :stroke-dashoffset="segment.dashOffset"
+                class="transition-[stroke-dasharray,stroke-dashoffset] duration-300 motion-reduce:transition-none"
+                :class="segment.colorClass"
+              />
+            </svg>
+            <div class="absolute inset-0 flex flex-col items-center justify-center text-center">
+              <span class="text-2xl font-bold tabular-nums text-highlighted">{{ summary?.cohortStudentsCount ?? 0 }}</span>
+              <span class="text-xs text-muted">นักศึกษา</span>
+            </div>
+          </div>
+
+          <ul class="w-full space-y-2" aria-label="รายละเอียดสถานะการได้สถานประกอบการ">
+            <li v-for="segment in placementSegments" :key="segment.key" class="flex items-center justify-between gap-3 text-sm">
+              <span class="flex min-w-0 items-center gap-2 text-muted">
+                <span class="size-2.5 shrink-0 rounded-full" :class="segment.colorClass.replace('text-', 'bg-')" />
+                <span class="truncate">{{ segment.label }}</span>
+              </span>
+              <span class="shrink-0 font-medium tabular-nums text-highlighted">{{ segment.count }} คน ({{ segment.percent }}%)</span>
+            </li>
+          </ul>
+        </div>
+      </UCard>
+    </section>
 
     <!-- Section 2: Actionable Tasks Checklist Table -->
     <div>
       <div class="flex items-center justify-between mb-3">
         <h3 class="text-sm font-semibold text-highlighted flex items-center gap-2">
           <UIcon name="i-lucide-list-checks" class="size-4 text-primary" />
-          ตารางงานที่ต้องดำเนินการในรอบนี้
+          งานนิเทศและงบประมาณในรอบนี้
         </h3>
-        <span class="text-xs text-muted">ติดตามความคืบหน้ากระบวนการสหกิจศึกษา</span>
+        <span class="text-xs text-muted">หลังยืนยันสถานประกอบการแล้ว</span>
       </div>
 
       <div class="overflow-hidden rounded-lg border border-default bg-default shadow-xs">
@@ -225,9 +252,14 @@ const tasks = computed(() => {
             <tr
               v-for="(task, idx) in tasks"
               :key="idx"
-              class="hover:bg-muted/10 transition-colors"
+              class="group cursor-pointer transition-colors hover:bg-primary/5 focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-[-2px]"
+              role="link"
+              tabindex="0"
+              @click="openTask(task.actionTo)"
+              @keydown.enter.prevent="openTask(task.actionTo)"
+              @keydown.space.prevent="openTask(task.actionTo)"
             >
-              <td class="px-4 py-3.5 font-medium text-highlighted">
+              <td class="px-4 py-3.5 font-medium text-highlighted transition-colors group-hover:text-primary">
                 {{ task.name }}
               </td>
               <td class="px-4 py-3.5 text-muted">
@@ -250,6 +282,7 @@ const tasks = computed(() => {
                   color="primary"
                   variant="ghost"
                   size="xs"
+                  class="group-hover:bg-primary/10"
                   :to="task.actionTo"
                 />
               </td>

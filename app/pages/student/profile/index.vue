@@ -79,10 +79,6 @@ const handleSavePhone = async () => {
                 <span class="font-medium text-highlighted text-sm">{{ profile.classGroup || '—' }}</span>
               </div>
               <div>
-                <span class="text-muted block">เพศ</span>
-                <span class="text-highlighted">{{ profile.gender || '—' }}</span>
-              </div>
-              <div>
                 <span class="text-muted block">สถานะบัญชี</span>
                 <UBadge :color="profile.isActive ? 'success' : 'neutral'" variant="subtle" size="xs">
                   {{ profile.isActive ? 'ใช้งานปกติ' : 'ระงับการใช้งาน' }}

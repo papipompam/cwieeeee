@@ -10,7 +10,7 @@ export default defineEventHandler(async (event) => {
 
   const where: any = {
     role: 'STUDENT',
-    cohortYear: cycle.cohortYear,
+    cycleEnrollments: { some: { cooperativeCycleId: cycleId } },
     ...(classGroup ? { classGroup } : {}),
     ...(status === 'active' ? { isActive: true } : status === 'inactive' ? { isActive: false } : {})
   }
@@ -36,7 +36,6 @@ export default defineEventHandler(async (event) => {
         prefix: true,
         firstName: true,
         lastName: true,
-        gender: true,
         cohortYear: true,
         classGroup: true,
         isActive: true,
@@ -79,7 +78,6 @@ export default defineEventHandler(async (event) => {
       prefix: s.prefix,
       firstName: s.firstName,
       lastName: s.lastName,
-      gender: s.gender,
       cohortYear: s.cohortYear,
       classGroup: s.classGroup,
       isActive: s.isActive,

@@ -96,7 +96,7 @@ export const checkTeacherScheduleConflict = async (
   scheduledDate: Date,
   period: string,
   teacherUserIds: number[],
-  excludeAppointmentId?: number,
+  excludeAppointmentIds?: number[],
   tx?: any
 ) => {
   if (!teacherUserIds || teacherUserIds.length === 0) return
@@ -108,7 +108,7 @@ export const checkTeacherScheduleConflict = async (
       supervisionRound: { cooperativeCycleId: cycleId },
       scheduledDate,
       status: { in: ['PUBLISHED', 'RESCHEDULED'] },
-      ...(excludeAppointmentId ? { id: { not: excludeAppointmentId } } : {})
+      ...(excludeAppointmentIds?.length ? { id: { notIn: excludeAppointmentIds } } : {})
     },
     include: {
       teachers: {

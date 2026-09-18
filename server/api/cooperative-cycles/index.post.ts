@@ -29,8 +29,15 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    return await prisma.cooperativeCycle.create({
-      data: {
+    return await prisma.$transaction(async (tx) => {
+      const students = await tx.user.findMany({
+        where: { role: 'STUDENT', cohortYear, isActive: true },
+        select: { id: true }
+      })
+      await ensureStudentsCanJoinOpenCycle(tx, 0, students.map(student => student.id))
+
+      const cycle = await tx.cooperativeCycle.create({
+        data: {
         term,
         academicYear,
         cohortYear,
@@ -39,8 +46,15 @@ export default defineEventHandler(async (event) => {
         internshipStartDate: internStart,
         internshipEndDate: internEnd,
         status: CooperativeCycleStatus.OPEN_FOR_APPLICATION,
-        note: body.note ? String(body.note).trim() : null
-      }
+          note: body.note ? String(body.note).trim() : null
+        }
+      })
+
+      await tx.cooperativeCycleEnrollment.createMany({
+        data: students.map(student => ({ cooperativeCycleId: cycle.id, studentUserId: student.id }))
+      })
+
+      return cycle
     })
   } catch (error) {
     if (isUniqueConstraintError(error)) {

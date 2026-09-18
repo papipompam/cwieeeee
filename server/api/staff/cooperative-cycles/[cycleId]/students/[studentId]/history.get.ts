@@ -3,14 +3,13 @@ export default defineEventHandler(async (event) => {
   const studentId = validatePositiveId(getRouterParam(event, 'studentId'), 'รหัสนักศึกษา')
 
   const student = await prisma.user.findFirst({
-    where: { id: studentId, role: 'STUDENT' },
+    where: { id: studentId, role: 'STUDENT', cycleEnrollments: { some: { cooperativeCycleId: cycleId } } },
     select: {
       id: true,
       loginId: true,
       prefix: true,
       firstName: true,
       lastName: true,
-      gender: true,
       phone: true,
       cohortYear: true,
       classGroup: true,
@@ -69,7 +68,6 @@ export default defineEventHandler(async (event) => {
       prefix: student.prefix,
       firstName: student.firstName,
       lastName: student.lastName,
-      gender: student.gender,
       phone: student.phone,
       cohortYear: student.cohortYear,
       classGroup: student.classGroup,

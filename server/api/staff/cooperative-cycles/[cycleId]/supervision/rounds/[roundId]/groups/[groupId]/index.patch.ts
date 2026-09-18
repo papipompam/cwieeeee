@@ -105,6 +105,25 @@ export default defineEventHandler(async (event) => {
     if (assignedTeachers.length) throw createError({ statusCode: 409, message: `อาจารย์ที่เลือกอยู่ในกลุ่ม "${assignedTeachers[0]!.supervisionGroup.name}" แล้วในครั้งนี้` })
     if (assignedCompanies.length) throw createError({ statusCode: 409, message: `สถานประกอบการที่เลือกอยู่ในกลุ่ม "${assignedCompanies[0]!.supervisionGroup.name}" แล้วในครั้งนี้` })
 
+    const appointmentIds = await tx.supervisionAppointment.findMany({
+      where: { supervisionGroupId: groupId },
+      select: { id: true }
+    })
+    await lockTeacherScheduleSlots(tx, companyPlans.map((plan: typeof companyPlans[number]) => ({
+      scheduledDate: plan.scheduledDate,
+      teacherUserIds: appointmentTeacherIds.get(plan.companyId)!
+    })))
+    for (const plan of companyPlans) {
+      await checkTeacherScheduleConflict(
+        cycleId,
+        plan.scheduledDate,
+        plan.period,
+        appointmentTeacherIds.get(plan.companyId)!,
+        appointmentIds.map((appointment: { id: number }) => appointment.id),
+        tx
+      )
+    }
+
     await tx.supervisionTravelPlan.deleteMany({ where: { supervisionGroupId: groupId } })
     await tx.supervisionAppointment.deleteMany({ where: { supervisionGroupId: groupId } })
     await tx.supervisionGroupTeacher.deleteMany({ where: { supervisionGroupId: groupId } })

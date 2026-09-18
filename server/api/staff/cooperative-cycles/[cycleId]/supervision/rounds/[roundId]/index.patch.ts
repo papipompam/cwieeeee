@@ -10,7 +10,7 @@ export default defineEventHandler(async (event) => {
     data.name = body.name.trim() || null
   }
 
-  if (body?.status && ['PLANNING', 'PUBLISHED', 'COMPLETED'].includes(body.status)) {
+  if (body?.status && ['PUBLISHED', 'COMPLETED'].includes(body.status)) {
     data.status = body.status
   }
 

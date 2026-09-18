@@ -36,16 +36,12 @@ export default defineEventHandler(async (event) => {
   // Counts across this cycle's rounds
   const [
     groupsCount,
-    appointmentsDraftCount,
     appointmentsPublishedCount,
     appointmentsCompletedCount,
     travelPlans
   ] = await Promise.all([
     prisma.supervisionGroup.count({
       where: { supervisionRound: { cooperativeCycleId: cycleId } }
-    }),
-    prisma.supervisionAppointment.count({
-      where: { supervisionRound: { cooperativeCycleId: cycleId }, status: 'DRAFT' }
     }),
     prisma.supervisionAppointment.count({
       where: { supervisionRound: { cooperativeCycleId: cycleId }, status: { in: ['PUBLISHED', 'RESCHEDULED'] } }
@@ -93,10 +89,9 @@ export default defineEventHandler(async (event) => {
     groupsCount,
     confirmedCompaniesCount: uniqueCompanyIds.length,
     unassignedCompaniesCount,
-    appointmentsDraftCount,
     appointmentsPublishedCount,
     appointmentsCompletedCount,
-    appointmentsTotalCount: appointmentsDraftCount + appointmentsPublishedCount + appointmentsCompletedCount,
+    appointmentsTotalCount: appointmentsPublishedCount + appointmentsCompletedCount,
     travelPlansCount: travelPlans.length,
     totalBudgetEstimate: Math.round(totalBudgetEstimate * 100) / 100
   }

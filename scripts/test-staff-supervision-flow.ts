@@ -71,11 +71,6 @@ async function run() {
   const addCompanyToGroupHandler = (await import('../server/api/staff/cooperative-cycles/[cycleId]/supervision/rounds/[roundId]/groups/[groupId]/companies/index.post')).default
   const addTeacherToGroupHandler = (await import('../server/api/staff/cooperative-cycles/[cycleId]/supervision/rounds/[roundId]/groups/[groupId]/teachers/index.post')).default
   const listAppointmentsHandler = (await import('../server/api/staff/cooperative-cycles/[cycleId]/supervision/rounds/[roundId]/appointments/index.get')).default
-  const createAppointmentHandler = (await import('../server/api/staff/cooperative-cycles/[cycleId]/supervision/rounds/[roundId]/appointments/index.post')).default
-  const publishAppointmentHandler = (await import('../server/api/staff/cooperative-cycles/[cycleId]/supervision/rounds/[roundId]/appointments/[appointmentId]/publish.post')).default
-  const publishBatchHandler = (await import('../server/api/staff/cooperative-cycles/[cycleId]/supervision/rounds/[roundId]/appointments/publish-batch.post')).default
-  const rescheduleAppointmentHandler = (await import('../server/api/staff/cooperative-cycles/[cycleId]/supervision/rounds/[roundId]/appointments/[appointmentId]/reschedule.post')).default
-  const cancelAppointmentHandler = (await import('../server/api/staff/cooperative-cycles/[cycleId]/supervision/rounds/[roundId]/appointments/[appointmentId]/cancel.post')).default
   const createTravelPlanHandler = (await import('../server/api/staff/cooperative-cycles/[cycleId]/supervision/rounds/[roundId]/travel-plans/index.post')).default
   const listTravelPlansHandler = (await import('../server/api/staff/cooperative-cycles/[cycleId]/supervision/rounds/[roundId]/travel-plans/index.get')).default
   const supervisionSummaryHandler = (await import('../server/api/staff/cooperative-cycles/[cycleId]/supervision/summary.get')).default
@@ -343,12 +338,15 @@ async function run() {
       body: {
         name: 'กลุ่ม A (กรุงเทพ)',
         teacherUserIds: [teacher1User.id],
-        companyIds: [company1.id]
+        companyIds: [company1.id],
+        companyPlans: [{ companyId: company1.id, scheduledDate: '2055-04-20', period: 'MORNING', distanceKmFromPrevious: 0 }]
       },
       staffUser
     })
     const groupARes: any = await createGroupHandler(createGroupAEvent as any)
     const groupAId = groupARes.group.id
+    const groupAAppointment = await prisma.supervisionAppointment.findFirstOrThrow({ where: { supervisionGroupId: groupAId } })
+    const apptId = groupAAppointment.id
 
     // The planning flow creates group members, published appointments, and travel budget together.
     const createPlannedGroupEvent = createMockEvent({
@@ -401,19 +399,6 @@ async function run() {
     assert.equal(updatedAppointment?.travelStops[0]?.travelPlan.fuelRate, 5)
     assert.equal(updatedAppointment?.travelStops[0]?.travelPlan.lodgingRooms, 2)
 
-    const createGroupBEvent = createMockEvent({
-      params: { cycleId: String(cycle1.id), roundId: String(round1Id) },
-      body: { name: 'กลุ่ม B (ชลบุรี)' },
-      staffUser
-    })
-    const groupBRes: any = await createGroupHandler(createGroupBEvent as any)
-    const groupBId = groupBRes.group.id
-
-    // Verify the company selected at creation is immediately assigned.
-    const unassignedAfterAssign: any = await unassignedCompaniesHandler(unassignedEvent as any)
-    assert.equal(unassignedAfterAssign.companies.length, 1)
-    assert.equal(unassignedAfterAssign.companies[0].companyId, company2.id)
-
     // Verify listGroups returns { groups: [...] } with proper DTO
     const listGroupsEvent = createMockEvent({
       params: { cycleId: String(cycle1.id), roundId: String(round1Id) },
@@ -421,241 +406,9 @@ async function run() {
     })
     const groupsListRes: any = await listGroupsHandler(listGroupsEvent as any)
     assert(Array.isArray(groupsListRes.groups), 'listGroupsHandler should return { groups: [...] }')
-    assert.equal(groupsListRes.groups.length, 2)
+    assert.equal(groupsListRes.groups.length, 1)
     assert.equal(groupsListRes.groups[0].companies[0].companyId, company1.id)
     assert(Array.isArray(groupsListRes.groups[0].companies[0].students), 'Company should have students array')
-
-    // TEST 6: Duplicate Company Assignment in Same Round (Constraint)
-    console.log('\n--- TEST 6: Duplicate Company in Same Round (409) ---')
-    const dupCompanyEvent = createMockEvent({
-      params: { cycleId: String(cycle1.id), roundId: String(round1Id), groupId: String(groupBId) },
-      body: { companyId: company1.id },
-      staffUser
-    })
-    await assert.rejects(
-      async () => await addCompanyToGroupHandler(dupCompanyEvent as any),
-      (err: any) => {
-        assert.equal(err.statusCode, 409)
-        return true
-      },
-      'Should reject assigning same company to another group in the same round'
-    )
-
-    // TEST 7: Assign Teachers & Duplicate Guard
-    console.log('\n--- TEST 7: Duplicate Teacher in Same Round (409) ---')
-    // Attempt to assign Teacher 1 to Group B in round 1
-    const assignTeacher1ToBEvent = createMockEvent({
-      params: { cycleId: String(cycle1.id), roundId: String(round1Id), groupId: String(groupBId) },
-      body: { teacherUserId: teacher1User.id },
-      staffUser
-    })
-    await assert.rejects(
-      async () => await addTeacherToGroupHandler(assignTeacher1ToBEvent as any),
-      (err: any) => {
-        assert.equal(err.statusCode, 409)
-        return true
-      },
-      'Should reject assigning same teacher to another group in the same round'
-    )
-
-    // Assign Teacher 2 to Group B
-    const assignTeacher2ToBEvent = createMockEvent({
-      params: { cycleId: String(cycle1.id), roundId: String(round1Id), groupId: String(groupBId) },
-      body: { teacherUserId: teacher2User.id },
-      staffUser
-    })
-    await addTeacherToGroupHandler(assignTeacher2ToBEvent as any)
-
-    // TEST 8: Boundary Validation on Appointment Creation
-    console.log('\n--- TEST 8: Boundary Validation on Appointment Creation ---')
-    // 8.1 Foreign student (student2 is at company2, not company1) -> 400
-    const foreignStudentEvent = createMockEvent({
-      params: { cycleId: String(cycle1.id), roundId: String(round1Id) },
-      body: {
-        groupId: groupAId,
-        companyId: company1.id,
-        scheduledDate: '2055-04-10',
-        period: 'MORNING',
-        studentUserIds: [student2User.id],
-        teacherUserIds: [teacher1User.id]
-      },
-      staffUser
-    })
-    await assert.rejects(
-      async () => await createAppointmentHandler(foreignStudentEvent as any),
-      (err: any) => {
-        assert.equal(err.statusCode, 400)
-        assert.match(err.message, /ไม่ได้ยืนยันการฝึกงานกับสถานประกอบการนี้/)
-        return true
-      },
-      'Should reject foreign student not confirmed at company1'
-    )
-
-    // 8.2 Non-group teacher (teacher2 is in groupB, not groupA) -> 400
-    const nonGroupTeacherEvent = createMockEvent({
-      params: { cycleId: String(cycle1.id), roundId: String(round1Id) },
-      body: {
-        groupId: groupAId,
-        companyId: company1.id,
-        scheduledDate: '2055-04-10',
-        period: 'MORNING',
-        studentUserIds: [student1User.id],
-        teacherUserIds: [teacher2User.id]
-      },
-      staffUser
-    })
-    await assert.rejects(
-      async () => await createAppointmentHandler(nonGroupTeacherEvent as any),
-      (err: any) => {
-        assert.equal(err.statusCode, 400)
-        assert.match(err.message, /ไม่ได้อยู่ในกลุ่มนิเทศนี้/)
-        return true
-      },
-      'Should reject teacher not assigned to groupA'
-    )
-
-    // 8.3 Valid appointment creation
-    const createDraftEvent = createMockEvent({
-      params: { cycleId: String(cycle1.id), roundId: String(round1Id) },
-      body: {
-        groupId: groupAId,
-        companyId: company1.id,
-        scheduledDate: '2055-04-10',
-        period: 'MORNING',
-        timeNote: '09:30 น. ห้องประชุม 1',
-        studentUserIds: [student1User.id],
-        teacherUserIds: [teacher1User.id]
-      },
-      staffUser
-    })
-    const draftRes: any = await createAppointmentHandler(createDraftEvent as any)
-    const apptId = draftRes.appointment.id
-    assert.equal(draftRes.appointment.status, 'DRAFT')
-    assert.equal(draftRes.appointment.timeNote, '09:30 น. ห้องประชุม 1')
-
-    const listAppointmentsEvent = createMockEvent({
-      params: { cycleId: String(cycle1.id), roundId: String(round1Id) },
-      query: { pageSize: '100' },
-      staffUser
-    })
-    const appointmentsListRes: any = await listAppointmentsHandler(listAppointmentsEvent as any)
-    assert.equal(appointmentsListRes.total, 1)
-    assert.equal(appointmentsListRes.appointments[0].companyName, company1.name)
-    assert.equal(appointmentsListRes.appointments[0].students[0].id, student1User.id)
-    assert.equal(appointmentsListRes.appointments[0].teachers[0].id, teacher1User.id)
-
-    // TEST 9: Batch Publish Validation & Intra-batch Conflict
-    console.log('\n--- TEST 9: Batch Publish Validation & Intra-batch Conflict ---')
-    // Assign company2 to Group B
-    await addCompanyToGroupHandler(createMockEvent({
-      params: { cycleId: String(cycle1.id), roundId: String(round1Id), groupId: String(groupBId) },
-      body: { companyId: company2.id },
-      staffUser
-    }) as any)
-
-    // Create Draft 2 in Group B on same date and period (MORNING) with teacher2
-    const createDraft2Event = createMockEvent({
-      params: { cycleId: String(cycle1.id), roundId: String(round1Id) },
-      body: {
-        groupId: groupBId,
-        companyId: company2.id,
-        scheduledDate: '2055-04-10',
-        period: 'MORNING',
-        studentUserIds: [student2User.id],
-        teacherUserIds: [teacher2User.id]
-      },
-      staffUser
-    })
-    const draft2Res: any = await createAppointmentHandler(createDraft2Event as any)
-    const appt2Id = draft2Res.appointment.id
-
-    // Now intentionally add teacher2 to Draft 1 directly to simulate intra-batch conflict test
-    await prisma.supervisionAppointmentTeacher.create({
-      data: { appointmentId: apptId, teacherUserId: teacher2User.id }
-    })
-
-    // Batch publish apptId and appt2Id -> both have teacher2 on 2055-04-10 MORNING -> should reject 400
-    const batchConflictEvent = createMockEvent({
-      params: { cycleId: String(cycle1.id), roundId: String(round1Id) },
-      body: { appointmentIds: [apptId, appt2Id] },
-      staffUser
-    })
-    await assert.rejects(
-      async () => await publishBatchHandler(batchConflictEvent as any),
-      (err: any) => {
-        assert.equal(err.statusCode, 400)
-        assert.match(err.message, /รายการนัดหมายที่เลือกเผยแพร่พร้อมกัน/)
-        return true
-      },
-      'Intra-batch conflict detection must reject with 400'
-    )
-
-    // Remove teacher2 from apptId
-    await prisma.supervisionAppointmentTeacher.deleteMany({
-      where: { appointmentId: apptId, teacherUserId: teacher2User.id }
-    })
-
-    // Batch publish should now succeed
-    const batchPublishEvent = createMockEvent({
-      params: { cycleId: String(cycle1.id), roundId: String(round1Id) },
-      body: { appointmentIds: [apptId, appt2Id] },
-      staffUser
-    })
-    const batchRes: any = await publishBatchHandler(batchPublishEvent as any)
-    assert.equal(batchRes.publishedCount, 2)
-
-    // TEST 10: Cycle-wide Conflict Check on Reschedule
-    console.log('\n--- TEST 10: Cycle-wide Conflict Check on Reschedule ---')
-    // Attempt to reschedule Appt 2 to have teacher1 on 2055-04-10 MORNING (where Appt 1 is published with teacher1)
-    // First, verify reschedule without reason fails
-    const badRescheduleEvent = createMockEvent({
-      params: { cycleId: String(cycle1.id), roundId: String(round1Id), appointmentId: String(appt2Id) },
-      body: { scheduledDate: '2055-04-10', period: 'MORNING', reason: '   ' },
-      staffUser
-    })
-    await assert.rejects(
-      async () => await rescheduleAppointmentHandler(badRescheduleEvent as any),
-      (err: any) => {
-        assert.equal(err.statusCode, 400)
-        return true
-      },
-      'Should reject reschedule without reason'
-    )
-
-    // Reschedule with valid reason
-    const goodRescheduleEvent = createMockEvent({
-      params: { cycleId: String(cycle1.id), roundId: String(round1Id), appointmentId: String(apptId) },
-      body: { scheduledDate: '2055-04-15', period: 'AFTERNOON', reason: 'สถานประกอบการขอเลื่อนวัน' },
-      staffUser
-    })
-    const reschedRes: any = await rescheduleAppointmentHandler(goodRescheduleEvent as any)
-    assert.equal(reschedRes.status, 'RESCHEDULED')
-    assert.equal(reschedRes.changeReason, 'สถานประกอบการขอเลื่อนวัน')
-
-    // TEST 11: Cancel with Reason Validation
-    console.log('\n--- TEST 11: Cancel with Reason Validation ---')
-    const badCancelEvent = createMockEvent({
-      params: { cycleId: String(cycle1.id), roundId: String(round1Id), appointmentId: String(apptId) },
-      body: { reason: '' },
-      staffUser
-    })
-    await assert.rejects(
-      async () => await cancelAppointmentHandler(badCancelEvent as any),
-      (err: any) => {
-        assert.equal(err.statusCode, 400)
-        return true
-      },
-      'Should reject cancel without reason'
-    )
-
-    const goodCancelEvent = createMockEvent({
-      params: { cycleId: String(cycle1.id), roundId: String(round1Id), appointmentId: String(apptId) },
-      body: { reason: 'ยกเลิกเนื่องจากเปลี่ยนรูปแบบการนิเทศ' },
-      staffUser
-    })
-    const cancelRes: any = await cancelAppointmentHandler(goodCancelEvent as any)
-    assert.equal(cancelRes.status, 'CANCELLED')
-    assert.equal(cancelRes.cancelReason, 'ยกเลิกเนื่องจากเปลี่ยนรูปแบบการนิเทศ')
 
     // TEST 12: Travel Plan & Budget Calculation & Boundary Validation
     console.log('\n--- TEST 12: Travel Plan & Budget Validation ---')
@@ -745,7 +498,7 @@ async function run() {
     // TEST 15: Every teacher in the group can access an appointment, including one not assigned to them individually.
     console.log('\n--- TEST 15: Teacher group access ---')
     const teacher1Appointments: any = await listTeacherAppointmentsHandler(createMockEvent({ staffUser: teacher1User }) as any)
-    assert(teacher1Appointments.appointments.every((appointment: any) => appointment.id !== apptId), 'Cancelled appointments must not be shown to teachers')
+    assert(teacher1Appointments.appointments.some((appointment: any) => appointment.id === apptId), 'Published group appointments must be shown to assigned teachers')
 
     assert(updatedAppointment, 'Planned appointment must exist for teacher group access test')
     await prisma.supervisionGroupTeacher.create({

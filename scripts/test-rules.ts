@@ -10,6 +10,7 @@ if (!(globalThis as any).createError) {
 }
 
 import {
+  deriveStudentPlacementOverviewStatus,
   parseStrictDate,
   validateCycleDatesOrder,
   validateCycleTerm,
@@ -63,13 +64,27 @@ assert.throws(() => validateCycleDatesOrder(d1, d2, d4, d3), /วันเริ
 
 console.log('✔ Cycle validation rules passed!')
 
-console.log('--- 2. Testing Student Validation Rules ---')
+console.log('--- 2. Testing Student Placement Overview Rules ---')
+assert.equal(deriveStudentPlacementOverviewStatus([]), 'notApplied')
+assert.equal(deriveStudentPlacementOverviewStatus([{ status: 'SUBMITTED' }]), 'inProgress')
+assert.equal(deriveStudentPlacementOverviewStatus([{ status: 'REJECTED' }]), 'needsAction')
+assert.equal(deriveStudentPlacementOverviewStatus([{ status: 'SUBMITTED', cooperativeRequest: { status: 'RETURNED_FOR_REVISION' } }]), 'needsAction')
+assert.equal(deriveStudentPlacementOverviewStatus([
+  { status: 'REJECTED', cooperativeRequest: { status: 'REJECTED' } },
+  { status: 'SUBMITTED', cooperativeRequest: { status: 'DOCUMENT_UNDER_REVIEW' } }
+]), 'inProgress')
+assert.equal(deriveStudentPlacementOverviewStatus([
+  { status: 'SUBMITTED', cooperativeRequest: { status: 'DOCUMENT_UNDER_REVIEW' } },
+  { status: 'SUBMITTED', cooperativeRequest: { status: 'PLACEMENT_CONFIRMED' } }
+]), 'confirmed')
+console.log('✔ Student placement overview rules passed!')
+
+console.log('--- 3. Testing Student Validation Rules ---')
 const validStudent = readStudentInput({
   studentId: '66010001',
   prefix: 'นาย',
   firstName: 'ก้องภพ',
   lastName: 'เรียนดี',
-  gender: 'ชาย',
   cohortYear: 2566,
   classGroup: 1,
   isActive: true
@@ -78,14 +93,14 @@ assert.equal(validStudent.studentId, '66010001')
 assert.equal(validStudent.isActive, true)
 
 assert.throws(() => readStudentInput({ studentId: '' }), /กรุณากรอกรหัสนักศึกษา/)
-assert.throws(() => readStudentInput({ studentId: '66010001', prefix: '', firstName: 'ก', lastName: 'ข', gender: 'ชาย', cohortYear: 2566, classGroup: 1 }), /กรุณาระบุคำนำหน้า/)
-assert.throws(() => readStudentInput({ studentId: '66010001', prefix: 'นาย', firstName: 'ก', lastName: 'ข', gender: 'ชาย', cohortYear: 0, classGroup: 1 }), /รุ่นนักศึกษาต้องเป็นจำนวนเต็มบวก/)
-assert.throws(() => readStudentInput({ studentId: '66010001', prefix: 'นาย', firstName: 'ก', lastName: 'ข', gender: 'ชาย', cohortYear: 2566, classGroup: 0 }), /หมู่เรียนต้องเป็นจำนวนเต็มบวก/)
-assert.throws(() => readStudentInput({ studentId: '66010001', prefix: 'นาย', firstName: 'ก', lastName: 'ข', gender: 'ชาย', cohortYear: 2566, classGroup: 1, isActive: 'false' as any }), /สถานะใช้งานไม่ถูกต้อง/)
+assert.throws(() => readStudentInput({ studentId: '66010001', prefix: '', firstName: 'ก', lastName: 'ข', cohortYear: 2566, classGroup: 1 }), /กรุณาระบุคำนำหน้า/)
+assert.throws(() => readStudentInput({ studentId: '66010001', prefix: 'นาย', firstName: 'ก', lastName: 'ข', cohortYear: 0, classGroup: 1 }), /รุ่นนักศึกษาต้องเป็นจำนวนเต็มบวก/)
+assert.throws(() => readStudentInput({ studentId: '66010001', prefix: 'นาย', firstName: 'ก', lastName: 'ข', cohortYear: 2566, classGroup: 0 }), /หมู่เรียนต้องเป็นจำนวนเต็มบวก/)
+assert.throws(() => readStudentInput({ studentId: '66010001', prefix: 'นาย', firstName: 'ก', lastName: 'ข', cohortYear: 2566, classGroup: 1, isActive: 'false' as any }), /สถานะใช้งานไม่ถูกต้อง/)
 
 console.log('✔ Student validation rules passed!')
 
-console.log('--- 3. Testing Teacher Validation Rules ---')
+console.log('--- 4. Testing Teacher Validation Rules ---')
 const validTeacher = readTeacherInput({
   teacherId: 'T001',
   prefix: 'อาจารย์',
@@ -106,7 +121,7 @@ assert.throws(() => readTeacherInput({ teacherId: 'T001', prefix: 'อาจา�
 
 console.log('✔ Teacher validation rules passed!')
 
-console.log('--- 4. Testing Company Validation Rules ---')
+console.log('--- 5. Testing Company Validation Rules ---')
 const validCompany = readCompanyInput({
   name: 'บริษัท ทดสอบ จำกัด',
   contactPerson: 'คุณทดสอบ',
@@ -138,7 +153,7 @@ import 'dotenv/config'
 import { prisma, isUniqueConstraintError } from '../server/utils/db'
 
 async function testDatabaseRules() {
-  console.log('--- 5. Testing Database Constraints & Unique Rules ---')
+  console.log('--- 6. Testing Database Constraints & Unique Rules ---')
   const testTerm = 3
   const testYear = 2999
 

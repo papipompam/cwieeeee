@@ -46,7 +46,6 @@ export default defineEventHandler(async (event) => {
     prefix: u.prefix ?? '',
     firstName: u.firstName ?? '',
     lastName: u.lastName ?? '',
-    gender: u.gender ?? '',
     cohortYear: u.cohortYear ?? 0,
     classGroup: u.classGroup ?? 0,
     isActive: u.isActive,

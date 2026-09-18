@@ -31,7 +31,6 @@ enum CompanyApplicationStatus {
 }
 
 enum CooperativeRequestStatus {
-  DRAFT
   SUBMITTED
   STAFF_PROCESSING
   LETTER_READY
@@ -59,6 +58,7 @@ model User {
   prefix              String
   firstName           String               @map("first_name")
   lastName            String               @map("last_name")
+  // Used only by teacher records; student records are constrained to NULL in migration.
   gender              String?
   phone               String?
   cohortYear          Int?                 @map("cohort_year")
@@ -66,6 +66,7 @@ model User {
   isActive            Boolean              @default(true) @map("is_active")
   sessions            AuthSession[]
   companyApplications CompanyApplication[]
+  cycleEnrollments    CooperativeCycleEnrollment[]
   notifications       Notification[]
   supervisionVisits   SupervisionVisit[]
   supervisionGroupTeachers SupervisionGroupTeacher[]
@@ -107,6 +108,7 @@ model CooperativeCycle {
   status               CooperativeCycleStatus @default(OPEN_FOR_APPLICATION)
   note                 String?
   companyApplications  CompanyApplication[]
+  enrollments          CooperativeCycleEnrollment[]
   supervisionVisits    SupervisionVisit[]
   supervisionRounds    SupervisionRound[]
   createdAt            DateTime               @default(now()) @map("created_at")
@@ -114,6 +116,19 @@ model CooperativeCycle {
 
   @@unique([term, academicYear], name: "term_academicYear")
   @@map("cooperative_cycles")
+}
+
+model CooperativeCycleEnrollment {
+  id                 Int              @id @default(autoincrement())
+  cooperativeCycleId Int              @map("cooperative_cycle_id")
+  cooperativeCycle   CooperativeCycle @relation(fields: [cooperativeCycleId], references: [id], onDelete: Cascade)
+  studentUserId      Int              @map("student_user_id")
+  studentUser        User             @relation(fields: [studentUserId], references: [id], onDelete: Cascade)
+  createdAt          DateTime         @default(now()) @map("created_at")
+
+  @@unique([cooperativeCycleId, studentUserId], name: "cycle_student")
+  @@index([studentUserId])
+  @@map("cooperative_cycle_enrollments")
 }
 
 model Company {
@@ -223,6 +238,7 @@ model RequestDocument {
   updatedAt            DateTime           @updatedAt @map("updated_at")
 
   @@index([cooperativeRequestId])
+  @@unique([cooperativeRequestId, version], name: "request_document_version")
   @@map("request_documents")
 }
 
@@ -262,13 +278,11 @@ model SupervisionVisit {
 }
 
 enum SupervisionRoundStatus {
-  PLANNING
   PUBLISHED
   COMPLETED
 }
 
 enum SupervisionAppointmentStatus {
-  DRAFT
   PUBLISHED
   RESCHEDULED
   COMPLETED
@@ -281,7 +295,7 @@ model SupervisionRound {
   cooperativeCycle   CooperativeCycle       @relation(fields: [cooperativeCycleId], references: [id], onDelete: Cascade)
   roundNo            Int                    @default(1) @map("round_no")
   name               String?
-  status             SupervisionRoundStatus @default(PLANNING)
+  status             SupervisionRoundStatus @default(PUBLISHED)
   groups             SupervisionGroup[]
   groupCompanies     SupervisionGroupCompany[]
   groupTeachers      SupervisionGroupTeacher[]
@@ -357,7 +371,7 @@ model SupervisionAppointment {
   scheduledDate      DateTime                     @map("scheduled_date") @db.Date
   period             String                       @default("MORNING")
   timeNote           String?                      @map("time_note")
-  status             SupervisionAppointmentStatus @default(DRAFT)
+  status             SupervisionAppointmentStatus @default(PUBLISHED)
   changeReason       String?                      @map("change_reason")
   cancelReason       String?                      @map("cancel_reason")
   publishedAt        DateTime?                    @map("published_at")

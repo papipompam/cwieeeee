@@ -1,21 +1,23 @@
 export default defineEventHandler(async (event) => {
   const user = await requireRole(event, 'STUDENT')
 
-  if (!user.cohortYear) {
-    throw createError({ statusCode: 400, message: 'ไม่พบข้อมูลรุ่นนักศึกษาของท่านในระบบ' })
-  }
-
-  // Find active open cycle for student cohort
-  const cycle = await prisma.cooperativeCycle.findFirst({
+  // Students may join a cycle independently of their cohort.
+  const openCycles = await prisma.cooperativeCycle.findMany({
     where: {
       status: 'OPEN_FOR_APPLICATION',
-      cohortYear: user.cohortYear
-    }
+      enrollments: { some: { studentUserId: user.id } }
+    },
+    orderBy: [{ academicYear: 'desc' }, { term: 'desc' }],
+    take: 2
   })
 
-  if (!cycle) {
-    throw createError({ statusCode: 400, message: `ไม่มีรอบสหกิจศึกษาที่เปิดรับคำร้องสำหรับรุ่น ${user.cohortYear} ในขณะนี้` })
+  if (openCycles.length === 0) {
+    throw createError({ statusCode: 400, message: 'ท่านยังไม่ได้อยู่ในรอบสหกิจศึกษาที่เปิดรับคำร้อง กรุณาติดต่อเจ้าหน้าที่' })
   }
+  if (openCycles.length > 1) {
+    throw createError({ statusCode: 409, message: 'ท่านอยู่ในรอบสหกิจที่เปิดรับคำร้องมากกว่าหนึ่งรอบ กรุณาติดต่อเจ้าหน้าที่' })
+  }
+  const cycle = openCycles[0]!
 
   const body = await readBody(event)
 

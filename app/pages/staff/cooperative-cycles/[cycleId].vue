@@ -19,17 +19,17 @@ interface CooperativeCycle {
 }
 
 const route = useRoute()
-const router = useRouter()
 const cycleId = computed(() => Number(route.params.cycleId))
+const { setActiveCycle } = useStaffActiveCycle()
 
 // Fetch current cycle
 const { data: cycle, status: fetchStatus, error: fetchError } = await useFetch<CooperativeCycle>(() => `/api/cooperative-cycles/${cycleId.value}`)
 
-// Fetch all cycles for switcher
-const { data: allCycles } = await useFetch<CooperativeCycle[]>("/api/cooperative-cycles")
-
 // Provide to child pages
 provide("currentCycle", cycle)
+watch(cycle, value => {
+  if (value) setActiveCycle(value.id)
+}, { immediate: true })
 
 const statusDisplayMap: Record<CooperativeCycleStatus, { label: string; color: "success" | "warning" | "info" | "neutral" }> = {
   OPEN_FOR_APPLICATION: { label: "เปิดรับคำร้อง", color: "success" },
@@ -48,24 +48,6 @@ const formatDateThai = (dateStr?: string) => {
     day: "numeric"
   })
 }
-
-// Cycle options for switcher
-const cycleOptions = computed(() => {
-  if (!allCycles.value) return []
-  return allCycles.value.map(c => ({
-    label: `ภาคเรียนที่ ${c.term}/${c.academicYear} (รุ่น ${c.cohortYear})`,
-    value: c.id
-  }))
-})
-
-const selectedCycleId = computed({
-  get: () => cycleId.value,
-  set: (newId: number) => {
-    if (!newId || newId === cycleId.value) return
-    const currentSubPath = route.path.replace(`/staff/cooperative-cycles/${cycleId.value}`, "")
-    router.push(`/staff/cooperative-cycles/${newId}${currentSubPath}`)
-  }
-})
 
 const moduleTitleMap: Record<string, string> = {
   '': 'ภาพรวมรอบ',
@@ -96,12 +78,12 @@ const currentModuleTitle = computed(() => {
               icon="i-lucide-arrow-left"
               color="neutral"
               variant="ghost"
-              to="/staff/cooperative-cycles"
+              to="/staff/cooperative-cycles?select=1"
               aria-label="กลับไปหน้ารายการรอบสหกิจ"
               title="กลับไปหน้ารายการรอบสหกิจ"
             />
             <div class="flex items-center gap-1.5 text-sm">
-              <NuxtLink to="/staff/cooperative-cycles" class="text-muted hover:text-highlighted transition-colors">
+              <NuxtLink to="/staff/cooperative-cycles?select=1" class="text-muted hover:text-highlighted transition-colors">
                 รอบสหกิจ
               </NuxtLink>
               <span class="text-xs text-muted">/</span>
@@ -122,20 +104,6 @@ const currentModuleTitle = computed(() => {
           </div>
         </template>
 
-        <template #right>
-          <div class="flex items-center gap-2">
-            <!-- Cycle Switcher -->
-            <USelect
-              v-model="selectedCycleId"
-              :items="cycleOptions"
-              value-key="value"
-              class="w-64 text-sm"
-              icon="i-lucide-calendar-range"
-              aria-label="เปลี่ยนรอบสหกิจ"
-              size="md"
-            />
-          </div>
-        </template>
       </UDashboardNavbar>
     </template>
 
@@ -149,7 +117,7 @@ const currentModuleTitle = computed(() => {
           :description="fetchError.message"
         />
         <div class="mt-4">
-          <UButton label="กลับไปหน้ารายการรอบสหกิจ" to="/staff/cooperative-cycles" />
+          <UButton label="กลับไปหน้ารายการรอบสหกิจ" to="/staff/cooperative-cycles?select=1" />
         </div>
       </div>
 
@@ -169,7 +137,7 @@ const currentModuleTitle = computed(() => {
               <div>
                 <div class="flex items-center gap-2">
                   <h1 class="text-lg font-bold text-highlighted">
-                    ภาคเรียนที่ {{ cycle.term }}/{{ cycle.academicYear }} · นักศึกษารุ่น {{ cycle.cohortYear }}
+                    ภาคเรียนที่ {{ cycle.term }}/{{ cycle.academicYear }}
                   </h1>
                   <UBadge
                     :label="statusDisplayMap[cycle.status]?.label || cycle.status"

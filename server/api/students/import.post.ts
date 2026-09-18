@@ -6,7 +6,6 @@ const headers = {
   prefix: ['prefix', 'คำนำหน้า'],
   firstName: ['firstname', 'ชื่อ'],
   lastName: ['lastname', 'นามสกุล'],
-  gender: ['gender', 'เพศ'],
   cohortYear: ['cohortyear', 'รุ่น', 'รุ่นนักศึกษา'],
   classGroup: ['classgroup', 'หมู่', 'หมู่เรียน'],
   isActive: ['isactive', 'สถานะ', 'สถานะใช้งาน']
@@ -98,7 +97,6 @@ export default defineEventHandler(async (event) => {
         prefix: rowValue(row, headers.prefix),
         firstName: rowValue(row, headers.firstName),
         lastName: rowValue(row, headers.lastName),
-        gender: rowValue(row, headers.gender),
         cohortYear: rowValue(row, headers.cohortYear),
         classGroup: rowValue(row, headers.classGroup),
         ...(isActive === undefined ? {} : { isActive })
@@ -143,7 +141,6 @@ export default defineEventHandler(async (event) => {
         prefix: student.prefix,
         firstName: student.firstName,
         lastName: student.lastName,
-        gender: student.gender,
         cohortYear: student.cohortYear,
         classGroup: student.classGroup,
         isActive: student.isActive

@@ -19,7 +19,6 @@ export default defineEventHandler(async (event) => {
     prefix: current.prefix,
     firstName: current.firstName,
     lastName: current.lastName,
-    gender: current.gender,
     cohortYear: current.cohortYear,
     classGroup: current.classGroup,
     isActive: current.isActive,
@@ -34,7 +33,6 @@ export default defineEventHandler(async (event) => {
         prefix: student.prefix,
         firstName: student.firstName,
         lastName: student.lastName,
-        gender: student.gender,
         cohortYear: student.cohortYear,
         classGroup: student.classGroup,
         isActive: student.isActive
@@ -47,7 +45,6 @@ export default defineEventHandler(async (event) => {
       prefix: updated.prefix ?? '',
       firstName: updated.firstName ?? '',
       lastName: updated.lastName ?? '',
-      gender: updated.gender ?? '',
       cohortYear: updated.cohortYear ?? 0,
       classGroup: updated.classGroup ?? 0,
       isActive: updated.isActive,

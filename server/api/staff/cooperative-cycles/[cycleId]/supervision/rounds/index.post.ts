@@ -16,7 +16,7 @@ export default defineEventHandler(async (event) => {
       cooperativeCycleId: cycleId,
       roundNo: nextRoundNo,
       name: name || `การนิเทศครั้งที่ ${nextRoundNo}`,
-      status: 'PLANNING'
+      status: 'PUBLISHED'
     }
   })
 

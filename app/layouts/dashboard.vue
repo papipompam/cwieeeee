@@ -3,6 +3,7 @@ import type { NavigationMenuItem } from '@nuxt/ui'
 
 const open = ref(false)
 const route = useRoute()
+const { activeCycleId: savedCycleId } = useStaffActiveCycle()
 
 const handleSelect = () => {
   open.value = false
@@ -10,7 +11,7 @@ const handleSelect = () => {
 
 const activeCycleId = computed(() => {
   const match = route.path.match(/^\/staff\/cooperative-cycles\/(\d+)/)
-  return match ? match[1] : null
+  return match ? match[1] : savedCycleId.value ? String(savedCycleId.value) : null
 })
 
 const staffLinks = computed<NavigationMenuItem[]>(() => {
@@ -26,7 +27,7 @@ const staffLinks = computed<NavigationMenuItem[]>(() => {
     {
       label: 'รอบสหกิจ',
       icon: 'i-lucide-calendar-range',
-      to: '/staff/cooperative-cycles',
+      to: '/staff/cooperative-cycles?select=1',
       onSelect: handleSelect,
       defaultOpen: true,
       children: cycleId ? [

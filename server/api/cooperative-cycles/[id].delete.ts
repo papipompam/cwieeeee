@@ -23,7 +23,18 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  // ponytail: in future iterations with StudentApplications, check referencing relations before delete
+  const [applicationsCount, roundsCount, visitsCount] = await Promise.all([
+    prisma.companyApplication.count({ where: { cooperativeCycleId: id } }),
+    prisma.supervisionRound.count({ where: { cooperativeCycleId: id } }),
+    prisma.supervisionVisit.count({ where: { cooperativeCycleId: id } })
+  ])
+  if (applicationsCount || roundsCount || visitsCount) {
+    throw createError({
+      statusCode: 409,
+      message: 'ไม่สามารถลบรอบที่มีข้อมูลดำเนินงานแล้ว กรุณาปิดรอบแทน'
+    })
+  }
+
   return await prisma.cooperativeCycle.delete({
     where: { id }
   })

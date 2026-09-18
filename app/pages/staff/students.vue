@@ -12,7 +12,6 @@ interface Student {
   prefix: string
   firstName: string
   lastName: string
-  gender: string
   cohortYear: number
   classGroup: number
   isActive: boolean
@@ -55,7 +54,6 @@ const formState = reactive({
   prefix: 'นาย',
   firstName: '',
   lastName: '',
-  gender: 'ชาย',
   cohortYear: 2566,
   classGroup: 1,
   isActive: true
@@ -67,12 +65,6 @@ const prefixOptions = [
   { label: 'นาย', value: 'นาย' },
   { label: 'นางสาว', value: 'นางสาว' },
   { label: 'นาง', value: 'นาง' }
-]
-
-const genderOptions = [
-  { label: 'ชาย', value: 'ชาย' },
-  { label: 'หญิง', value: 'หญิง' },
-  { label: 'อื่นๆ / ไม่ระบุ', value: 'อื่นๆ' }
 ]
 
 const statusOptions = [
@@ -164,6 +156,15 @@ const handleRefresh = async () => {
   notify.info('อัปเดตข้อมูลนักศึกษาแล้ว')
 }
 
+const exportStudents = () => {
+  const query = new URLSearchParams()
+  if (searchQuery.value) query.set('search', searchQuery.value)
+  if (cohortFilter.value !== 'all') query.set('cohortYear', cohortFilter.value)
+  if (classGroupFilter.value !== 'all') query.set('classGroup', classGroupFilter.value)
+  if (statusFilter.value !== 'all') query.set('isActive', String(statusFilter.value === 'active'))
+  window.location.assign(`/api/students/export?${query.toString()}`)
+}
+
 const openImportModal = () => {
   importFile.value = null
   importError.value = ''
@@ -224,7 +225,6 @@ const openCreateModal = () => {
   formState.prefix = 'นาย'
   formState.firstName = ''
   formState.lastName = ''
-  formState.gender = 'ชาย'
   formState.cohortYear = currentYear - 3
   formState.classGroup = 1
   formState.isActive = true
@@ -241,7 +241,6 @@ const openEditModal = (student: Student) => {
   formState.prefix = student.prefix
   formState.firstName = student.firstName
   formState.lastName = student.lastName
-  formState.gender = student.gender
   formState.cohortYear = student.cohortYear
   formState.classGroup = student.classGroup
   formState.isActive = student.isActive
@@ -270,11 +269,6 @@ const validateForm = () => {
 
   if (!formState.lastName.trim()) {
     formErrors.lastName = 'กรุณากรอกนามสกุล'
-    isValid = false
-  }
-
-  if (!formState.gender.trim()) {
-    formErrors.gender = 'กรุณาระบุเพศ'
     isValid = false
   }
 
@@ -380,11 +374,6 @@ const columns: TableColumn<Student>[] = [
     cell: ({ row }) => `${row.original.prefix}${row.original.firstName} ${row.original.lastName}`
   },
   {
-    accessorKey: 'gender',
-    header: 'เพศ',
-    meta: { class: { th: 'w-24', td: 'w-24' } }
-  },
-  {
     accessorKey: 'cohortYear',
     header: 'รุ่น',
     meta: { class: { th: 'w-24', td: 'w-24' } },
@@ -423,6 +412,13 @@ const columns: TableColumn<Student>[] = [
             icon="i-lucide-upload"
             color="primary"
             @click="openImportModal"
+          />
+          <UButton
+            label="ส่งออกข้อมูล"
+            icon="i-lucide-download"
+            color="neutral"
+            variant="outline"
+            @click="exportStudents"
           />
           <UButton
             label="เพิ่มนักศึกษา"
@@ -587,7 +583,7 @@ const columns: TableColumn<Student>[] = [
     <template #body>
       <div class="space-y-4">
         <p class="text-sm text-muted">
-          หัวตารางที่ต้องมี: รหัสนักศึกษา, คำนำหน้า, ชื่อ, นามสกุล, เพศ, รุ่น, หมู่เรียน
+          หัวตารางที่ต้องมี: รหัสนักศึกษา, คำนำหน้า, ชื่อ, นามสกุล, รุ่น, หมู่เรียน
           <span class="block">สถานะใช้งานเป็นคอลัมน์เสริม โดยใช้ ใช้งาน หรือ ไม่ใช้งาน</span>
         </p>
         <a
@@ -661,16 +657,7 @@ const columns: TableColumn<Student>[] = [
           </UFormField>
         </div>
 
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <UFormField label="เพศ" required :error="formErrors.gender">
-            <USelect
-              v-model="formState.gender"
-              :items="genderOptions"
-              value-key="value"
-              class="w-full"
-            />
-          </UFormField>
-
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <UFormField label="รุ่นนักศึกษา (พ.ศ.)" required :error="formErrors.cohortYear">
             <UInput
               v-model.number="formState.cohortYear"
@@ -766,11 +753,6 @@ const columns: TableColumn<Student>[] = [
           <div>
             <span class="text-xs text-muted block">ชื่อ-นามสกุล</span>
             <span class="font-medium text-highlighted">{{ selectedStudent.prefix }}{{ selectedStudent.firstName }} {{ selectedStudent.lastName }}</span>
-          </div>
-
-          <div>
-            <span class="text-xs text-muted block">เพศ</span>
-            <span>{{ selectedStudent.gender }}</span>
           </div>
 
           <div>
