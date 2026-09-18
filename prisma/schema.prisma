@@ -72,6 +72,9 @@ model User {
   supervisionAppointmentStudents SupervisionAppointmentStudent[]
   supervisionAppointmentTeachers SupervisionAppointmentTeacher[]
   supervisionTravelTravellers SupervisionTravelTraveller[]
+  studentEvaluationsGiven StudentEvaluation[] @relation("student_evaluation_teacher")
+  studentEvaluationsReceived StudentEvaluation[] @relation("student_evaluation_student")
+  companyEvaluations CompanyEvaluation[]
   createdAt           DateTime             @default(now()) @map("created_at")
   updatedAt           DateTime             @updatedAt @map("updated_at")
 
@@ -272,6 +275,11 @@ enum SupervisionAppointmentStatus {
   CANCELLED
 }
 
+enum StudentEvaluationStatus {
+  DRAFT
+  SUBMITTED
+}
+
 model SupervisionRound {
   id                 Int                    @id @default(autoincrement())
   cooperativeCycleId Int                    @map("cooperative_cycle_id")
@@ -361,6 +369,8 @@ model SupervisionAppointment {
   students           SupervisionAppointmentStudent[]
   teachers           SupervisionAppointmentTeacher[]
   travelStops        SupervisionTravelStop[]
+  studentEvaluations StudentEvaluation[]
+  companyEvaluations CompanyEvaluation[]
   createdAt          DateTime                     @default(now()) @map("created_at")
   updatedAt          DateTime                     @updatedAt @map("updated_at")
 
@@ -395,6 +405,69 @@ model SupervisionAppointmentTeacher {
 
   @@unique([appointmentId, teacherUserId], name: "appointment_teacher")
   @@map("supervision_appointment_teachers")
+}
+
+model StudentEvaluation {
+  id                  Int                     @id @default(autoincrement())
+  appointmentId       Int                     @map("appointment_id")
+  appointment         SupervisionAppointment  @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  studentUserId       Int                     @map("student_user_id")
+  studentUser         User                    @relation("student_evaluation_student", fields: [studentUserId], references: [id], onDelete: Cascade)
+  teacherUserId       Int                     @map("teacher_user_id")
+  teacherUser         User                    @relation("student_evaluation_teacher", fields: [teacherUserId], references: [id], onDelete: Cascade)
+  responsibilityScore Int?                    @map("responsibility_score")
+  disciplineScore     Int?                    @map("discipline_score")
+  communicationScore  Int?                    @map("communication_score")
+  knowledgeScore      Int?                    @map("knowledge_score")
+  workQualityScore    Int?                    @map("work_quality_score")
+  problemSolvingScore Int?                    @map("problem_solving_score")
+  strengths           String?
+  problems            String?
+  recommendations     String?
+  followUp            String?                 @map("follow_up")
+  status              StudentEvaluationStatus @default(DRAFT)
+  submittedAt         DateTime?               @map("submitted_at")
+  createdAt           DateTime                @default(now()) @map("created_at")
+  updatedAt           DateTime                @updatedAt @map("updated_at")
+
+  @@unique([appointmentId, studentUserId, teacherUserId], name: "appointment_student_teacher")
+  @@index([teacherUserId, status])
+  @@index([studentUserId])
+  @@map("student_evaluations")
+}
+
+model CompanyEvaluation {
+  id                     Int                     @id @default(autoincrement())
+  appointmentId          Int                     @map("appointment_id")
+  appointment            SupervisionAppointment  @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  teacherUserId          Int                     @map("teacher_user_id")
+  teacherUser            User                    @relation(fields: [teacherUserId], references: [id], onDelete: Cascade)
+  workAlignmentScore     Int?                    @map("work_alignment_score")
+  workScopeScore         Int?                    @map("work_scope_score")
+  learningOpportunityScore Int?                  @map("learning_opportunity_score")
+  supervisorReadinessScore Int?                  @map("supervisor_readiness_score")
+  studentSupportScore    Int?                    @map("student_support_score")
+  environmentScore       Int?                    @map("environment_score")
+  safetyScore            Int?                    @map("safety_score")
+  resourcesScore         Int?                    @map("resources_score")
+  welfareScore           Int?                    @map("welfare_score")
+  travelScore            Int?                    @map("travel_score")
+  transportScore         Int?                    @map("transport_score")
+  accommodationScore     Int?                    @map("accommodation_score")
+  coordinationScore      Int?                    @map("coordination_score")
+  observations           String?
+  companyNeeds           String?                 @map("company_needs")
+  problems               String?
+  recommendations        String?
+  futureRecommendation   String?                 @map("future_recommendation")
+  status                 StudentEvaluationStatus @default(DRAFT)
+  submittedAt            DateTime?               @map("submitted_at")
+  createdAt              DateTime                @default(now()) @map("created_at")
+  updatedAt              DateTime                @updatedAt @map("updated_at")
+
+  @@unique([appointmentId, teacherUserId], name: "appointment_teacher_company_evaluation")
+  @@index([teacherUserId, status])
+  @@map("company_evaluations")
 }
 
 model SupervisionTravelPlan {

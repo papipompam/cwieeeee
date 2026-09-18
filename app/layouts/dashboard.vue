@@ -114,6 +114,36 @@ const teacherLinks: NavigationMenuItem[] = [
     icon: 'i-lucide-layout-dashboard',
     to: '/teacher',
     onSelect: handleSelect
+  },
+  {
+    label: 'ตารางนิเทศ',
+    icon: 'i-lucide-calendar-days',
+    to: '/teacher/visits',
+    onSelect: handleSelect
+  },
+  {
+    label: 'ประเมินนักศึกษา',
+    icon: 'i-lucide-clipboard-check',
+    to: '/teacher/evaluations/students',
+    onSelect: handleSelect
+  },
+  {
+    label: 'ประเมินสถานประกอบการ',
+    icon: 'i-lucide-building-check',
+    to: '/teacher/evaluations/companies',
+    onSelect: handleSelect
+  },
+  {
+    label: 'ข้อมูลนักศึกษา',
+    icon: 'i-lucide-graduation-cap',
+    to: '/teacher/students',
+    onSelect: handleSelect
+  },
+  {
+    label: 'ข้อมูลสถานประกอบการ',
+    icon: 'i-lucide-building-2',
+    to: '/teacher/companies',
+    onSelect: handleSelect
   }
 ]
 
