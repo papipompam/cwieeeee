@@ -59,6 +59,17 @@ const provinceFilter = ref('ALL')
 const page = ref(1)
 const pageSize = ref(10)
 
+const statusOptions = [
+  { label: 'ทุกสถานะ', value: 'ALL' },
+  { label: 'ส่งข้อมูลการสมัครแล้ว', value: 'SUBMITTED' },
+  { label: 'รอผลตอบกลับ', value: 'AWAITING_RESPONSE' },
+  { label: 'รอสัมภาษณ์', value: 'INTERVIEW' },
+  { label: 'บริษัทตอบรับแล้ว', value: 'ACCEPTED' },
+  { label: 'บริษัทปฏิเสธ', value: 'REJECTED' },
+  { label: 'ยกเลิกการสมัคร', value: 'WITHDRAWN' },
+  { label: 'ยืนยันสถานประกอบการแล้ว', value: 'CONFIRMED' }
+]
+
 const availableProvinces = computed(() => {
   const set = new Set<string>()
   for (const app of rawApplications.value || []) {
@@ -66,6 +77,11 @@ const availableProvinces = computed(() => {
   }
   return Array.from(set).sort()
 })
+
+const provinceOptions = computed(() => [
+  { label: 'ทุกจังหวัด', value: 'ALL' },
+  ...availableProvinces.value.map(province => ({ label: province, value: province }))
+])
 
 const filteredApplications = computed(() => {
   let list = rawApplications.value || []
@@ -232,287 +248,297 @@ const handleDeleteConfirm = async () => {
 <template>
   <UDashboardPanel id="student-applications-page">
     <template #header>
-      <AppDashboardNavbar>
+      <AppDashboardNavbar title="สมัครและยืนยันที่ฝึกงาน">
         <template #leading>
           <UDashboardSidebarCollapse />
         </template>
-        <template #title>
-          <div class="flex flex-col">
-            <span class="text-[11px] font-normal leading-tight text-gray-400 font-['Prompt',sans-serif]">CWIE BRU / สมัครและยืนยันที่ฝึกงาน</span>
-            <span class="text-sm font-bold leading-tight text-gray-900 font-['Prompt',sans-serif]">สมัครและยืนยันที่ฝึกงาน</span>
-          </div>
-        </template>
         <template #right>
+          <UButton
+            color="primary"
+            size="xl"
+            icon="i-lucide-plus"
+            label="กรอกข้อมูล"
+            :disabled="!contextData?.canApply"
+            :title="contextData?.canApply ? 'กรอกข้อมูลการสมัคร' : (contextData?.reason || 'ยังไม่สามารถกรอกข้อมูลได้')"
+            @click="isApplicationModalOpen = true"
+          />
+          <UIButtonRefresh :loading="status === 'pending'" @refresh="refresh" />
           <AppNotificationBell />
         </template>
       </AppDashboardNavbar>
     </template>
 
     <template #body>
-      <div class="space-y-6 pb-8 font-['Prompt',sans-serif]">
-        <!-- Page Title & Top Action -->
-        <div class="flex items-center justify-between">
-          <h1 class="text-[22px] sm:text-[24px] font-bold text-gray-900 tracking-tight">สมัครและยืนยันที่ฝึกงาน</h1>
-          <UButton
-            color="primary"
-            icon="i-lucide-plus"
-            label="กรอกข้อมูล"
-            class="h-[40px] px-4 rounded-xl bg-primary text-gray-900 font-medium text-xs sm:text-sm shadow-none hover:bg-primary/90 transition-colors cursor-pointer"
-            @click="isApplicationModalOpen = true"
-          />
-        </div>
-
+      <div class="space-y-6 pb-8">
         <!-- Top Card: ข้อมูลที่ฝึกงาน (Empty State) -->
-        <section v-if="!featuredApplication" class="rounded-2xl border border-gray-200 bg-white p-6 shadow-xs" aria-labelledby="no-placement-heading">
-          <div class="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 py-12 px-6 text-center">
-            <div class="mb-3.5 grid size-10 place-items-center rounded-xl bg-gray-50 text-gray-400">
-              <UIcon name="i-lucide-inbox" class="size-5" />
-            </div>
-            <h2 id="no-placement-heading" class="text-sm font-bold text-gray-900">ยังไม่มีข้อมูลที่ฝึกงาน</h2>
-            <p class="mt-1 text-xs text-gray-500">กรอกข้อมูลบริษัท ตำแหน่ง และที่อยู่ เพื่อเริ่มต้นติดตามการสมัครที่ฝึกงาน</p>
-            <UButton
-              color="primary"
-              icon="i-lucide-plus"
-              label="กรอกข้อมูลที่ฝึกงาน"
-              class="mt-5 h-[40px] rounded-xl bg-primary px-5 text-xs font-medium text-gray-900 shadow-none hover:bg-primary/90 transition-colors cursor-pointer"
-              @click="isApplicationModalOpen = true"
-            />
-          </div>
-        </section>
+        <UCard v-if="!featuredApplication">
+          <UEmpty
+            icon="i-lucide-inbox"
+            title="ยังไม่มีข้อมูลที่ฝึกงาน"
+            description="กรอกข้อมูลบริษัท ตำแหน่ง และที่อยู่ เพื่อเริ่มต้นติดตามการสมัครที่ฝึกงาน"
+            class="py-12"
+          >
+            <template #actions>
+              <UButton
+                color="primary"
+                size="xl"
+                icon="i-lucide-plus"
+                label="กรอกข้อมูลที่ฝึกงาน"
+                :disabled="!contextData?.canApply"
+                @click="isApplicationModalOpen = true"
+              />
+            </template>
+          </UEmpty>
+        </UCard>
 
         <!-- Top Card: ข้อมูลที่ฝึกงาน (When featuredApplication exists) -->
         <template v-else>
-          <section class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-xs" aria-labelledby="placement-information-heading">
-            <div class="flex flex-col gap-4 border-b border-gray-100 px-5 py-5 sm:flex-row sm:items-start sm:justify-between sm:px-6">
-              <div class="flex min-w-0 items-start gap-3">
-                <span class="grid size-10 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
-                  <UIcon name="i-lucide-briefcase-business" class="size-5" />
-                </span>
-                <div class="min-w-0">
-                  <h2 id="placement-information-heading" class="font-semibold text-gray-900">ข้อมูลที่ฝึกงาน</h2>
-                  <p class="mt-1 text-sm leading-6 text-gray-500">ข้อมูลบริษัท ตำแหน่ง และสถานะการสมัครล่าสุด</p>
+          <UCard>
+            <template #header>
+              <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div class="flex min-w-0 items-start gap-3">
+                  <span class="grid size-10 shrink-0 place-items-center rounded-control bg-warning-soft text-warning">
+                    <UIcon name="i-lucide-briefcase-business" class="size-5" />
+                  </span>
+                  <div class="min-w-0">
+                    <h2 class="font-semibold text-ink">ข้อมูลที่ฝึกงาน</h2>
+                    <p class="mt-1 text-sm leading-6 text-muted">ข้อมูลบริษัท ตำแหน่ง และสถานะการสมัครล่าสุด</p>
+                  </div>
+                </div>
+                <div class="flex flex-wrap items-center gap-2 sm:justify-end">
+                  <UBadge :color="getStatusBadge(featuredApplication.status).color" variant="subtle" size="md" class="shrink-0">
+                    {{ featuredRequest?.status === 'PLACEMENT_CONFIRMED' ? 'ยืนยันสถานที่ฝึกงานแล้ว' : getStatusBadge(featuredApplication.status).label }}
+                  </UBadge>
                 </div>
               </div>
-              <div class="flex flex-wrap items-center gap-2 sm:justify-end">
-                <UBadge :color="getStatusBadge(featuredApplication.status).color" variant="subtle" size="md" class="shrink-0">
-                  {{ featuredRequest?.status === 'PLACEMENT_CONFIRMED' ? 'ยืนยันสถานที่ฝึกงานแล้ว' : getStatusBadge(featuredApplication.status).label }}
-                </UBadge>
-                <UButton
-                  color="primary"
-                  icon="i-lucide-plus"
-                  label="กรอกข้อมูล"
-                  :disabled="!contextData?.canApply"
-                  :title="contextData?.canApply ? 'กรอกข้อมูลการสมัคร' : (contextData?.reason || 'ยังไม่สามารถกรอกข้อมูลได้')"
-                  class="h-[40px] px-4 rounded-xl bg-primary text-gray-900 font-medium text-xs sm:text-sm shadow-none hover:bg-primary/90"
-                  @click="isApplicationModalOpen = true"
-                />
-              </div>
-            </div>
+            </template>
 
-            <div class="space-y-7 p-5 sm:p-6">
+            <div class="space-y-7">
               <section aria-labelledby="student-information-heading">
-                <h3 id="student-information-heading" class="mb-3 text-sm font-semibold text-gray-900">ข้อมูลนักศึกษา</h3>
-                <dl class="grid gap-4 rounded-xl border border-gray-100 bg-gray-50/60 p-4 sm:grid-cols-2 xl:grid-cols-4">
-                  <div class="min-w-0"><dt class="text-xs text-gray-500">ชื่อ-นามสกุล</dt><dd class="mt-1 break-words text-sm font-medium text-gray-900">{{ contextData?.student?.name || '—' }}</dd></div>
-                  <div class="min-w-0"><dt class="text-xs text-gray-500">รหัสนักศึกษา</dt><dd class="mt-1 break-words text-sm font-medium text-gray-900">{{ contextData?.student?.studentId || '—' }}</dd></div>
-                  <div class="min-w-0"><dt class="text-xs text-gray-500">หมู่เรียน</dt><dd class="mt-1 break-words text-sm font-medium text-gray-900">{{ contextData?.student?.classGroup || '—' }}</dd></div>
-                  <div class="min-w-0"><dt class="text-xs text-gray-500">รอบการศึกษา</dt><dd class="mt-1 break-words text-sm font-medium text-gray-900">ภาคเรียนที่ {{ featuredApplication.cooperativeCycle?.term || contextData?.cycle?.term || '—' }}/{{ featuredApplication.cooperativeCycle?.academicYear || contextData?.cycle?.academicYear || '—' }} · รุ่น {{ featuredApplication.cooperativeCycle?.cohortYear || contextData?.cycle?.cohortYear || '—' }}</dd></div>
+                <h3 id="student-information-heading" class="mb-3 text-sm font-semibold text-ink">ข้อมูลนักศึกษา</h3>
+                <dl class="grid gap-4 rounded-panel border border-divider bg-surface p-4 sm:grid-cols-2 xl:grid-cols-4">
+                  <div class="min-w-0"><dt class="text-xs text-muted">ชื่อ-นามสกุล</dt><dd class="mt-1 break-words text-sm font-medium text-ink">{{ contextData?.student?.name || '—' }}</dd></div>
+                  <div class="min-w-0"><dt class="text-xs text-muted">รหัสนักศึกษา</dt><dd class="mt-1 break-words text-sm font-medium text-ink">{{ contextData?.student?.studentId || '—' }}</dd></div>
+                  <div class="min-w-0"><dt class="text-xs text-muted">หมู่เรียน</dt><dd class="mt-1 break-words text-sm font-medium text-ink">{{ contextData?.student?.classGroup || '—' }}</dd></div>
+                  <div class="min-w-0"><dt class="text-xs text-muted">รอบการศึกษา</dt><dd class="mt-1 break-words text-sm font-medium text-ink">ภาคเรียนที่ {{ featuredApplication.cooperativeCycle?.term || contextData?.cycle?.term || '—' }}/{{ featuredApplication.cooperativeCycle?.academicYear || contextData?.cycle?.academicYear || '—' }} · รุ่น {{ featuredApplication.cooperativeCycle?.cohortYear || contextData?.cycle?.cohortYear || '—' }}</dd></div>
                 </dl>
               </section>
 
               <section aria-labelledby="active-company-heading">
-                <h3 id="active-company-heading" class="mb-3 text-sm font-semibold text-gray-900">บริษัทที่กำลังดำเนินการ</h3>
+                <h3 id="active-company-heading" class="mb-3 text-sm font-semibold text-ink">บริษัทที่กำลังดำเนินการ</h3>
                 <dl class="grid gap-4 sm:grid-cols-2">
-                  <div class="min-w-0"><dt class="text-xs text-gray-500">ชื่อบริษัท</dt><dd class="mt-1 break-words text-sm font-medium text-gray-900">{{ featuredRequest?.companyName || featuredApplication.company.name }}</dd></div>
-                  <div class="min-w-0"><dt class="text-xs text-gray-500">ตำแหน่งที่สมัคร</dt><dd class="mt-1 break-words text-sm font-medium text-gray-900">{{ featuredRequest?.position || featuredApplication.applicationPosition || '—' }}</dd></div>
+                  <div class="min-w-0"><dt class="text-xs text-muted">ชื่อบริษัท</dt><dd class="mt-1 break-words text-sm font-medium text-ink">{{ featuredRequest?.companyName || featuredApplication.company.name }}</dd></div>
+                  <div class="min-w-0"><dt class="text-xs text-muted">ตำแหน่งที่สมัคร</dt><dd class="mt-1 break-words text-sm font-medium text-ink">{{ featuredRequest?.position || featuredApplication.applicationPosition || '—' }}</dd></div>
                 </dl>
               </section>
 
-              <div class="grid gap-6 border-t border-gray-100 pt-6 lg:grid-cols-2">
+              <div class="grid gap-6 border-t border-divider pt-6 lg:grid-cols-2">
                 <section aria-labelledby="company-address-heading">
-                  <h3 id="company-address-heading" class="mb-3 text-sm font-semibold text-gray-900">สถานประกอบการ</h3>
+                  <h3 id="company-address-heading" class="mb-3 text-sm font-semibold text-ink">สถานประกอบการ</h3>
                   <dl class="space-y-4">
-                    <div class="min-w-0"><dt class="text-xs text-gray-500">ที่อยู่บริษัท</dt><dd class="mt-1 break-words text-sm font-medium leading-6 text-gray-900">{{ companyAddress }}</dd></div>
-                    <div class="min-w-0"><dt class="text-xs text-gray-500">จังหวัด</dt><dd class="mt-1 break-words text-sm font-medium text-gray-900">{{ featuredRequest?.province || featuredApplication.company.province || '—' }}</dd></div>
+                    <div class="min-w-0"><dt class="text-xs text-muted">ที่อยู่บริษัท</dt><dd class="mt-1 break-words text-sm font-medium leading-6 text-ink">{{ companyAddress }}</dd></div>
+                    <div class="min-w-0"><dt class="text-xs text-muted">จังหวัด</dt><dd class="mt-1 break-words text-sm font-medium text-ink">{{ featuredRequest?.province || featuredApplication.company.province || '—' }}</dd></div>
                   </dl>
-                  <UButton v-if="mapUrl" :to="mapUrl" target="_blank" color="neutral" variant="outline" icon="i-lucide-map-pin" label="แสดงแผนที่" class="mt-4" />
+                  <UButton v-if="mapUrl" :to="mapUrl" target="_blank" color="neutral" variant="outline" size="sm" icon="i-lucide-map-pin" label="แสดงแผนที่" class="mt-4" />
                 </section>
 
                 <section aria-labelledby="letter-information-heading">
-                  <h3 id="letter-information-heading" class="mb-3 text-sm font-semibold text-gray-900">ข้อมูลออกหนังสือ</h3>
+                  <h3 id="letter-information-heading" class="mb-3 text-sm font-semibold text-ink">ข้อมูลออกหนังสือ</h3>
                   <dl class="space-y-4">
-                    <div class="min-w-0"><dt class="text-xs text-gray-500">เรียน (ผู้รับหนังสือ)</dt><dd class="mt-1 break-words text-sm font-medium text-gray-900">{{ featuredRequest?.recipientName || featuredApplication.recipientName || '—' }}</dd></div>
-                    <div class="min-w-0"><dt class="text-xs text-gray-500">ที่อยู่สำหรับออกหนังสือ</dt><dd class="mt-1 break-words text-sm font-medium leading-6 text-gray-900">{{ featuredRequest?.letterAddress || featuredApplication.letterAddress || '—' }}</dd></div>
+                    <div class="min-w-0"><dt class="text-xs text-muted">เรียน (ผู้รับหนังสือ)</dt><dd class="mt-1 break-words text-sm font-medium text-ink">{{ featuredRequest?.recipientName || featuredApplication.recipientName || '—' }}</dd></div>
+                    <div class="min-w-0"><dt class="text-xs text-muted">ที่อยู่สำหรับออกหนังสือ</dt><dd class="mt-1 break-words text-sm font-medium leading-6 text-ink">{{ featuredRequest?.letterAddress || featuredApplication.letterAddress || '—' }}</dd></div>
                   </dl>
                 </section>
               </div>
 
-              <section class="rounded-xl bg-gray-50/60 p-4" aria-labelledby="record-information-heading">
+              <section class="rounded-panel bg-surface p-4" aria-labelledby="record-information-heading">
                 <h3 id="record-information-heading" class="sr-only">ข้อมูลรายการ</h3>
                 <dl class="grid gap-4 sm:grid-cols-3">
-                  <div><dt class="text-xs text-gray-500">เลขที่รายการ</dt><dd class="mt-1 text-sm font-medium text-gray-900">#{{ featuredApplication.id }}</dd></div>
-                  <div><dt class="text-xs text-gray-500">วันที่สมัคร</dt><dd class="mt-1 text-sm font-medium text-gray-900">{{ formatThaiDate(featuredApplication.appliedAt) }}</dd></div>
-                  <div><dt class="text-xs text-gray-500">อัปเดตล่าสุด</dt><dd class="mt-1 text-sm font-medium text-gray-900">{{ formatThaiDate(featuredApplication.updatedAt) }}</dd></div>
+                  <div><dt class="text-xs text-muted">เลขที่รายการ</dt><dd class="mt-1 text-sm font-medium text-ink">#{{ featuredApplication.id }}</dd></div>
+                  <div><dt class="text-xs text-muted">วันที่สมัคร</dt><dd class="mt-1 text-sm font-medium text-ink">{{ formatThaiDate(featuredApplication.appliedAt) }}</dd></div>
+                  <div><dt class="text-xs text-muted">อัปเดตล่าสุด</dt><dd class="mt-1 text-sm font-medium text-ink">{{ formatThaiDate(featuredApplication.updatedAt) }}</dd></div>
                 </dl>
               </section>
             </div>
-          </section>
+          </UCard>
 
-          <section class="rounded-2xl border border-gray-200 bg-white p-5 shadow-xs sm:p-6" aria-labelledby="documents-heading">
-            <div class="flex items-start gap-3">
-              <span class="grid size-10 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
-                <UIcon name="i-lucide-files" class="size-5" />
-              </span>
-              <div>
-                <h2 id="documents-heading" class="font-semibold text-gray-900">หนังสือขอความอนุเคราะห์และหนังสือตอบรับ</h2>
-                <p class="mt-1 text-sm leading-6 text-gray-500">ตรวจสอบสถานะและดาวน์โหลดเอกสารที่เกี่ยวข้องกับสถานที่ฝึกงาน</p>
+          <UCard>
+            <template #header>
+              <div class="flex items-start gap-3">
+                <span class="grid size-10 shrink-0 place-items-center rounded-control bg-warning-soft text-warning">
+                  <UIcon name="i-lucide-files" class="size-5" />
+                </span>
+                <div>
+                  <h2 class="font-semibold text-ink">หนังสือขอความอนุเคราะห์และหนังสือตอบรับ</h2>
+                  <p class="mt-1 text-sm leading-6 text-muted">ตรวจสอบสถานะและดาวน์โหลดเอกสารที่เกี่ยวข้องกับสถานที่ฝึกงาน</p>
+                </div>
               </div>
-            </div>
+            </template>
 
-            <div class="mt-5 grid gap-4 lg:grid-cols-2">
-              <article class="flex min-w-0 flex-col rounded-xl border border-gray-200 p-4 sm:p-5">
+            <div class="grid gap-4 lg:grid-cols-2">
+              <article class="flex min-w-0 flex-col rounded-panel border border-divider p-4 sm:p-5">
                 <div class="flex items-start justify-between gap-3">
-                  <span class="grid size-9 shrink-0 place-items-center rounded-lg bg-gray-50 text-gray-500"><UIcon name="i-lucide-file-text" class="size-5" /></span>
+                  <span class="grid size-9 shrink-0 place-items-center rounded-control bg-surface text-muted"><UIcon name="i-lucide-file-text" class="size-5" /></span>
                   <UBadge :color="featuredRequest?.letterFilePath ? 'success' : 'neutral'" variant="subtle">{{ featuredRequest?.letterFilePath ? 'พร้อมดาวน์โหลด' : 'ยังไม่พร้อม' }}</UBadge>
                 </div>
-                <h3 class="mt-4 text-sm font-semibold text-gray-900">หนังสือขอความอนุเคราะห์</h3>
-                <p class="mt-1 flex-1 text-sm leading-6 text-gray-500">หนังสือจากมหาวิทยาลัยสำหรับยื่นต่อสถานประกอบการ</p>
-                <UButton :disabled="!featuredRequest?.letterFilePath" :to="featuredRequest?.letterFilePath ? `/api/student/requests/${featuredRequest.id}/letter` : undefined" target="_blank" color="neutral" variant="outline" icon="i-lucide-download" label="ดาวน์โหลดหนังสือ" class="mt-4 justify-center sm:self-start" />
+                <h3 class="mt-4 text-sm font-semibold text-ink">หนังสือขอความอนุเคราะห์</h3>
+                <p class="mt-1 flex-1 text-sm leading-6 text-muted">หนังสือจากมหาวิทยาลัยสำหรับยื่นต่อสถานประกอบการ</p>
+                <UButton :disabled="!featuredRequest?.letterFilePath" :to="featuredRequest?.letterFilePath ? `/api/student/requests/${featuredRequest.id}/letter` : undefined" target="_blank" color="neutral" variant="outline" size="sm" icon="i-lucide-download" label="ดาวน์โหลดหนังสือ" class="mt-4 justify-center sm:self-start" />
               </article>
 
-              <article class="flex min-w-0 flex-col rounded-xl border border-gray-200 p-4 sm:p-5">
+              <article class="flex min-w-0 flex-col rounded-panel border border-divider p-4 sm:p-5">
                 <div class="flex items-start justify-between gap-3">
-                  <span class="grid size-9 shrink-0 place-items-center rounded-lg bg-gray-50 text-gray-500"><UIcon name="i-lucide-mail" class="size-5" /></span>
+                  <span class="grid size-9 shrink-0 place-items-center rounded-control bg-surface text-muted"><UIcon name="i-lucide-mail" class="size-5" /></span>
                   <UBadge :color="latestResponseDocument ? 'success' : 'neutral'" variant="subtle">{{ latestResponseDocument ? 'มีเอกสารแล้ว' : 'ยังไม่มีเอกสาร' }}</UBadge>
                 </div>
-                <h3 class="mt-4 text-sm font-semibold text-gray-900">หนังสือตอบรับ</h3>
-                <p class="mt-1 flex-1 text-sm leading-6 text-gray-500">หนังสือตอบรับฉบับล่าสุดที่ส่งกลับจากสถานประกอบการ</p>
-                <UButton :disabled="!latestResponseDocument" :to="latestResponseDocument ? `/api/student/documents/${latestResponseDocument.id}/download` : undefined" target="_blank" color="neutral" variant="outline" icon="i-lucide-download" label="ดาวน์โหลดหนังสือ" class="mt-4 justify-center sm:self-start" />
+                <h3 class="mt-4 text-sm font-semibold text-ink">หนังสือตอบรับ</h3>
+                <p class="mt-1 flex-1 text-sm leading-6 text-muted">หนังสือตอบรับฉบับล่าสุดที่ส่งกลับจากสถานประกอบการ</p>
+                <UButton :disabled="!latestResponseDocument" :to="latestResponseDocument ? `/api/student/documents/${latestResponseDocument.id}/download` : undefined" target="_blank" color="neutral" variant="outline" size="sm" icon="i-lucide-download" label="ดาวน์โหลดหนังสือ" class="mt-4 justify-center sm:self-start" />
               </article>
             </div>
-          </section>
+          </UCard>
         </template>
 
         <!-- Bottom Card: ประวัติการสมัคร -->
-        <section class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-xs" aria-labelledby="applications-heading">
-          <div class="p-6 pb-5 space-y-4">
-            <div>
-              <h2 id="applications-heading" class="text-sm font-bold text-gray-900">ประวัติการสมัคร</h2>
-              <p class="mt-0.5 text-xs text-gray-400">ดูบริษัทที่เคยสมัครและผลการดำเนินการย้อนหลัง</p>
+        <UCard :ui="{ body: 'p-0' }">
+          <div class="border-b border-divider p-5 sm:p-6">
+            <div class="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 class="text-lg font-bold text-ink">ประวัติการสมัคร</h2>
+                <p class="mt-1 text-sm leading-6 text-muted">ดูบริษัทที่เคยสมัครและผลการดำเนินการย้อนหลัง</p>
+              </div>
             </div>
 
-            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <!-- Search Input -->
-              <div class="relative flex-1 max-w-sm">
+            <!-- Control Row -->
+            <div class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div class="w-full sm:max-w-xs">
                 <UInput
                   v-model="search"
                   icon="i-lucide-search"
-                  placeholder="ค้นหาชื่อบริษัทหรือตำแหน่ง"
+                  size="xl"
+                  placeholder="ค้นหาชื่อบริษัทหรือตำแหน่ง..."
                   class="w-full"
-                  :ui="{
-                    base: 'h-[40px] rounded-xl border-0 ring-1 ring-gray-200 bg-white text-xs placeholder:text-gray-400 focus:ring-2 focus:ring-primary font-[\'Prompt\',sans-serif]'
-                  }"
+                  aria-label="ค้นหาชื่อบริษัทหรือตำแหน่ง"
                 />
               </div>
 
-              <!-- Filters on the Right -->
               <div class="flex flex-wrap items-center gap-2">
                 <USelect
                   v-model="statusFilter"
-                  :items="[
-                    { label: 'ทุกสถานะ', value: 'ALL' },
-                    { label: 'ส่งข้อมูลการสมัครแล้ว', value: 'SUBMITTED' },
-                    { label: 'รอผล', value: 'AWAITING_RESPONSE' },
-                    { label: 'รอสัมภาษณ์', value: 'INTERVIEW' },
-                    { label: 'บริษัทตอบรับแล้ว', value: 'ACCEPTED' },
-                    { label: 'ปฏิเสธ', value: 'REJECTED' },
-                    { label: 'ยกเลิกการสมัคร', value: 'WITHDRAWN' },
-                    { label: 'ยืนยันสถานประกอบการแล้ว', value: 'CONFIRMED' }
-                  ]"
-                  class="w-36"
-                  :ui="{
-                    base: 'h-[40px] rounded-xl border-0 ring-1 ring-gray-200 bg-white text-xs font-[\'Prompt\',sans-serif]'
-                  }"
+                  :items="statusOptions"
+                  size="xl"
+                  class="w-full sm:w-48"
+                  aria-label="กรองตามสถานะ"
                 />
 
                 <USelect
                   v-model="provinceFilter"
-                  :items="[
-                    { label: 'ทุกจังหวัด', value: 'ALL' },
-                    ...availableProvinces.map(province => ({ label: province, value: province }))
-                  ]"
-                  class="w-36"
-                  :ui="{
-                    base: 'h-[40px] rounded-xl border-0 ring-1 ring-gray-200 bg-white text-xs font-[\'Prompt\',sans-serif]'
-                  }"
+                  :items="provinceOptions"
+                  size="xl"
+                  class="w-full sm:w-40"
+                  aria-label="กรองตามจังหวัด"
                 />
 
-                <button
-                  type="button"
-                  title="รีเซ็ตตัวกรอง"
-                  aria-label="รีเซ็ตตัวกรอง"
-                  class="size-[40px] flex items-center justify-center rounded-xl border border-divider bg-canvas text-muted hover:bg-surface hover:text-ink transition-colors cursor-pointer shrink-0"
+                <UButton
+                  v-if="hasActiveFilter"
+                  color="neutral"
+                  variant="ghost"
+                  size="xs"
+                  icon="i-lucide-x"
+                  label="ล้างตัวกรอง"
                   @click="clearFilters"
-                >
-                  <UIcon name="i-lucide-rotate-ccw" class="size-4" />
-                </button>
+                />
               </div>
+            </div>
+
+            <div v-if="hasActiveFilter" class="mt-3 flex flex-wrap items-center gap-2 text-sm">
+              <span class="text-muted">ตัวกรองที่ใช้:</span>
+              <span v-if="search" class="inline-flex min-h-8 items-center gap-1 rounded-full bg-surface px-3 text-ink">
+                คำค้น “{{ search }}”
+              </span>
+              <span v-if="statusFilter !== 'ALL'" class="inline-flex min-h-8 items-center gap-1 rounded-full bg-surface px-3 text-ink">
+                {{ statusOptions.find(o => o.value === statusFilter)?.label }}
+              </span>
+              <span v-if="provinceFilter !== 'ALL'" class="inline-flex min-h-8 items-center gap-1 rounded-full bg-surface px-3 text-ink">
+                จ.{{ provinceFilter }}
+              </span>
+              <UButton color="neutral" variant="ghost" size="xs" icon="i-lucide-x" @click="clearFilters">
+                ล้างทั้งหมด
+              </UButton>
             </div>
           </div>
 
-          <div v-if="contextData && !contextData.canApply && contextData.reason" class="mx-6 mb-4 flex items-center gap-2 rounded-xl bg-gray-50 px-3.5 py-2 text-xs text-gray-500 border border-gray-200">
+          <div v-if="contextData && !contextData.canApply && contextData.reason" class="m-5 flex items-center gap-2 rounded-panel bg-surface p-3 text-xs text-muted border border-divider">
             <UIcon name="i-lucide-info" class="size-4 shrink-0 text-primary" />
             <span>{{ contextData.reason }}</span>
           </div>
 
-          <UAlert
-            v-if="error"
-            color="error"
-            icon="i-lucide-circle-alert"
-            title="ไม่สามารถโหลดรายการสมัครได้"
-            :description="error.message"
-            :actions="[{ label: 'ลองใหม่', color: 'error', variant: 'subtle', onClick: () => refresh() }]"
-            class="m-6"
-          />
+          <div v-if="status === 'pending'" class="space-y-3 p-5 sm:p-6" aria-label="กำลังโหลดข้อมูล">
+            <div v-for="row in 4" :key="row" class="grid grid-cols-[1.5fr_1.5fr_1fr_1fr_6rem] gap-4 max-md:grid-cols-[1fr_6rem]">
+              <USkeleton class="h-10" />
+              <USkeleton class="h-10 max-md:hidden" />
+              <USkeleton class="h-10 max-md:hidden" />
+              <USkeleton class="h-10 max-md:hidden" />
+              <USkeleton class="h-10" />
+            </div>
+          </div>
+
+          <div v-else-if="error" class="p-5 sm:p-6">
+            <UEmpty
+              icon="i-lucide-triangle-alert"
+              title="ไม่สามารถโหลดรายการสมัครได้"
+              :description="error.message || 'เกิดข้อผิดพลาดชั่วคราว กรุณาลองใหม่อีกครั้ง'"
+              class="min-h-64"
+            >
+              <template #actions>
+                <UButton size="xl" color="neutral" variant="outline" icon="i-lucide-refresh-cw" @click="() => refresh()">
+                  ลองอีกครั้ง
+                </UButton>
+              </template>
+            </UEmpty>
+          </div>
 
           <!-- Empty state when no applications found -->
-          <div v-if="filteredApplications.length === 0" class="mx-6 mb-6">
-            <div class="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 py-14 px-6 text-center">
-              <div class="mb-3.5 grid size-10 place-items-center rounded-xl bg-gray-50 text-gray-400">
-                <UIcon name="i-lucide-inbox" class="size-5" />
-              </div>
-              <h3 class="text-sm font-bold text-gray-900">
-                {{ hasActiveFilter ? 'ไม่พบข้อมูลตามเงื่อนไขที่ค้นหา' : 'ยังไม่มีรายการสมัคร' }}
-              </h3>
-              <p class="mt-1 text-xs text-gray-400">
-                {{ hasActiveFilter ? 'ลองเปลี่ยนคำค้นหาหรือตัวกรองสถานะ/จังหวัด' : 'เพิ่มบริษัทที่คุณสมัครไว้เพื่อเริ่มติดตามสถานะ' }}
-              </p>
-            </div>
+          <div v-else-if="filteredApplications.length === 0" class="p-5 sm:p-6">
+            <UEmpty
+              icon="i-lucide-inbox"
+              :title="hasActiveFilter ? 'ไม่พบข้อมูลตามเงื่อนไขที่ค้นหา' : 'ยังไม่มีรายการสมัคร'"
+              :description="hasActiveFilter ? 'ลองเปลี่ยนคำค้นหาหรือตัวกรองสถานะ/จังหวัด' : 'เพิ่มบริษัทที่คุณสมัครไว้เพื่อเริ่มติดตามสถานะ'"
+              class="min-h-64"
+            >
+              <template #actions>
+                <UButton v-if="hasActiveFilter" size="xl" color="neutral" variant="outline" @click="clearFilters">
+                  ล้างตัวกรอง
+                </UButton>
+                <UButton v-else-if="contextData?.canApply" size="xl" color="primary" icon="i-lucide-plus" @click="isApplicationModalOpen = true">
+                  กรอกข้อมูล
+                </UButton>
+              </template>
+            </UEmpty>
           </div>
 
           <!-- Table when applications exist -->
           <template v-else>
-            <div class="overflow-x-auto border-t border-gray-100">
+            <div class="w-full overflow-x-auto">
               <UTable
                 :columns="columns"
                 :data="paginatedApplications"
-                :loading="status === 'pending'"
-                class="min-w-[78rem]"
-                :ui="{ td: 'py-4 align-top' }"
+                class="min-w-full"
+                :ui="{ base: 'w-full min-w-[78rem]', td: 'py-4 align-top' }"
               >
                 <template #company-cell="{ row }">
                   <div class="min-w-44 max-w-60">
-                    <NuxtLink :to="`/student/applications/${row.original.id}`" class="break-words text-sm font-semibold text-gray-900 transition-colors hover:text-primary">
+                    <NuxtLink :to="`/student/applications/${row.original.id}`" class="break-words text-sm font-semibold text-ink transition-colors hover:text-primary">
                       {{ row.original.company.name }}
                     </NuxtLink>
-                    <p class="mt-1 break-words text-xs text-gray-500">{{ row.original.applicationPosition || '—' }}</p>
+                    <p class="mt-1 break-words text-xs text-muted">{{ row.original.applicationPosition || '—' }}</p>
                   </div>
                 </template>
 
                 <template #location-cell="{ row }">
                   <div class="min-w-48 max-w-64 text-sm">
-                    <p class="break-words text-gray-900">{{ getApplicationAddress(row.original) }}</p>
-                    <p class="mt-1 text-xs text-gray-500">{{ row.original.cooperativeRequest?.province || row.original.company.province || '—' }}</p>
+                    <p class="break-words text-ink">{{ getApplicationAddress(row.original) }}</p>
+                    <p class="mt-1 text-xs text-muted">{{ row.original.cooperativeRequest?.province || row.original.company.province || '—' }}</p>
                     <a
                       v-if="getApplicationMapUrl(row.original)"
                       :href="getApplicationMapUrl(row.original) || undefined"
@@ -528,57 +554,86 @@ const handleDeleteConfirm = async () => {
 
                 <template #recipient-cell="{ row }">
                   <div class="min-w-48 max-w-64 text-sm">
-                    <p class="break-words font-medium text-gray-900">{{ row.original.cooperativeRequest?.recipientName || row.original.recipientName || '—' }}</p>
-                    <p class="mt-1 break-words text-xs text-gray-500">{{ row.original.cooperativeRequest?.companyName || row.original.company.name }}</p>
-                    <p class="mt-1 break-words text-xs leading-5 text-gray-500">{{ row.original.cooperativeRequest?.letterAddress || row.original.letterAddress || '—' }}</p>
+                    <p class="break-words font-medium text-ink">{{ row.original.cooperativeRequest?.recipientName || row.original.recipientName || '—' }}</p>
+                    <p class="mt-1 break-words text-xs text-muted">{{ row.original.cooperativeRequest?.companyName || row.original.company.name }}</p>
+                    <p class="mt-1 break-words text-xs leading-5 text-muted">{{ row.original.cooperativeRequest?.letterAddress || row.original.letterAddress || '—' }}</p>
                   </div>
                 </template>
 
                 <template #appliedAt-cell="{ row }">
-                  <span class="whitespace-nowrap text-sm text-gray-900">{{ formatThaiDate(row.original.appliedAt) }}</span>
+                  <span class="whitespace-nowrap text-sm text-ink">{{ formatThaiDate(row.original.appliedAt) }}</span>
                 </template>
 
                 <template #status-cell="{ row }">
-                  <UBadge :color="getStatusBadge(row.original.status).color" variant="subtle" size="sm" class="whitespace-nowrap rounded-full font-medium">
-                    <span class="mr-1.5 size-1.5 rounded-full bg-current" aria-hidden="true" />
+                  <UBadge :color="getStatusBadge(row.original.status).color" variant="subtle" size="sm" class="whitespace-nowrap">
                     {{ getStatusBadge(row.original.status).label }}
                   </UBadge>
                 </template>
 
                 <template #updatedAt-cell="{ row }">
-                  <span class="whitespace-nowrap text-xs text-gray-500">{{ formatThaiDateTime(row.original.updatedAt) }}</span>
+                  <span class="whitespace-nowrap text-xs text-muted">{{ formatThaiDateTime(row.original.updatedAt) }}</span>
+                </template>
+
+                <template #actions-header>
+                  <span class="block text-right">จัดการ</span>
                 </template>
 
                 <template #actions-cell="{ row }">
-                  <div class="flex items-center gap-1">
-                    <UTooltip v-if="['SUBMITTED', 'AWAITING_RESPONSE', 'INTERVIEW'].includes(row.original.status)" text="แก้ไข">
-                      <UButton size="sm" color="neutral" variant="ghost" icon="i-lucide-pencil" :to="`/student/applications/${row.original.id}/edit`" aria-label="แก้ไข" />
-                    </UTooltip>
-                    <UTooltip v-if="['REJECTED', 'WITHDRAWN'].includes(row.original.status) && contextData?.canApply" text="สมัครใหม่">
-                      <UButton size="sm" color="neutral" variant="ghost" icon="i-lucide-refresh-cw" aria-label="สมัครใหม่" @click="isApplicationModalOpen = true" />
-                    </UTooltip>
-                    <UTooltip v-if="row.original.status === 'REJECTED'" text="ลบ">
-                      <UButton size="sm" color="error" variant="ghost" icon="i-lucide-trash-2" aria-label="ลบ" @click="openDeleteModal(row.original)" />
-                    </UTooltip>
+                  <div class="flex items-center justify-end gap-1 whitespace-nowrap">
+                    <UButton
+                      v-if="['SUBMITTED', 'AWAITING_RESPONSE', 'INTERVIEW'].includes(row.original.status)"
+                      size="xs"
+                      color="neutral"
+                      variant="ghost"
+                      icon="i-lucide-pencil"
+                      label="แก้ไข"
+                      :to="`/student/applications/${row.original.id}/edit`"
+                    />
+                    <UButton
+                      v-if="['REJECTED', 'WITHDRAWN'].includes(row.original.status) && contextData?.canApply"
+                      size="xs"
+                      color="primary"
+                      variant="ghost"
+                      icon="i-lucide-refresh-cw"
+                      label="สมัครใหม่"
+                      @click="isApplicationModalOpen = true"
+                    />
+                    <UButton
+                      v-if="row.original.status === 'REJECTED'"
+                      size="xs"
+                      color="error"
+                      variant="ghost"
+                      icon="i-lucide-trash-2"
+                      label="ลบ"
+                      @click="openDeleteModal(row.original)"
+                    />
+                    <UButton
+                      size="xs"
+                      color="neutral"
+                      variant="ghost"
+                      icon="i-lucide-eye"
+                      label="ดูรายละเอียด"
+                      :to="`/student/applications/${row.original.id}`"
+                    />
                   </div>
                 </template>
               </UTable>
             </div>
 
             <!-- Pagination Row -->
-            <div v-if="filteredApplications.length > 0" class="flex flex-col gap-3 border-t border-gray-100 px-4 py-3 text-sm text-gray-500 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+            <div class="flex flex-col gap-3 border-t border-divider px-5 py-4 text-sm sm:flex-row sm:items-center sm:justify-between sm:px-6">
               <div class="flex flex-wrap items-center gap-3">
-                <span>แสดง {{ (page - 1) * pageSize + 1 }}–{{ Math.min(page * pageSize, filteredApplications.length) }} จาก {{ filteredApplications.length }} รายการ</span>
-                <USelect v-model="pageSize" :items="[10, 20, 50]" class="w-20" aria-label="จำนวนรายการต่อหน้า" />
+                <span class="whitespace-nowrap text-muted">แสดง {{ (page - 1) * pageSize + 1 }}–{{ Math.min(page * pageSize, filteredApplications.length) }} จาก {{ filteredApplications.length }} รายการ</span>
+                <div class="w-20 shrink-0">
+                  <USelect v-model="pageSize" :items="[10, 20, 50]" size="md" aria-label="จำนวนรายการต่อหน้า" />
+                </div>
               </div>
-              <div class="flex items-center justify-between gap-2 sm:justify-end">
-                <UButton color="neutral" variant="outline" label="ก่อนหน้า" :disabled="page <= 1" @click="page--" />
-                <span class="whitespace-nowrap px-2">หน้า {{ page }} / {{ pageCount }}</span>
-                <UButton color="neutral" variant="outline" label="ถัดไป" :disabled="page >= pageCount" @click="page++" />
+              <div class="flex items-center justify-center">
+                <UPagination v-model:page="page" :items-per-page="pageSize" :total="filteredApplications.length" size="md" />
               </div>
             </div>
           </template>
-        </section>
+        </UCard>
       </div>
 
       <!-- Confirm Delete Modal for REJECTED -->
@@ -592,16 +647,15 @@ const handleDeleteConfirm = async () => {
         @confirm="handleDeleteConfirm"
       />
 
-      <UModal v-model:open="isApplicationModalOpen" title="กรอกข้อมูลที่ฝึกงาน" description="กรอกข้อมูลบริษัท ตำแหน่ง และสถานที่ปฏิบัติงาน" :ui="{ content: 'sm:max-w-5xl' }">
-        <template #content>
-          <div class="max-h-[90vh] overflow-y-auto p-4 sm:p-6">
-            <div class="mb-5 flex items-start justify-between gap-4">
-              <div>
-                <h2 class="text-lg font-semibold text-highlighted">กรอกข้อมูลที่ฝึกงาน</h2>
-                <p class="mt-1 text-sm text-muted">กรอกข้อมูลบริษัท ตำแหน่ง และสถานที่ปฏิบัติงาน</p>
-              </div>
-              <UButton color="neutral" variant="ghost" icon="i-lucide-x" aria-label="ปิด" @click="isApplicationModalOpen = false" />
-            </div>
+      <!-- Embedded Application Modal -->
+      <UModal
+        v-model:open="isApplicationModalOpen"
+        title="กรอกข้อมูลที่ฝึกงาน"
+        description="กรอกข้อมูลบริษัท ตำแหน่ง และสถานที่ปฏิบัติงาน"
+        :ui="{ content: 'sm:max-w-4xl' }"
+      >
+        <template #body>
+          <div class="max-h-[80vh] overflow-y-auto pr-1">
             <StudentApplicationForm embedded class="max-w-none" @cancel="isApplicationModalOpen = false" />
           </div>
         </template>

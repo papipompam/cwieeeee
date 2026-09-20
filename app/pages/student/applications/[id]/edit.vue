@@ -23,7 +23,11 @@ const canEdit = computed(() => {
             color="neutral"
             variant="ghost"
             :to="`/student/applications/${id}`"
+            aria-label="กลับไปหน้ารายละเอียดการสมัคร"
           />
+        </template>
+        <template #right>
+          <AppNotificationBell />
         </template>
       </AppDashboardNavbar>
     </template>
@@ -38,16 +42,15 @@ const canEdit = computed(() => {
           :description="error.message"
         />
 
-        <div v-else-if="!canEdit && application" class="rounded-xl border border-warning/40 bg-warning/5 p-4 text-xs text-warning flex items-start gap-3">
-          <UIcon name="i-lucide-lock" class="size-5 shrink-0 mt-0.5" />
-          <div class="space-y-1">
-            <h4 class="font-semibold text-sm">ไม่สามารถแก้ไขรายการนี้ได้</h4>
-            <p>รายการนี้อยู่ในสถานะ {{ application.status }} ซึ่งไม่อนุญาตให้แก้ไขข้อมูลหลัก</p>
-            <div class="pt-2">
-              <UButton size="xs" color="warning" variant="subtle" label="กลับไปหน้ารายละเอียด" :to="`/student/applications/${id}`" />
-            </div>
-          </div>
-        </div>
+        <UAlert
+          v-else-if="!canEdit && application"
+          color="warning"
+          variant="subtle"
+          icon="i-lucide-lock"
+          title="ไม่สามารถแก้ไขรายการนี้ได้"
+          :description="`รายการนี้อยู่ในสถานะ ${application.status} ซึ่งไม่อนุญาตให้แก้ไขข้อมูลหลัก`"
+          :actions="[{ label: 'กลับไปหน้ารายละเอียด', color: 'neutral', variant: 'outline', to: `/student/applications/${id}` }]"
+        />
 
         <StudentApplicationForm
           v-else-if="application"

@@ -84,21 +84,11 @@
     font-weight: 300;
   }
 
-  :is(.app-ui-theme, .student-ui-theme, .staff-ui-theme, .teacher-ui-theme) :is(.rounded-xl.border.bg-default, .rounded-xl.border.bg-elevated) {
-    border-radius: var(--radius-panel);
-    box-shadow: var(--shadow-panel);
-  }
-
   :is(.app-ui-theme, .student-ui-theme, .staff-ui-theme, .teacher-ui-theme) :is(button, input, textarea, select, [role="button"], [role="combobox"]) {
     font-family: inherit;
   }
 
   :is(.app-ui-theme, .student-ui-theme, .staff-ui-theme, .teacher-ui-theme) [data-slot="body"] {
     scrollbar-gutter: stable;
-  }
-
-  :is(.app-ui-theme, .student-ui-theme, .staff-ui-theme, .teacher-ui-theme) :is(.rounded-lg.border.border-default.bg-default, .rounded-lg.border.border-default.bg-elevated) {
-    border-radius: var(--radius-panel);
-    box-shadow: var(--shadow-panel);
   }
 }

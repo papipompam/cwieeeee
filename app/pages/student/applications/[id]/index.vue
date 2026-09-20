@@ -140,10 +140,12 @@ const handleDeleteConfirm = async () => {
             color="neutral"
             variant="ghost"
             to="/student/applications"
+            aria-label="กลับไปหน้ารายการสมัคร"
           />
         </template>
         <template #right>
           <UIButtonRefresh :loading="fetchStatus === 'pending'" @refresh="refresh" />
+          <AppNotificationBell />
         </template>
       </AppDashboardNavbar>
     </template>
@@ -159,177 +161,186 @@ const handleDeleteConfirm = async () => {
         />
 
         <div v-else-if="fetchStatus === 'pending'" class="space-y-4">
-          <USkeleton class="h-32 rounded-xl" />
-          <USkeleton class="h-48 rounded-xl" />
+          <USkeleton class="h-32 rounded-panel" />
+          <USkeleton class="h-48 rounded-panel" />
         </div>
 
         <template v-else-if="app">
           <!-- Status Banner & Action Bar -->
-          <div class="rounded-xl border border-default bg-default p-6 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div class="space-y-1">
-              <div class="flex items-center gap-2">
-                <span class=" text-xs text-muted">#{{ app.id }}</span>
-                <UBadge :color="getStatusBadge(app.status).color" variant="subtle" size="md">
-                  {{ getStatusBadge(app.status).label }}
-                </UBadge>
+          <UCard>
+            <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div class="space-y-1">
+                <div class="flex items-center gap-2">
+                  <span class="text-xs text-muted">#{{ app.id }}</span>
+                  <UBadge :color="getStatusBadge(app.status).color" variant="subtle" size="md">
+                    {{ getStatusBadge(app.status).label }}
+                  </UBadge>
+                </div>
+                <h1 class="text-xl font-bold text-ink">{{ app.company.name }}</h1>
+                <p class="text-xs text-muted">ตำแหน่ง: {{ app.applicationPosition || '—' }} • ยื่นสมัครเมื่อ: {{ formatThaiDate(app.appliedAt) }}</p>
               </div>
-              <h1 class="text-xl font-bold text-highlighted">{{ app.company.name }}</h1>
-              <p class="text-xs text-muted">ตำแหน่ง: {{ app.applicationPosition || '—' }} • ยื่นสมัครเมื่อ: {{ formatThaiDate(app.appliedAt) }}</p>
+
+              <!-- Contextual Actions -->
+              <div class="flex flex-wrap items-center gap-2 self-stretch sm:self-auto justify-end">
+                <!-- If active before ACCEPTED: Edit, Update Milestone, Cancel -->
+                <template v-if="['SUBMITTED', 'AWAITING_RESPONSE', 'INTERVIEW'].includes(app.status)">
+                  <UButton
+                    color="neutral"
+                    variant="outline"
+                    size="sm"
+                    icon="i-lucide-pencil"
+                    label="แก้ไขข้อมูล"
+                    :to="`/student/applications/${app.id}/edit`"
+                  />
+                  <UButton
+                    color="primary"
+                    size="sm"
+                    icon="i-lucide-step-forward"
+                    label="ระบุผล / ความคืบหน้า"
+                    @click="openMilestoneModal"
+                  />
+                  <UButton
+                    color="neutral"
+                    variant="ghost"
+                    size="sm"
+                    label="ยกเลิกการสมัคร"
+                    @click="isCancelModalOpen = true"
+                  />
+                </template>
+
+                <!-- If ACCEPTED: Confirm & Send Request -->
+                <template v-else-if="app.status === 'ACCEPTED'">
+                  <UButton
+                    color="success"
+                    size="sm"
+                    icon="i-lucide-check-circle"
+                    label="ยืนยันสถานประกอบการและส่งคำร้อง"
+                    @click="isConfirmModalOpen = true"
+                  />
+                </template>
+
+                <!-- If CONFIRMED: Link directly to Request Detail -->
+                <template v-else-if="app.status === 'CONFIRMED'">
+                  <UButton
+                    v-if="app.cooperativeRequest"
+                    color="primary"
+                    size="sm"
+                    icon="i-lucide-file-text"
+                    label="ไปยังคำร้องสถานที่ฝึกงาน"
+                    :to="`/student/requests/${app.cooperativeRequest.id}`"
+                  />
+                </template>
+
+                <!-- If REJECTED: Delete option -->
+                <template v-else-if="app.status === 'REJECTED'">
+                  <UButton
+                    color="error"
+                    variant="ghost"
+                    size="sm"
+                    icon="i-lucide-trash-2"
+                    label="ลบรายการนี้"
+                    @click="isDeleteModalOpen = true"
+                  />
+                </template>
+              </div>
             </div>
-
-            <!-- Contextual Actions -->
-            <div class="flex flex-wrap items-center gap-2 self-stretch sm:self-auto justify-end">
-              <!-- If active before ACCEPTED: Edit, Update Milestone, Cancel -->
-              <template v-if="['SUBMITTED', 'AWAITING_RESPONSE', 'INTERVIEW'].includes(app.status)">
-                <UButton
-                  color="neutral"
-                  variant="outline"
-                  icon="i-lucide-pencil"
-                  label="แก้ไขข้อมูล"
-                  :to="`/student/applications/${app.id}/edit`"
-                />
-                <UButton
-                  color="primary"
-                  icon="i-lucide-step-forward"
-                  label="ระบุผล / ความคืบหน้า"
-                  @click="openMilestoneModal"
-                />
-                <UButton
-                  color="neutral"
-                  variant="ghost"
-                  label="ยกเลิกการสมัคร"
-                  @click="isCancelModalOpen = true"
-                />
-              </template>
-
-              <!-- If ACCEPTED: Confirm & Send Request -->
-              <template v-else-if="app.status === 'ACCEPTED'">
-                <UButton
-                  color="success"
-                  size="md"
-                  icon="i-lucide-check-circle"
-                  label="ยืนยันสถานประกอบการและส่งคำร้อง"
-                  @click="isConfirmModalOpen = true"
-                />
-              </template>
-
-              <!-- If CONFIRMED: Link directly to Request Detail -->
-              <template v-else-if="app.status === 'CONFIRMED'">
-                <UButton
-                  v-if="app.cooperativeRequest"
-                  color="primary"
-                  icon="i-lucide-file-text"
-                  label="ไปยังคำร้องสถานที่ฝึกงาน"
-                  :to="`/student/requests/${app.cooperativeRequest.id}`"
-                />
-              </template>
-
-              <!-- If REJECTED: Delete option -->
-              <template v-else-if="app.status === 'REJECTED'">
-                <UButton
-                  color="error"
-                  variant="ghost"
-                  icon="i-lucide-trash-2"
-                  label="ลบรายการนี้"
-                  @click="isDeleteModalOpen = true"
-                />
-              </template>
-            </div>
-          </div>
+          </UCard>
 
           <!-- Confirmed Lock Notice -->
-          <div v-if="app.status === 'CONFIRMED'" class="rounded-xl border border-success/30 bg-success/5 p-4 text-xs text-success flex items-center justify-between">
-            <div class="flex items-center gap-2">
-              <UIcon name="i-lucide-lock" class="size-4 shrink-0" />
-              <span>รายการนี้ได้รับการยืนยันและส่งคำร้องเรียบร้อยแล้ว ข้อมูลหลักถูกบันทึกเป็น Snapshot สำหรับเจ้าหน้าที่</span>
-            </div>
-            <UButton
-              v-if="app.cooperativeRequest"
-              size="xs"
-              color="success"
-              variant="outline"
-              label="ดูคำร้อง"
-              :to="`/student/requests/${app.cooperativeRequest.id}`"
-            />
-          </div>
+          <UAlert
+            v-if="app.status === 'CONFIRMED'"
+            color="success"
+            variant="subtle"
+            icon="i-lucide-lock"
+            title="รายการนี้ได้รับการยืนยันและส่งคำร้องเรียบร้อยแล้ว"
+            description="ข้อมูลหลักถูกบันทึกเป็น Snapshot สำหรับเจ้าหน้าที่"
+            :actions="app.cooperativeRequest ? [{ label: 'ดูคำร้อง', color: 'success', variant: 'outline', to: `/student/requests/${app.cooperativeRequest.id}` }] : []"
+          />
 
           <!-- Application Details Grid -->
           <div class="grid gap-6 md:grid-cols-2">
             <!-- Company Info Card -->
-            <div class="rounded-xl border border-default bg-default p-5 shadow-xs space-y-3">
-              <div class="flex items-center gap-2 border-b border-default/60 pb-3">
-                <UIcon name="i-lucide-building-2" class="size-5 text-primary" />
-                <h3 class="font-semibold text-highlighted text-sm">ข้อมูลสถานประกอบการ</h3>
-              </div>
-              <div class="space-y-2 text-xs">
+            <UCard>
+              <template #header>
+                <div class="flex items-center gap-2">
+                  <UIcon name="i-lucide-building-2" class="size-5 text-primary" />
+                  <h3 class="font-semibold text-ink text-sm">ข้อมูลสถานประกอบการ</h3>
+                </div>
+              </template>
+              <div class="space-y-3 text-sm">
                 <div>
-                  <span class="text-muted block">ชื่อสถานประกอบการ</span>
-                  <span class="font-medium text-highlighted text-sm">{{ app.company.name }}</span>
+                  <span class="text-xs text-muted block">ชื่อสถานประกอบการ</span>
+                  <span class="font-medium text-ink">{{ app.company.name }}</span>
                 </div>
                 <div>
-                  <span class="text-muted block">ที่อยู่</span>
-                  <span class="text-highlighted">
+                  <span class="text-xs text-muted block">ที่อยู่</span>
+                  <span class="text-ink">
                     {{ app.company.addressNo }} {{ app.company.street || '' }} {{ app.company.subdistrict }}, {{ app.company.district }}, จ.{{ app.company.province }} {{ app.company.postalCode }}
                   </span>
                 </div>
-                <div class="grid grid-cols-2 gap-2 pt-1">
+                <div class="grid grid-cols-2 gap-2 pt-1 border-t border-divider">
                   <div>
-                    <span class="text-muted block">ผู้ประสานงาน</span>
-                    <span class="text-highlighted">{{ app.company.contactPerson || '—' }}</span>
+                    <span class="text-xs text-muted block">ผู้ประสานงาน</span>
+                    <span class="text-ink">{{ app.company.contactPerson || '—' }}</span>
                   </div>
                   <div>
-                    <span class="text-muted block">เบอร์โทรศัพท์</span>
-                    <span class="text-highlighted">{{ app.company.phone || '—' }}</span>
+                    <span class="text-xs text-muted block">เบอร์โทรศัพท์</span>
+                    <span class="text-ink">{{ app.company.phone || '—' }}</span>
                   </div>
                 </div>
               </div>
-            </div>
+            </UCard>
 
             <!-- Internship & Letter Details Card -->
-            <div class="rounded-xl border border-default bg-default p-5 shadow-xs space-y-3">
-              <div class="flex items-center gap-2 border-b border-default/60 pb-3">
-                <UIcon name="i-lucide-mail" class="size-5 text-primary" />
-                <h3 class="font-semibold text-highlighted text-sm">ข้อมูลหนังสือและสถานที่ฝึก</h3>
-              </div>
-              <div class="space-y-2 text-xs">
+            <UCard>
+              <template #header>
+                <div class="flex items-center gap-2">
+                  <UIcon name="i-lucide-mail" class="size-5 text-primary" />
+                  <h3 class="font-semibold text-ink text-sm">ข้อมูลหนังสือและสถานที่ฝึก</h3>
+                </div>
+              </template>
+              <div class="space-y-3 text-sm">
                 <div>
-                  <span class="text-muted block">ผู้รับหนังสือขอความอนุเคราะห์</span>
-                  <span class="font-medium text-highlighted">{{ app.recipientName || '—' }}</span>
+                  <span class="text-xs text-muted block">ผู้รับหนังสือขอความอนุเคราะห์</span>
+                  <span class="font-medium text-ink">{{ app.recipientName || '—' }}</span>
                 </div>
                 <div>
-                  <span class="text-muted block">ที่อยู่สำหรับออกหนังสือ</span>
-                  <span class="text-highlighted">{{ app.letterAddress || '—' }}</span>
+                  <span class="text-xs text-muted block">ที่อยู่สำหรับออกหนังสือ</span>
+                  <span class="text-ink">{{ app.letterAddress || '—' }}</span>
                 </div>
-                <div class="pt-1 border-t border-default/60">
-                  <span class="text-muted block">สถานที่ฝึกจริง / สาขา</span>
-                  <span class="text-highlighted">{{ app.internshipLocationName || '—' }}</span>
+                <div class="pt-1 border-t border-divider">
+                  <span class="text-xs text-muted block">สถานที่ฝึกจริง / สาขา</span>
+                  <span class="text-ink">{{ app.internshipLocationName || '—' }}</span>
                 </div>
-                <div v-if="app.internshipLatitude && app.internshipLongitude" class="text-muted">
+                <div v-if="app.internshipLatitude && app.internshipLongitude" class="text-xs text-muted">
                   พิกัด: {{ app.internshipLatitude }}, {{ app.internshipLongitude }}
                 </div>
               </div>
-            </div>
+            </UCard>
           </div>
 
           <!-- Application Note -->
-          <div v-if="app.note" class="rounded-xl border border-default bg-default p-5 shadow-xs space-y-2">
-            <h4 class="font-semibold text-highlighted text-xs">หมายเหตุ</h4>
-            <p class="text-xs text-muted leading-relaxed whitespace-pre-line">{{ app.note }}</p>
-          </div>
+          <UCard v-if="app.note">
+            <template #header>
+              <h4 class="font-semibold text-ink text-sm">หมายเหตุ</h4>
+            </template>
+            <p class="text-sm text-muted leading-relaxed whitespace-pre-line">{{ app.note }}</p>
+          </UCard>
         </template>
       </div>
 
       <!-- Update Milestone Modal -->
-      <UModal v-model:open="isMilestoneModalOpen">
-        <template #content>
-          <div class="p-6 space-y-4">
-            <h3 class="text-base font-semibold text-highlighted">ระบุความคืบหน้า / ผลการสมัคร</h3>
-            <p class="text-xs text-muted">เลือกสถานะใหม่ที่สอดคล้องกับการติดต่อกับสถานประกอบการ</p>
-
-            <div class="space-y-2">
-              <label class="block text-xs font-medium text-highlighted">สถานะใหม่</label>
+      <UModal
+        v-model:open="isMilestoneModalOpen"
+        title="ระบุความคืบหน้า / ผลการสมัคร"
+        description="เลือกสถานะใหม่ที่สอดคล้องกับการติดต่อกับสถานประกอบการ"
+      >
+        <template #body>
+          <div class="space-y-4">
+            <UFormField label="สถานะใหม่" required>
               <USelect
                 v-model="selectedMilestone"
+                size="xl"
                 :items="[
                   { label: 'รอผลตอบกลับ (Awaiting Response)', value: 'AWAITING_RESPONSE' },
                   { label: 'รอสัมภาษณ์ (Interview)', value: 'INTERVIEW' },
@@ -338,17 +349,20 @@ const handleDeleteConfirm = async () => {
                 ]"
                 class="w-full"
               />
-            </div>
+            </UFormField>
+          </div>
+        </template>
 
-            <div class="flex items-center justify-end gap-2 pt-4">
-              <UButton color="neutral" variant="ghost" label="ยกเลิก" @click="isMilestoneModalOpen = false" />
-              <UButton
-                color="primary"
-                label="บันทึกสถานะ"
-                :loading="isUpdatingMilestone"
-                @click="handleUpdateMilestone"
-              />
-            </div>
+        <template #footer>
+          <div class="flex w-full justify-end gap-2">
+            <UButton size="xl" color="neutral" variant="outline" label="ยกเลิก" @click="isMilestoneModalOpen = false" />
+            <UButton
+              size="xl"
+              color="primary"
+              label="บันทึกสถานะ"
+              :loading="isUpdatingMilestone"
+              @click="handleUpdateMilestone"
+            />
           </div>
         </template>
       </UModal>

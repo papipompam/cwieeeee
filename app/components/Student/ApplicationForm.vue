@@ -206,61 +206,64 @@ const handleCancel = () => {
 </script>
 
 <template>
-  <form class="student-form-content space-y-6 max-w-4xl" @submit.prevent="handleSubmit">
+  <form class="space-y-6 max-w-4xl" @submit.prevent="handleSubmit">
     <!-- Company Selection Section -->
-    <div class="rounded-xl border border-default bg-default p-5 shadow-xs space-y-4">
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-        <div>
-          <h3 class="font-semibold text-highlighted">ข้อมูลสถานประกอบการ</h3>
-          <p class="text-xs text-muted">เลือกสถานประกอบการที่มีในระบบ หรือกรอกข้อมูลสถานประกอบการใหม่</p>
-        </div>
+    <UCard>
+      <template #header>
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h3 class="font-semibold text-ink">ข้อมูลสถานประกอบการ</h3>
+            <p class="text-sm text-muted">เลือกสถานประกอบการที่มีในระบบ หรือกรอกข้อมูลสถานประกอบการใหม่</p>
+          </div>
 
-        <!-- Mode Toggle -->
-        <div v-if="!isEdit" class="flex rounded-lg bg-muted/20 p-1 self-start sm:self-auto">
-          <button
-            type="button"
-            class="px-3 py-1 text-xs font-medium rounded-md transition-colors"
-            :class="companyMode === 'EXISTING' ? 'bg-default text-highlighted shadow-xs' : 'text-muted hover:text-highlighted'"
-            @click="companyMode = 'EXISTING'"
-          >
-            เลือกสถานประกอบการเดิม
-          </button>
-          <button
-            type="button"
-            class="px-3 py-1 text-xs font-medium rounded-md transition-colors"
-            :class="companyMode === 'NEW' ? 'bg-default text-highlighted shadow-xs' : 'text-muted hover:text-highlighted'"
-            @click="companyMode = 'NEW'"
-          >
-            กรอกสถานประกอบการใหม่
-          </button>
+          <!-- Mode Toggle -->
+          <div v-if="!isEdit" class="flex rounded-[var(--radius-control)] bg-surface p-1 self-start sm:self-auto border border-divider">
+            <button
+              type="button"
+              class="px-3 py-1.5 text-xs font-medium rounded-[var(--radius-control)] transition-colors cursor-pointer"
+              :class="companyMode === 'EXISTING' ? 'bg-canvas text-ink shadow-panel' : 'text-muted hover:text-ink'"
+              @click="companyMode = 'EXISTING'"
+            >
+              เลือกสถานประกอบการเดิม
+            </button>
+            <button
+              type="button"
+              class="px-3 py-1.5 text-xs font-medium rounded-[var(--radius-control)] transition-colors cursor-pointer"
+              :class="companyMode === 'NEW' ? 'bg-canvas text-ink shadow-panel' : 'text-muted hover:text-ink'"
+              @click="companyMode = 'NEW'"
+            >
+              กรอกสถานประกอบการใหม่
+            </button>
+          </div>
         </div>
-      </div>
+      </template>
 
       <!-- Mode 1: Search & Select Existing Company -->
-      <div v-if="companyMode === 'EXISTING'" class="space-y-3">
+      <div v-if="companyMode === 'EXISTING'" class="space-y-4">
         <div v-if="!isEdit">
-          <label class="block text-xs font-medium text-highlighted mb-1.5">ค้นหาสถานประกอบการ</label>
-          <UInput
-            v-model="companySearch"
-            icon="i-lucide-search"
-            placeholder="พิมพ์ชื่อสถานประกอบการ หรือจังหวัด เพื่อค้นหา..."
-            class="w-full"
-          />
-          <span v-if="errors.companyId" class="text-xs text-error mt-1 block">{{ errors.companyId }}</span>
+          <UFormField label="ค้นหาสถานประกอบการ" :error="errors.companyId">
+            <UInput
+              v-model="companySearch"
+              size="xl"
+              icon="i-lucide-search"
+              placeholder="พิมพ์ชื่อสถานประกอบการ หรือจังหวัด เพื่อค้นหา..."
+              class="w-full"
+            />
+          </UFormField>
         </div>
 
         <!-- Search Results List -->
-        <div v-if="!isEdit && companySearch.trim() && searchedCompanies?.length" class="max-h-48 overflow-y-auto border border-default rounded-lg divide-y divide-default">
+        <div v-if="!isEdit && companySearch.trim() && searchedCompanies?.length" class="max-h-56 overflow-y-auto border border-divider rounded-panel divide-y divide-divider bg-canvas">
           <div
             v-for="comp in searchedCompanies"
             :key="comp.id"
-            class="p-2.5 hover:bg-muted/10 cursor-pointer flex items-center justify-between text-xs transition-colors"
-            :class="selectedCompanyId === comp.id ? 'bg-primary/10' : ''"
+            class="p-3 hover:bg-surface cursor-pointer flex items-center justify-between text-sm transition-colors"
+            :class="selectedCompanyId === comp.id ? 'bg-warning-soft' : ''"
             @click="selectExistingCompany(comp)"
           >
             <div>
-              <p class="font-medium text-highlighted">{{ comp.name }}</p>
-              <p class="text-muted text-[11px]">{{ comp.district }}, จ.{{ comp.province }}</p>
+              <p class="font-medium text-ink">{{ comp.name }}</p>
+              <p class="text-xs text-muted">{{ comp.district }}, จ.{{ comp.province }}</p>
             </div>
             <UButton
               size="xs"
@@ -272,17 +275,17 @@ const handleCancel = () => {
         </div>
 
         <!-- Selected Company Card -->
-        <div v-if="selectedCompany" class="rounded-lg border border-primary/30 bg-primary/5 p-4 space-y-2">
+        <div v-if="selectedCompany" class="rounded-panel border border-primary/30 bg-warning-soft p-4 space-y-2">
           <div class="flex items-center justify-between">
             <span class="text-xs font-semibold text-primary">สถานประกอบการที่เลือก</span>
             <span class="text-xs text-muted">ID #{{ selectedCompany.id }}</span>
           </div>
-          <p class="font-semibold text-highlighted text-sm">{{ selectedCompany.name }}</p>
-          <p class="text-xs text-muted">
+          <p class="font-semibold text-ink text-base">{{ selectedCompany.name }}</p>
+          <p class="text-sm text-muted">
             ที่อยู่: {{ selectedCompany.addressNo }} {{ selectedCompany.street || '' }} {{ selectedCompany.subdistrict }}, {{ selectedCompany.district }}, จ.{{ selectedCompany.province }} {{ selectedCompany.postalCode }}
           </p>
-          <p class="text-xs text-muted">
-            ผู้ติดต่อ/ประสานงาน: <span class="font-medium text-highlighted">{{ selectedCompany.contactPerson }}</span>
+          <p class="text-sm text-muted">
+            ผู้ติดต่อ/ประสานงาน: <span class="font-medium text-ink">{{ selectedCompany.contactPerson }}</span>
             <span v-if="selectedCompany.phone"> (โทร: {{ selectedCompany.phone }})</span>
             <span v-if="selectedCompany.email"> (อีเมล: {{ selectedCompany.email }})</span>
           </p>
@@ -290,162 +293,179 @@ const handleCancel = () => {
       </div>
 
       <!-- Mode 2: Fill New Company Details -->
-      <div v-else class="grid gap-3 sm:grid-cols-2 pt-2">
+      <div v-else class="grid gap-4 sm:grid-cols-2">
         <div class="sm:col-span-2">
-          <label class="block text-xs font-medium text-highlighted mb-1">ชื่อสถานประกอบการ <span class="text-error">*</span></label>
-          <UInput v-model="newCompany.name" placeholder="เช่น บริษัท เทคโนโลยี จำกัด" class="w-full" />
-          <span v-if="errors.companyName" class="text-xs text-error mt-1 block">{{ errors.companyName }}</span>
+          <UFormField label="ชื่อสถานประกอบการ" required :error="errors.companyName">
+            <UInput v-model="newCompany.name" size="xl" placeholder="เช่น บริษัท เทคโนโลยี จำกัด" class="w-full" />
+          </UFormField>
         </div>
 
         <div>
-          <label class="block text-xs font-medium text-highlighted mb-1">ผู้ติดต่อ / ประสานงาน <span class="text-error">*</span></label>
-          <UInput v-model="newCompany.contactPerson" placeholder="เช่น คุณสมชาย จัดการงาน" class="w-full" />
-          <span v-if="errors.contactPerson" class="text-xs text-error mt-1 block">{{ errors.contactPerson }}</span>
+          <UFormField label="ผู้ติดต่อ / ประสานงาน" required :error="errors.contactPerson">
+            <UInput v-model="newCompany.contactPerson" size="xl" placeholder="เช่น คุณสมชาย จัดการงาน" class="w-full" />
+          </UFormField>
         </div>
 
         <div>
-          <label class="block text-xs font-medium text-highlighted mb-1">เบอร์โทรศัพท์ติดต่อ</label>
-          <UInput v-model="newCompany.phone" placeholder="เช่น 02-123-4567" class="w-full" />
+          <UFormField label="เบอร์โทรศัพท์ติดต่อ">
+            <UInput v-model="newCompany.phone" size="xl" placeholder="เช่น 02-123-4567" class="w-full" />
+          </UFormField>
         </div>
 
         <div class="sm:col-span-2">
-          <label class="block text-xs font-medium text-highlighted mb-1">อีเมลติดต่อ</label>
-          <UInput v-model="newCompany.email" placeholder="contact@company.com" class="w-full" />
+          <UFormField label="อีเมลติดต่อ">
+            <UInput v-model="newCompany.email" size="xl" placeholder="contact@company.com" class="w-full" />
+          </UFormField>
         </div>
 
         <div>
-          <label class="block text-xs font-medium text-highlighted mb-1">เลขที่ <span class="text-error">*</span></label>
-          <UInput v-model="newCompany.addressNo" placeholder="เช่น 123/4" class="w-full" />
-          <span v-if="errors.addressNo" class="text-xs text-error mt-1 block">{{ errors.addressNo }}</span>
+          <UFormField label="เลขที่" required :error="errors.addressNo">
+            <UInput v-model="newCompany.addressNo" size="xl" placeholder="เช่น 123/4" class="w-full" />
+          </UFormField>
         </div>
 
         <div>
-          <label class="block text-xs font-medium text-highlighted mb-1">หมู่ที่</label>
-          <UInput v-model="newCompany.moo" placeholder="เช่น 5" class="w-full" />
+          <UFormField label="หมู่ที่">
+            <UInput v-model="newCompany.moo" size="xl" placeholder="เช่น 5" class="w-full" />
+          </UFormField>
         </div>
 
         <div>
-          <label class="block text-xs font-medium text-highlighted mb-1">ซอย</label>
-          <UInput v-model="newCompany.soi" placeholder="เช่น สุขุมวิท 21" class="w-full" />
+          <UFormField label="ซอย">
+            <UInput v-model="newCompany.soi" size="xl" placeholder="เช่น สุขุมวิท 21" class="w-full" />
+          </UFormField>
         </div>
 
         <div>
-          <label class="block text-xs font-medium text-highlighted mb-1">ถนน</label>
-          <UInput v-model="newCompany.street" placeholder="เช่น ถนนอโศกมนตรี" class="w-full" />
+          <UFormField label="ถนน">
+            <UInput v-model="newCompany.street" size="xl" placeholder="เช่น ถนนอโศกมนตรี" class="w-full" />
+          </UFormField>
         </div>
 
         <div>
-          <label class="block text-xs font-medium text-highlighted mb-1">ตำบล / แขวง <span class="text-error">*</span></label>
-          <UInput v-model="newCompany.subdistrict" placeholder="เช่น คลองเตยเหนือ" class="w-full" />
-          <span v-if="errors.subdistrict" class="text-xs text-error mt-1 block">{{ errors.subdistrict }}</span>
+          <UFormField label="ตำบล / แขวง" required :error="errors.subdistrict">
+            <UInput v-model="newCompany.subdistrict" size="xl" placeholder="เช่น คลองเตยเหนือ" class="w-full" />
+          </UFormField>
         </div>
 
         <div>
-          <label class="block text-xs font-medium text-highlighted mb-1">อำเภอ / เขต <span class="text-error">*</span></label>
-          <UInput v-model="newCompany.district" placeholder="เช่น วัฒนา" class="w-full" />
-          <span v-if="errors.district" class="text-xs text-error mt-1 block">{{ errors.district }}</span>
+          <UFormField label="อำเภอ / เขต" required :error="errors.district">
+            <UInput v-model="newCompany.district" size="xl" placeholder="เช่น วัฒนา" class="w-full" />
+          </UFormField>
         </div>
 
         <div>
-          <label class="block text-xs font-medium text-highlighted mb-1">จังหวัด <span class="text-error">*</span></label>
-          <UInput v-model="newCompany.province" placeholder="เช่น กรุงเทพมหานคร" class="w-full" />
-          <span v-if="errors.province" class="text-xs text-error mt-1 block">{{ errors.province }}</span>
+          <UFormField label="จังหวัด" required :error="errors.province">
+            <UInput v-model="newCompany.province" size="xl" placeholder="เช่น กรุงเทพมหานคร" class="w-full" />
+          </UFormField>
         </div>
 
         <div>
-          <label class="block text-xs font-medium text-highlighted mb-1">รหัสไปรษณีย์ <span class="text-error">*</span></label>
-          <UInput v-model="newCompany.postalCode" placeholder="เช่น 10110" class="w-full" />
-          <span v-if="errors.postalCode" class="text-xs text-error mt-1 block">{{ errors.postalCode }}</span>
+          <UFormField label="รหัสไปรษณีย์" required :error="errors.postalCode">
+            <UInput v-model="newCompany.postalCode" size="xl" placeholder="เช่น 10110" class="w-full" />
+          </UFormField>
         </div>
       </div>
-    </div>
+    </UCard>
 
     <!-- Application Details Section -->
-    <div class="rounded-xl border border-default bg-default p-5 shadow-xs space-y-4">
-      <h3 class="font-semibold text-highlighted">ตำแหน่งและวันที่สมัคร</h3>
+    <UCard>
+      <template #header>
+        <h3 class="font-semibold text-ink">ตำแหน่งและวันที่สมัคร</h3>
+      </template>
 
-      <div class="grid gap-3 sm:grid-cols-3">
+      <div class="grid gap-4 sm:grid-cols-3">
         <div class="sm:col-span-2">
-          <label class="block text-xs font-medium text-highlighted mb-1">ตำแหน่งที่สมัคร <span class="text-error">*</span></label>
-          <UInput v-model="form.applicationPosition" placeholder="เช่น Software Engineer Intern, Data Analyst" class="w-full" />
-          <span v-if="errors.applicationPosition" class="text-xs text-error mt-1 block">{{ errors.applicationPosition }}</span>
+          <UFormField label="ตำแหน่งที่สมัคร" required :error="errors.applicationPosition">
+            <UInput v-model="form.applicationPosition" size="xl" placeholder="เช่น Software Engineer Intern, Data Analyst" class="w-full" />
+          </UFormField>
         </div>
 
         <div>
-          <label class="block text-xs font-medium text-highlighted mb-1">วันที่ยื่นสมัคร <span class="text-error">*</span></label>
-          <input
-            v-model="form.appliedAt"
-            type="date"
-            class="w-full rounded-md border border-default bg-default px-3 py-1.5 text-xs text-highlighted focus:outline-none focus:ring-1 focus:ring-primary"
-          />
-          <span v-if="errors.appliedAt" class="text-xs text-error mt-1 block">{{ errors.appliedAt }}</span>
+          <UFormField label="วันที่ยื่นสมัคร" required :error="errors.appliedAt">
+            <UInput
+              v-model="form.appliedAt"
+              type="date"
+              size="xl"
+              class="w-full"
+              aria-label="วันที่ยื่นสมัคร"
+            />
+          </UFormField>
         </div>
 
         <div class="sm:col-span-3">
-          <label class="block text-xs font-medium text-highlighted mb-1">ช่องทางการสมัคร</label>
-          <USelect
-            v-model="form.applicationMethod"
-            :items="[
-              { label: 'อีเมล (Email)', value: 'EMAIL' },
-              { label: 'สมัครด้วยตนเอง (In Person)', value: 'IN_PERSON' },
-              { label: 'เว็บไซต์รับสมัครงาน (Website)', value: 'WEBSITE' },
-              { label: 'อื่นๆ (Other)', value: 'OTHER' }
-            ]"
-            class="w-full sm:w-64"
+          <UFormField label="ช่องทางการสมัคร">
+            <USelect
+              v-model="form.applicationMethod"
+              size="xl"
+              :items="[
+                { label: 'อีเมล (Email)', value: 'EMAIL' },
+                { label: 'สมัครด้วยตนเอง (In Person)', value: 'IN_PERSON' },
+                { label: 'เว็บไซต์รับสมัครงาน (Website)', value: 'WEBSITE' },
+                { label: 'อื่นๆ (Other)', value: 'OTHER' }
+              ]"
+              class="w-full sm:w-72"
+            />
+          </UFormField>
+        </div>
+      </div>
+    </UCard>
+
+    <!-- Map Picker Section -->
+    <UCard>
+      <template #header>
+        <div>
+          <h3 class="font-semibold text-ink">ปักหมุดพิกัดสถานที่ปฏิบัติงาน (ถ้ามี)</h3>
+          <p class="text-sm text-muted">คลิกเลือกตำแหน่งบนแผนที่เพื่อบันทึกพิกัดสำหรับให้อาจารย์นิเทศใช้เดินทาง</p>
+        </div>
+      </template>
+
+      <div class="space-y-3">
+        <ClientOnly>
+          <div class="rounded-panel overflow-hidden border border-divider">
+            <UIMapPicker v-model="form.coords" />
+          </div>
+          <template #fallback>
+            <div class="h-48 rounded-panel bg-surface flex items-center justify-center text-sm text-muted">
+              กำลังโหลดแผนที่...
+            </div>
+          </template>
+        </ClientOnly>
+
+        <div v-if="form.coords.lat != null && form.coords.lng != null" class="flex items-center gap-4 text-sm text-muted">
+          <span>ละติจูด: {{ form.coords.lat }}</span>
+          <span>ลองจิจูด: {{ form.coords.lng }}</span>
+          <UButton
+            size="xs"
+            color="neutral"
+            variant="ghost"
+            label="ล้างหมุด"
+            @click="form.coords = { lat: null, lng: null }"
           />
         </div>
       </div>
-    </div>
-
-    <!-- Map Picker Section -->
-    <div class="rounded-xl border border-default bg-default p-5 shadow-xs space-y-3">
-      <div>
-        <h3 class="font-semibold text-highlighted">ปักหมุดพิกัดสถานที่ปฏิบัติงาน (ถ้ามี)</h3>
-        <p class="text-xs text-muted">คลิกเลือกตำแหน่งบนแผนที่เพื่อบันทึกพิกัดสำหรับให้อาจารย์นิเทศใช้เดินทาง</p>
-      </div>
-
-      <ClientOnly>
-        <div class="rounded-lg overflow-hidden border border-default">
-          <UIMapPicker v-model="form.coords" />
-        </div>
-        <template #fallback>
-          <div class="h-48 rounded-lg bg-muted/10 flex items-center justify-center text-xs text-muted">
-            กำลังโหลดแผนที่...
-          </div>
-        </template>
-      </ClientOnly>
-
-      <div v-if="form.coords.lat != null && form.coords.lng != null" class="flex items-center gap-4 text-xs text-muted">
-        <span>ละติจูด: {{ form.coords.lat }}</span>
-        <span>ลองจิจูด: {{ form.coords.lng }}</span>
-        <UButton
-          size="xs"
-          color="neutral"
-          variant="ghost"
-          label="ล้างหมุด"
-          @click="form.coords = { lat: null, lng: null }"
-        />
-      </div>
-    </div>
+    </UCard>
 
     <!-- Additional Note -->
-    <div class="rounded-xl border border-default bg-default p-5 shadow-xs space-y-3">
-      <label class="block text-xs font-semibold text-highlighted">หมายเหตุเพิ่มเติม (ถ้ามี)</label>
-      <UTextarea v-model="form.note" placeholder="รายละเอียดอื่นๆ เกี่ยวกับการสมัคร..." :rows="2" class="w-full" />
-    </div>
+    <UCard>
+      <UFormField label="หมายเหตุเพิ่มเติม (ถ้ามี)">
+        <UTextarea v-model="form.note" size="xl" placeholder="รายละเอียดอื่นๆ เกี่ยวกับการสมัคร..." :rows="3" class="w-full" />
+      </UFormField>
+    </UCard>
 
     <!-- Form Actions -->
     <div class="flex items-center justify-end gap-3 pt-4">
       <UButton
         color="neutral"
-        variant="ghost"
+        variant="outline"
+        size="xl"
         label="ยกเลิก"
         @click="handleCancel"
       />
       <UButton
         type="submit"
         color="primary"
-        size="md"
+        size="xl"
         icon="i-lucide-save"
         :loading="isSubmitting"
         :label="isEdit ? 'บันทึกการแก้ไข' : 'ยื่นสมัครสถานประกอบการ'"
@@ -453,18 +473,3 @@ const handleCancel = () => {
     </div>
   </form>
 </template>
-
-<style scoped>
-.student-form-content :is(h3, p, label, dt, dd) {
-  font-size: 1rem;
-  line-height: 1.5;
-}
-
-.student-form-content :is(input, textarea, select) {
-  font-size: 1rem;
-}
-
-.student-form-content .text-xs {
-  font-size: 1rem;
-}
-</style>

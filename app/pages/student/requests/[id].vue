@@ -90,6 +90,7 @@ const handleUpload = async () => {
             color="neutral"
             variant="ghost"
             to="/student/requests"
+            aria-label="กลับไปหน้ารายการคำร้อง"
           />
         </template>
         <template #right>
@@ -103,6 +104,7 @@ const handleUpload = async () => {
         <UAlert
           v-if="fetchError"
           color="error"
+          variant="subtle"
           icon="i-lucide-circle-alert"
           title="ไม่พบข้อมูลคำร้อง"
           :description="fetchError.message"
@@ -115,46 +117,51 @@ const handleUpload = async () => {
 
         <template v-else-if="request">
           <!-- Status Banner & Primary Actions -->
-          <div class="rounded-xl border border-default bg-default p-6 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div class="space-y-1">
-              <div class="flex items-center gap-2">
-                <span class=" text-xs text-muted">REQ-{{ String(request.id).padStart(4, '0') }}</span>
-                <UBadge :color="getReqStatusBadge(request.status).color" variant="subtle" size="md">
-                  {{ getReqStatusBadge(request.status).label }}
-                </UBadge>
+          <UCard>
+            <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div class="space-y-1">
+                <div class="flex items-center gap-2">
+                  <span class="text-xs text-muted">REQ-{{ String(request.id).padStart(4, '0') }}</span>
+                  <UBadge :color="getReqStatusBadge(request.status).color" variant="subtle" size="md">
+                    {{ getReqStatusBadge(request.status).label }}
+                  </UBadge>
+                </div>
+                <h1 class="text-xl font-bold text-highlighted">{{ request.companyName }}</h1>
+                <p class="text-xs text-muted">ตำแหน่ง: {{ request.position || '—' }} • ส่งคำร้องเมื่อ: {{ formatThaiDate(request.confirmedAt) }}</p>
               </div>
-              <h1 class="text-xl font-bold text-highlighted">{{ request.companyName }}</h1>
-              <p class="text-xs text-muted">ตำแหน่ง: {{ request.position || '—' }} • ส่งคำร้องเมื่อ: {{ formatThaiDate(request.confirmedAt) }}</p>
-            </div>
 
-            <!-- Actions based on state -->
-            <div class="flex flex-wrap items-center gap-2">
-              <!-- Download Official Letter -->
-              <UButton
-                v-if="request.letterFilePath || ['LETTER_READY', 'DOCUMENT_UNDER_REVIEW', 'RETURNED_FOR_REVISION', 'PLACEMENT_CONFIRMED'].includes(request.status)"
-                color="primary"
-                variant="outline"
-                icon="i-lucide-download"
-                label="ดาวน์โหลดหนังสือขอความอนุเคราะห์"
-                :to="`/api/student/requests/${request.id}/letter`"
-                target="_blank"
-              />
+              <!-- Actions based on state -->
+              <div class="flex flex-wrap items-center gap-2">
+                <!-- Download Official Letter -->
+                <UButton
+                  v-if="request.letterFilePath || ['LETTER_READY', 'DOCUMENT_UNDER_REVIEW', 'RETURNED_FOR_REVISION', 'PLACEMENT_CONFIRMED'].includes(request.status)"
+                  size="xl"
+                  color="primary"
+                  variant="outline"
+                  icon="i-lucide-download"
+                  label="ดาวน์โหลดหนังสือขอความอนุเคราะห์"
+                  :to="`/api/student/requests/${request.id}/letter`"
+                  target="_blank"
+                />
 
-              <!-- Upload Signed Document -->
-              <UButton
-                v-if="['LETTER_READY', 'RETURNED_FOR_REVISION'].includes(request.status)"
-                color="success"
-                icon="i-lucide-upload"
-                :label="request.status === 'RETURNED_FOR_REVISION' ? 'อัปโหลดฉบับแก้ไข' : 'ส่งหนังสือตอบรับ'"
-                @click="isUploadModalOpen = true"
-              />
+                <!-- Upload Signed Document -->
+                <UButton
+                  v-if="['LETTER_READY', 'RETURNED_FOR_REVISION'].includes(request.status)"
+                  size="xl"
+                  color="success"
+                  icon="i-lucide-upload"
+                  :label="request.status === 'RETURNED_FOR_REVISION' ? 'อัปโหลดฉบับแก้ไข' : 'ส่งหนังสือตอบรับ'"
+                  @click="isUploadModalOpen = true"
+                />
+              </div>
             </div>
-          </div>
+          </UCard>
 
           <!-- Alert if Returned for Revision -->
           <UAlert
             v-if="request.status === 'RETURNED_FOR_REVISION'"
             color="error"
+            variant="subtle"
             icon="i-lucide-circle-alert"
             title="เอกสารถูกส่งกลับให้แก้ไข"
             :description="request.returnedReason || 'กรุณาตรวจสอบความถูกต้องของหนังสือตอบรับและอัปโหลดฉบับใหม่'"
@@ -164,12 +171,15 @@ const handleUpload = async () => {
           <!-- Snapshot Information Grid -->
           <div class="grid gap-6 md:grid-cols-2">
             <!-- Company & Location Snapshot -->
-            <div class="rounded-xl border border-default bg-default p-5 shadow-xs space-y-3">
-              <div class="flex items-center gap-2 border-b border-default/60 pb-3">
-                <UIcon name="i-lucide-building-2" class="size-5 text-primary" />
-                <h3 class="font-semibold text-highlighted text-sm">ข้อมูลสถานที่และตำแหน่ง (Snapshot)</h3>
-              </div>
-              <div class="space-y-2 text-xs">
+            <UCard>
+              <template #header>
+                <div class="flex items-center gap-2">
+                  <UIcon name="i-lucide-building-2" class="size-5 text-primary" />
+                  <h2 class="font-semibold text-highlighted text-sm">ข้อมูลสถานที่และตำแหน่ง (Snapshot)</h2>
+                </div>
+              </template>
+
+              <div class="space-y-3 text-xs">
                 <div>
                   <span class="text-muted block">สถานประกอบการ</span>
                   <span class="font-medium text-highlighted text-sm">{{ request.companyName }}</span>
@@ -186,19 +196,22 @@ const handleUpload = async () => {
                   <span class="text-muted block">สถานที่ฝึกปฏิบัติงานจริง</span>
                   <span class="text-highlighted">{{ request.internshipLocationName || '—' }}</span>
                 </div>
-                <div v-if="request.latitude && request.longitude" class="text-muted pt-1">
+                <div v-if="request.latitude && request.longitude" class="text-muted pt-1 border-t border-divider">
                   พิกัด: {{ request.latitude }}, {{ request.longitude }}
                 </div>
               </div>
-            </div>
+            </UCard>
 
             <!-- Recipient & Letter Address Snapshot -->
-            <div class="rounded-xl border border-default bg-default p-5 shadow-xs space-y-3">
-              <div class="flex items-center gap-2 border-b border-default/60 pb-3">
-                <UIcon name="i-lucide-mail" class="size-5 text-primary" />
-                <h3 class="font-semibold text-highlighted text-sm">ข้อมูลสำหรับออกหนังสือ (Snapshot)</h3>
-              </div>
-              <div class="space-y-2 text-xs">
+            <UCard>
+              <template #header>
+                <div class="flex items-center gap-2">
+                  <UIcon name="i-lucide-mail" class="size-5 text-primary" />
+                  <h2 class="font-semibold text-highlighted text-sm">ข้อมูลสำหรับออกหนังสือ (Snapshot)</h2>
+                </div>
+              </template>
+
+              <div class="space-y-3 text-xs">
                 <div>
                   <span class="text-muted block">ผู้รับหนังสือ</span>
                   <span class="font-medium text-highlighted">{{ request.recipientName || '—' }}</span>
@@ -211,32 +224,34 @@ const handleUpload = async () => {
                   <span class="text-muted block">ที่อยู่สำหรับออกหนังสือ</span>
                   <span class="text-highlighted">{{ request.letterAddress || '—' }}</span>
                 </div>
-                <div v-if="request.studentNote" class="pt-2 border-t border-default/60">
+                <div v-if="request.studentNote" class="pt-2 border-t border-divider">
                   <span class="text-muted block">ข้อความเพิ่มเติมถึงเจ้าหน้าที่</span>
                   <p class="text-highlighted whitespace-pre-line">{{ request.studentNote }}</p>
                 </div>
               </div>
-            </div>
+            </UCard>
           </div>
 
           <!-- Documents History Card -->
-          <div class="rounded-xl border border-default bg-default p-5 shadow-xs space-y-4">
-            <div class="flex items-center justify-between">
-              <div class="flex items-center gap-2">
-                <UIcon name="i-lucide-files" class="size-5 text-primary" />
-                <h3 class="font-semibold text-highlighted text-sm">ประวัติเอกสารที่เกี่ยวข้อง</h3>
+          <UCard>
+            <template #header>
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <UIcon name="i-lucide-files" class="size-5 text-primary" />
+                  <h2 class="font-semibold text-highlighted text-sm">ประวัติเอกสารที่เกี่ยวข้อง</h2>
+                </div>
+                <UButton
+                  v-if="['LETTER_READY', 'RETURNED_FOR_REVISION'].includes(request.status)"
+                  size="xs"
+                  color="primary"
+                  icon="i-lucide-upload"
+                  label="อัปโหลดเอกสาร"
+                  @click="isUploadModalOpen = true"
+                />
               </div>
-              <UButton
-                v-if="['LETTER_READY', 'RETURNED_FOR_REVISION'].includes(request.status)"
-                size="xs"
-                color="primary"
-                icon="i-lucide-upload"
-                label="อัปโหลดเอกสาร"
-                @click="isUploadModalOpen = true"
-              />
-            </div>
+            </template>
 
-            <div v-if="request.documents && request.documents.length > 0" class="divide-y divide-default border border-default rounded-lg overflow-hidden">
+            <div v-if="request.documents && request.documents.length > 0" class="divide-y divide-divider border border-divider rounded-lg overflow-hidden">
               <div
                 v-for="doc in request.documents"
                 :key="doc.id"
@@ -277,40 +292,40 @@ const handleUpload = async () => {
             <div v-else class="text-center py-6 text-xs text-muted">
               ยังไม่มีประวัติการส่งเอกสารตอบรับ
             </div>
-          </div>
+          </UCard>
         </template>
       </div>
 
       <!-- Upload Modal -->
-      <UModal v-model:open="isUploadModalOpen">
-        <template #content>
-          <div class="p-6 space-y-4">
-            <h3 class="text-base font-semibold text-highlighted">อัปโหลดหนังสือตอบรับสถานประกอบการ</h3>
-            <p class="text-xs text-muted leading-relaxed">
-              รองรับไฟล์ PDF, JPG หรือ PNG ขนาดไม่เกิน 10MB กรุณาตรวจสอบให้แน่ใจว่าเอกสารมีตราประทับหรือลายเซ็นผู้มีอำนาจครบถ้วน
-            </p>
-
-            <div class="space-y-2 pt-2">
-              <label class="block text-xs font-medium text-highlighted">เลือกไฟล์เอกสาร</label>
+      <UModal
+        v-model:open="isUploadModalOpen"
+        title="อัปโหลดหนังสือตอบรับสถานประกอบการ"
+        description="รองรับไฟล์ PDF, JPG หรือ PNG ขนาดไม่เกิน 10MB กรุณาตรวจสอบให้แน่ใจว่าเอกสารมีตราประทับหรือลายเซ็นผู้มีอำนาจครบถ้วน"
+      >
+        <template #body>
+          <div class="space-y-4">
+            <UFormField label="เลือกไฟล์เอกสาร" required>
               <input
                 type="file"
                 accept=".pdf,.jpg,.jpeg,.png"
-                class="block w-full text-xs text-muted file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 cursor-pointer"
+                class="block w-full text-xs text-muted file:mr-4 file:py-2.5 file:px-4 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 cursor-pointer"
                 @change="onFileChange"
               />
-            </div>
-
-            <div class="flex items-center justify-end gap-2 pt-4">
-              <UButton color="neutral" variant="ghost" label="ยกเลิก" @click="isUploadModalOpen = false" />
-              <UButton
-                color="primary"
-                icon="i-lucide-upload"
-                label="อัปโหลด"
-                :loading="isUploading"
-                :disabled="!selectedFile"
-                @click="handleUpload"
-              />
-            </div>
+            </UFormField>
+          </div>
+        </template>
+        <template #footer>
+          <div class="flex items-center justify-end gap-2 w-full">
+            <UButton size="xl" color="neutral" variant="ghost" label="ยกเลิก" @click="isUploadModalOpen = false" />
+            <UButton
+              size="xl"
+              color="primary"
+              icon="i-lucide-upload"
+              label="อัปโหลด"
+              :loading="isUploading"
+              :disabled="!selectedFile"
+              @click="handleUpload"
+            />
           </div>
         </template>
       </UModal>

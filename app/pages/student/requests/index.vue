@@ -95,6 +95,28 @@ const filteredRequests = computed(() => {
   return list
 })
 
+const statusOptions = [
+  { label: 'ทุกสถานะ', value: 'ALL' },
+  { label: 'ส่งคำร้องแล้ว', value: 'SUBMITTED' },
+  { label: 'รอเจ้าหน้าที่ดำเนินการ', value: 'STAFF_PROCESSING' },
+  { label: 'มีหนังสือพร้อมดาวน์โหลด', value: 'LETTER_READY' },
+  { label: 'รอตรวจสอบเอกสาร', value: 'DOCUMENT_UNDER_REVIEW' },
+  { label: 'ถูกส่งกลับให้แก้ไข', value: 'RETURNED_FOR_REVISION' },
+  { label: 'ยืนยันสถานที่ฝึกงานแล้ว', value: 'PLACEMENT_CONFIRMED' }
+]
+
+const page = ref(1)
+const pageSize = ref(10)
+
+const pagedRequests = computed(() => {
+  const start = (page.value - 1) * pageSize.value
+  return filteredRequests.value.slice(start, start + pageSize.value)
+})
+
+watch([search, statusFilter], () => {
+  page.value = 1
+})
+
 const formatThaiDate = (val?: string | null) => {
   if (!val) return '—'
   return new Intl.DateTimeFormat('th-TH', {
@@ -172,8 +194,17 @@ const columns: TableColumn<RequestItem>[] = [
 
     <template #body>
       <div class="space-y-4 pb-8">
-        <section class="overflow-hidden rounded-xl border border-default bg-default shadow-xs" aria-labelledby="requests-heading">
-          <div class="border-b border-default p-5 sm:p-6">
+        <UAlert
+          v-if="error"
+          color="error"
+          variant="subtle"
+          icon="i-lucide-circle-alert"
+          title="ไม่สามารถโหลดคำร้องได้"
+          :description="error.message"
+        />
+
+        <UCard :ui="{ body: 'p-0 sm:p-0' }">
+          <template #header>
             <div class="flex items-start justify-between gap-4">
               <div>
                 <h2 id="requests-heading" class="text-lg font-bold text-highlighted">รายการคำร้องสถานที่ฝึกงาน</h2>
@@ -184,191 +215,251 @@ const columns: TableColumn<RequestItem>[] = [
               </span>
             </div>
 
-        <!-- Control Row -->
-        <div class="mt-5 flex flex-col items-stretch justify-between gap-3 lg:flex-row lg:items-center">
-          <UInput
-            v-model="search"
-            icon="i-lucide-search"
-            placeholder="ค้นหาตามชื่อบริษัท หรือตำแหน่ง..."
-            class="w-full lg:max-w-sm"
-          />
+            <!-- Control Row -->
+            <div class="mt-5 flex flex-col items-stretch justify-between gap-3 lg:flex-row lg:items-center">
+              <UInput
+                v-model="search"
+                size="xl"
+                icon="i-lucide-search"
+                placeholder="ค้นหาตามชื่อบริษัท หรือตำแหน่ง..."
+                class="w-full lg:max-w-sm"
+              />
 
-          <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center lg:justify-end">
-            <USelect
-              v-model="statusFilter"
-              :items="[
-                { label: 'ทุกสถานะ', value: 'ALL' },
-                { label: 'ส่งคำร้องแล้ว', value: 'SUBMITTED' },
-                { label: 'รอเจ้าหน้าที่ดำเนินการ', value: 'STAFF_PROCESSING' },
-                { label: 'มีหนังสือพร้อมดาวน์โหลด', value: 'LETTER_READY' },
-                { label: 'รอตรวจสอบเอกสาร', value: 'DOCUMENT_UNDER_REVIEW' },
-                { label: 'ถูกส่งกลับให้แก้ไข', value: 'RETURNED_FOR_REVISION' },
-                { label: 'ยืนยันสถานที่ฝึกงานแล้ว', value: 'PLACEMENT_CONFIRMED' }
-              ]"
-              class="w-full sm:w-60"
-            />
-            <UButton
-              v-if="search || statusFilter !== 'ALL'"
-              color="neutral"
-              variant="ghost"
-              icon="i-lucide-x"
-              label="ล้างตัวกรอง"
-              size="sm"
-              @click="search = ''; statusFilter = 'ALL'"
-            />
-            <UIButtonRefresh :loading="status === 'pending'" @refresh="refresh" />
-          </div>
-        </div>
-          </div>
+              <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center lg:justify-end">
+                <USelect
+                  v-model="statusFilter"
+                  size="xl"
+                  :items="statusOptions"
+                  class="w-full sm:w-60"
+                />
+                <UButton
+                  v-if="search || statusFilter !== 'ALL'"
+                  color="neutral"
+                  variant="ghost"
+                  icon="i-lucide-x"
+                  label="ล้างตัวกรอง"
+                  size="xs"
+                  @click="search = ''; statusFilter = 'ALL'"
+                />
+                <UIButtonRefresh :loading="status === 'pending'" @refresh="refresh" />
+              </div>
+            </div>
 
-        <UAlert
-          v-if="error"
-          color="error"
-          icon="i-lucide-circle-alert"
-          title="ไม่สามารถโหลดคำร้องได้"
-          :description="error.message"
-        />
-
-        <div class="overflow-hidden border-t border-default">
-          <UTable
-            :columns="columns"
-            :data="filteredRequests"
-            :loading="status === 'pending'"
-            class="min-w-full overflow-x-auto"
-          >
-            <template #id-cell="{ row }">
-              <span class=" text-xs text-muted">REQ-{{ String(row.original.id).padStart(4, '0') }}</span>
-            </template>
-
-            <template #companyName-cell="{ row }">
-              <NuxtLink
-                :to="`/student/requests/${row.original.id}`"
-                class="font-medium text-highlighted hover:text-primary transition-colors text-sm"
-              >
-                {{ row.original.companyName }}
-              </NuxtLink>
-            </template>
-
-            <template #status-cell="{ row }">
+            <!-- Active filter chips -->
+            <div v-if="statusFilter !== 'ALL'" class="mt-3 flex flex-wrap items-center gap-2 pt-3 border-t border-divider">
               <UBadge
-                :color="getReqStatusBadge(row.original.status).color"
                 variant="subtle"
-                size="sm"
+                color="primary"
+                class="gap-1.5"
               >
-                {{ getReqStatusBadge(row.original.status).label }}
+                สถานะ: {{ statusOptions.find(o => o.value === statusFilter)?.label || statusFilter }}
+                <button
+                  type="button"
+                  class="inline-flex items-center text-muted hover:text-ink cursor-pointer"
+                  aria-label="ลบตัวกรองสถานะ"
+                  @click="statusFilter = 'ALL'"
+                >
+                  <UIcon name="i-lucide-x" class="size-3" />
+                </button>
               </UBadge>
-            </template>
+            </div>
+          </template>
 
-            <!-- Integrated Documents Column -->
-            <template #documents-cell="{ row }">
-              <div class="flex flex-col gap-1.5 py-1">
-                <!-- Official Letter -->
-                <div v-if="row.original.letterFilePath || ['LETTER_READY', 'DOCUMENT_UNDER_REVIEW', 'RETURNED_FOR_REVISION', 'PLACEMENT_CONFIRMED'].includes(row.original.status)">
-                  <UButton
-                    size="xs"
-                    color="primary"
-                    variant="soft"
-                    icon="i-lucide-download"
-                    label="หนังสือขอความอนุเคราะห์"
-                    :to="`/api/student/requests/${row.original.id}/letter`"
-                    target="_blank"
-                  />
-                </div>
+          <div class="overflow-x-auto min-w-full">
+            <UTable
+              :columns="columns"
+              :data="pagedRequests"
+              :loading="status === 'pending'"
+              class="min-w-full"
+            >
+              <template #id-cell="{ row }">
+                <span class="text-xs text-muted">REQ-{{ String(row.original.id).padStart(4, '0') }}</span>
+              </template>
 
-                <!-- Signed Document status & download/upload -->
-                <template v-if="row.original.documents && row.original.documents[0]">
-                  <div class="flex items-center gap-1.5 flex-wrap">
-                    <UBadge
-                      size="xs"
-                      variant="subtle"
-                      :color="getDocStatusBadge(row.original.documents[0].status).color"
-                    >
-                      ตอบรับ v.{{ row.original.documents[0].version }} ({{ getDocStatusBadge(row.original.documents[0].status).label }})
-                    </UBadge>
+              <template #companyName-cell="{ row }">
+                <NuxtLink
+                  :to="`/student/requests/${row.original.id}`"
+                  class="font-medium text-highlighted hover:text-primary transition-colors text-sm"
+                >
+                  {{ row.original.companyName }}
+                </NuxtLink>
+              </template>
+
+              <template #position-cell="{ row }">
+                <span class="text-sm text-ink">{{ row.original.position || '—' }}</span>
+              </template>
+
+              <template #province-cell="{ row }">
+                <span class="text-sm text-muted">{{ row.original.province || '—' }}</span>
+              </template>
+
+              <template #status-cell="{ row }">
+                <UBadge
+                  :color="getReqStatusBadge(row.original.status).color"
+                  variant="subtle"
+                  size="sm"
+                >
+                  {{ getReqStatusBadge(row.original.status).label }}
+                </UBadge>
+              </template>
+
+              <!-- Integrated Documents Column -->
+              <template #documents-cell="{ row }">
+                <div class="flex flex-col gap-1.5 py-1">
+                  <!-- Official Letter -->
+                  <div v-if="row.original.letterFilePath || ['LETTER_READY', 'DOCUMENT_UNDER_REVIEW', 'RETURNED_FOR_REVISION', 'PLACEMENT_CONFIRMED'].includes(row.original.status)">
                     <UButton
                       size="xs"
-                      color="neutral"
-                      variant="ghost"
+                      color="primary"
+                      variant="soft"
                       icon="i-lucide-download"
-                      :to="`/api/student/documents/${row.original.documents[0].id}/download`"
+                      label="หนังสือขอความอนุเคราะห์"
+                      :to="`/api/student/requests/${row.original.id}/letter`"
                       target="_blank"
                     />
                   </div>
-                </template>
 
-                <!-- Quick upload trigger -->
-                <div v-if="['LETTER_READY', 'RETURNED_FOR_REVISION'].includes(row.original.status)">
+                  <!-- Signed Document status & download/upload -->
+                  <template v-if="row.original.documents && row.original.documents[0]">
+                    <div class="flex items-center gap-1.5 flex-wrap">
+                      <UBadge
+                        size="xs"
+                        variant="subtle"
+                        :color="getDocStatusBadge(row.original.documents[0].status).color"
+                      >
+                        ตอบรับ v.{{ row.original.documents[0].version }} ({{ getDocStatusBadge(row.original.documents[0].status).label }})
+                      </UBadge>
+                      <UButton
+                        size="xs"
+                        color="neutral"
+                        variant="ghost"
+                        icon="i-lucide-download"
+                        :to="`/api/student/documents/${row.original.documents[0].id}/download`"
+                        target="_blank"
+                        aria-label="ดาวน์โหลดเอกสารตอบรับ"
+                      />
+                    </div>
+                  </template>
+
+                  <!-- Quick upload trigger -->
+                  <div v-if="['LETTER_READY', 'RETURNED_FOR_REVISION'].includes(row.original.status)">
+                    <UButton
+                      size="xs"
+                      :color="row.original.status === 'RETURNED_FOR_REVISION' ? 'error' : 'success'"
+                      variant="outline"
+                      icon="i-lucide-upload"
+                      :label="row.original.status === 'RETURNED_FOR_REVISION' ? 'อัปโหลดฉบับแก้ไข' : 'ส่งหนังสือตอบรับ'"
+                      @click="openUploadModal(row.original.id)"
+                    />
+                  </div>
+
+                  <span
+                    v-if="!row.original.letterFilePath && (!row.original.documents || row.original.documents.length === 0) && !['LETTER_READY', 'RETURNED_FOR_REVISION'].includes(row.original.status)"
+                    class="text-xs text-muted"
+                  >
+                    รอออกหนังสือ
+                  </span>
+                </div>
+              </template>
+
+              <template #actions-cell="{ row }">
+                <div class="flex items-center justify-end">
                   <UButton
                     size="xs"
-                    :color="row.original.status === 'RETURNED_FOR_REVISION' ? 'error' : 'success'"
+                    color="neutral"
                     variant="outline"
-                    icon="i-lucide-upload"
-                    :label="row.original.status === 'RETURNED_FOR_REVISION' ? 'อัปโหลดฉบับแก้ไข' : 'ส่งหนังสือตอบรับ'"
-                    @click="openUploadModal(row.original.id)"
+                    label="ดูรายละเอียด"
+                    :to="`/student/requests/${row.original.id}`"
                   />
                 </div>
+              </template>
 
-                <span
-                  v-if="!row.original.letterFilePath && (!row.original.documents || row.original.documents.length === 0) && !['LETTER_READY', 'RETURNED_FOR_REVISION'].includes(row.original.status)"
-                  class="text-xs text-muted"
-                >
-                  รอออกหนังสือ
-                </span>
+              <template #empty>
+                <!-- Filtered Empty State -->
+                <div v-if="(requests || []).length > 0" class="py-12 text-center space-y-3">
+                  <UIcon name="i-lucide-filter-x" class="size-8 mx-auto text-muted" />
+                  <p class="text-sm font-medium text-ink">ไม่พบคำร้องที่ตรงกับเงื่อนไขการค้นหา</p>
+                  <p class="text-xs text-muted">ลองปรับคำค้นหาหรือตัวกรองสถานะใหม่</p>
+                  <UButton
+                    size="xs"
+                    color="neutral"
+                    variant="outline"
+                    icon="i-lucide-rotate-ccw"
+                    label="ล้างตัวกรองทั้งหมด"
+                    @click="search = ''; statusFilter = 'ALL'"
+                  />
+                </div>
+                <!-- Zero Data State -->
+                <div v-else class="py-12 text-center text-muted space-y-2">
+                  <UIcon name="i-lucide-file-text" class="size-8 mx-auto opacity-40" />
+                  <p class="text-sm font-medium text-ink">ยังไม่มีคำร้องสถานที่ฝึกงาน</p>
+                  <p class="text-xs text-muted">เมื่อท่านได้รับการตอบรับจากบริษัทและกดยืนยัน คำร้องและเอกสารจะปรากฏที่นี่</p>
+                </div>
+              </template>
+            </UTable>
+          </div>
+
+          <!-- Pagination Footer -->
+          <template #footer>
+            <div v-if="filteredRequests.length > 0" class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between px-4 py-3">
+              <div class="flex items-center gap-2 text-xs text-muted">
+                <span>แสดง {{ (page - 1) * pageSize + 1 }} - {{ Math.min(page * pageSize, filteredRequests.length) }} จาก {{ filteredRequests.length }} รายการ</span>
+                <span class="text-muted">•</span>
+                <div class="flex items-center gap-1.5">
+                  <span>หน้าละ</span>
+                  <USelect
+                    v-model="pageSize"
+                    :items="[
+                      { label: '10', value: 10 },
+                      { label: '20', value: 20 },
+                      { label: '50', value: 50 }
+                    ]"
+                    size="md"
+                    class="w-20"
+                  />
+                </div>
               </div>
-            </template>
-
-            <template #actions-cell="{ row }">
-              <UButton
-                size="xs"
-                color="neutral"
-                variant="outline"
-                label="ดูรายละเอียด"
-                :to="`/student/requests/${row.original.id}`"
+              <UPagination
+                v-model:page="page"
+                :total="filteredRequests.length"
+                :items-per-page="pageSize"
+                size="md"
               />
-            </template>
-
-            <template #empty>
-              <div class="py-12 text-center text-muted space-y-2">
-                <UIcon name="i-lucide-file-text" class="size-8 mx-auto opacity-40" />
-                <p class="text-sm">ยังไม่มีคำร้องสถานที่ฝึกงาน</p>
-                <p class="text-xs">เมื่อท่านได้รับการตอบรับจากบริษัทและกดยืนยัน คำร้องและเอกสารจะปรากฏที่นี่</p>
-              </div>
-            </template>
-          </UTable>
-        </div>
-        </section>
+            </div>
+          </template>
+        </UCard>
       </div>
 
       <!-- Upload Signed Document Modal -->
-      <UModal v-model:open="isUploadModalOpen">
-        <template #content>
-          <div class="p-6 space-y-4">
-            <h3 class="text-base font-semibold text-highlighted">อัปโหลดหนังสือตอบรับสถานประกอบการ</h3>
-            <p class="text-xs text-muted leading-relaxed">
-              รองรับไฟล์ PDF, JPG หรือ PNG ขนาดไม่เกิน 10MB กรุณาตรวจสอบให้แน่ใจว่าเอกสารมีตราประทับหรือลายเซ็นผู้มีอำนาจครบถ้วน
-            </p>
-
-            <div class="space-y-2 pt-2">
-              <label class="block text-xs font-medium text-highlighted">เลือกไฟล์เอกสาร</label>
+      <UModal
+        v-model:open="isUploadModalOpen"
+        title="อัปโหลดหนังสือตอบรับสถานประกอบการ"
+        description="รองรับไฟล์ PDF, JPG หรือ PNG ขนาดไม่เกิน 10MB กรุณาตรวจสอบให้แน่ใจว่าเอกสารมีตราประทับหรือลายเซ็นผู้มีอำนาจครบถ้วน"
+      >
+        <template #body>
+          <div class="space-y-4">
+            <UFormField label="เลือกไฟล์เอกสาร" required>
               <input
                 type="file"
                 accept=".pdf,.jpg,.jpeg,.png"
-                class="block w-full text-xs text-muted file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 cursor-pointer"
+                class="block w-full text-xs text-muted file:mr-4 file:py-2.5 file:px-4 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 cursor-pointer"
                 @change="onFileChange"
               />
-            </div>
-
-            <div class="flex items-center justify-end gap-2 pt-4">
-              <UButton color="neutral" variant="ghost" label="ยกเลิก" @click="isUploadModalOpen = false" />
-              <UButton
-                color="primary"
-                icon="i-lucide-upload"
-                label="อัปโหลด"
-                :loading="isUploading"
-                :disabled="!selectedFile"
-                @click="handleUpload"
-              />
-            </div>
+            </UFormField>
+          </div>
+        </template>
+        <template #footer>
+          <div class="flex items-center justify-end gap-2 w-full">
+            <UButton size="xl" color="neutral" variant="ghost" label="ยกเลิก" @click="isUploadModalOpen = false" />
+            <UButton
+              size="xl"
+              color="primary"
+              icon="i-lucide-upload"
+              label="อัปโหลด"
+              :loading="isUploading"
+              :disabled="!selectedFile"
+              @click="handleUpload"
+            />
           </div>
         </template>
       </UModal>

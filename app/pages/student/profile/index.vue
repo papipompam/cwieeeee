@@ -37,7 +37,10 @@ const handleSavePhone = async () => {
           <UDashboardSidebarCollapse />
         </template>
         <template #right>
-          <UIButtonRefresh :loading="status === 'pending'" @refresh="refresh" />
+          <div class="flex items-center gap-2">
+            <UIButtonRefresh :loading="status === 'pending'" @refresh="refresh" />
+            <AppNotificationBell />
+          </div>
         </template>
       </AppDashboardNavbar>
     </template>
@@ -47,6 +50,7 @@ const handleSavePhone = async () => {
         <UAlert
           v-if="error"
           color="error"
+          variant="subtle"
           icon="i-lucide-circle-alert"
           title="ไม่สามารถโหลดข้อมูลส่วนตัวได้"
           :description="error.message"
@@ -58,16 +62,18 @@ const handleSavePhone = async () => {
 
         <div v-else-if="profile" class="space-y-6">
           <!-- Student Info Card -->
-          <div class="rounded-xl border border-default bg-default p-6 shadow-xs space-y-4">
-            <div class="flex items-center gap-3 border-b border-default/60 pb-4">
-              <div class="size-12 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-lg">
-                <UIcon name="i-lucide-user" class="size-6" />
+          <UCard>
+            <template #header>
+              <div class="flex items-center gap-3">
+                <div class="size-12 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-lg">
+                  <UIcon name="i-lucide-user" class="size-6" />
+                </div>
+                <div>
+                  <h2 class="font-bold text-highlighted text-lg">{{ profile.name }}</h2>
+                  <p class="text-xs text-muted">รหัสนักศึกษา: {{ profile.loginId }}</p>
+                </div>
               </div>
-              <div>
-                <h2 class="font-bold text-highlighted text-lg">{{ profile.name }}</h2>
-                <p class="text-xs text-muted">รหัสนักศึกษา: {{ profile.loginId }}</p>
-              </div>
-            </div>
+            </template>
 
             <div class="grid grid-cols-2 gap-4 text-xs">
               <div>
@@ -85,41 +91,47 @@ const handleSavePhone = async () => {
                 </UBadge>
               </div>
             </div>
-          </div>
+          </UCard>
 
           <!-- Contact Info Card -->
-          <div class="rounded-xl border border-default bg-default p-6 shadow-xs space-y-4">
-            <h3 class="font-semibold text-highlighted text-sm">ข้อมูลติดต่อ</h3>
+          <UCard>
+            <template #header>
+              <h3 class="font-semibold text-highlighted text-sm">ข้อมูลติดต่อ</h3>
+            </template>
+
             <div class="space-y-3">
-              <div>
-                <label class="block text-xs font-medium text-highlighted mb-1">เบอร์โทรศัพท์มือถือ</label>
+              <UFormField label="เบอร์โทรศัพท์มือถือ" name="phone">
                 <div class="flex gap-2">
-                  <UInput v-model="phone" placeholder="เช่น 0812345678" class="flex-1" />
+                  <UInput v-model="phone" size="xl" placeholder="เช่น 0812345678" class="flex-1" />
                   <UButton
+                    size="xl"
                     color="primary"
                     label="บันทึกเบอร์โทร"
                     :loading="isSaving"
                     @click="handleSavePhone"
                   />
                 </div>
-              </div>
+              </UFormField>
             </div>
-          </div>
+          </UCard>
 
           <!-- Account Security Link -->
-          <div class="rounded-xl border border-default bg-default p-5 shadow-xs flex items-center justify-between">
-            <div>
-              <h4 class="font-semibold text-highlighted text-sm">ความปลอดภัยบัญชี</h4>
-              <p class="text-xs text-muted">เปลี่ยนรหัสผ่านสำหรับการเข้าสู่ระบบ</p>
+          <UCard>
+            <div class="flex items-center justify-between">
+              <div>
+                <h4 class="font-semibold text-highlighted text-sm">ความปลอดภัยบัญชี</h4>
+                <p class="text-xs text-muted">เปลี่ยนรหัสผ่านสำหรับการเข้าสู่ระบบ</p>
+              </div>
+              <UButton
+                size="xl"
+                color="neutral"
+                variant="outline"
+                icon="i-lucide-key-round"
+                label="เปลี่ยนรหัสผ่าน"
+                to="/account/password"
+              />
             </div>
-            <UButton
-              color="neutral"
-              variant="outline"
-              icon="i-lucide-key-round"
-              label="เปลี่ยนรหัสผ่าน"
-              to="/account/password"
-            />
-          </div>
+          </UCard>
         </div>
       </div>
     </template>

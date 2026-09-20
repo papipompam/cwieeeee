@@ -100,7 +100,12 @@ const actionCards = computed(() => [
             <span class="truncate text-lg font-bold text-highlighted">หน้าหลัก</span>
           </div>
         </template>
-        <template #right><AppNotificationBell /></template>
+        <template #right>
+          <div class="flex items-center gap-2">
+            <UIButtonRefresh :loading="status === 'pending'" @refresh="refresh" />
+            <AppNotificationBell />
+          </div>
+        </template>
       </AppDashboardNavbar>
     </template>
 
@@ -109,6 +114,7 @@ const actionCards = computed(() => [
         <UAlert
           v-if="error"
           color="error"
+          variant="subtle"
           icon="i-lucide-circle-alert"
           title="ไม่สามารถโหลดข้อมูลหน้าหลักได้"
           :description="error.message"

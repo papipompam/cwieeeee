@@ -17,23 +17,26 @@ const { data: contextData } = await useFetch<any>('/api/student/context')
             color="neutral"
             variant="ghost"
             to="/student/applications"
+            aria-label="กลับไปหน้ารายการสมัคร"
           />
+        </template>
+        <template #right>
+          <AppNotificationBell />
         </template>
       </AppDashboardNavbar>
     </template>
 
     <template #body>
       <div class="mx-auto w-full max-w-4xl pb-16 space-y-6">
-        <div v-if="contextData && !contextData.canApply" class="rounded-xl border border-warning/40 bg-warning/5 p-4 text-xs text-warning flex items-start gap-3">
-          <UIcon name="i-lucide-triangle-alert" class="size-5 shrink-0 mt-0.5" />
-          <div class="space-y-1">
-            <h4 class="font-semibold text-sm">ไม่สามารถเพิ่มรายการสมัครใหม่ได้</h4>
-            <p>{{ contextData.reason || 'ท่านไม่ผ่านเงื่อนไขการสมัครในรอบปัจจุบัน' }}</p>
-            <div class="pt-2">
-              <UButton size="xs" color="warning" variant="subtle" label="กลับไปหน้ารายการสมัคร" to="/student/applications" />
-            </div>
-          </div>
-        </div>
+        <UAlert
+          v-if="contextData && !contextData.canApply"
+          color="warning"
+          variant="subtle"
+          icon="i-lucide-triangle-alert"
+          title="ไม่สามารถเพิ่มรายการสมัครใหม่ได้"
+          :description="contextData.reason || 'ท่านไม่ผ่านเงื่อนไขการสมัครในรอบปัจจุบัน'"
+          :actions="[{ label: 'กลับไปหน้ารายการสมัคร', color: 'neutral', variant: 'outline', to: '/student/applications' }]"
+        />
 
         <StudentApplicationForm v-else />
       </div>

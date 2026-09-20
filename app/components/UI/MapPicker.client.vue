@@ -232,6 +232,8 @@ onBeforeUnmount(() => {
         <div ref="searchContainer" class="relative flex-1">
           <UInput
             v-model="searchQuery"
+            size="md"
+            aria-label="ค้นหาสถานที่"
             placeholder="พิมพ์ค้นหาสถานที่ เช่น เซ็นทรัลเวิลด์, นิคมบางปู, มช. ..."
             icon="i-lucide-search"
             class="w-full"
@@ -264,6 +266,7 @@ onBeforeUnmount(() => {
         <div class="flex items-center gap-2">
           <UButton
             type="button"
+            size="md"
             label="ค้นหา"
             color="primary"
             variant="soft"
@@ -274,23 +277,27 @@ onBeforeUnmount(() => {
 
           <UButton
             type="button"
+            size="md"
             label="พิกัดฉัน"
             color="neutral"
             variant="outline"
             icon="i-lucide-crosshair"
             :loading="isLocating"
             title="ใช้ตำแหน่ง GPS ปัจจุบัน"
+            aria-label="ใช้ตำแหน่ง GPS ปัจจุบัน"
             @click="handleCurrentLocation"
           />
 
           <UButton
             v-if="modelValue?.lat != null"
             type="button"
+            size="md"
             label="ล้างหมุด"
             color="error"
             variant="ghost"
             icon="i-lucide-trash-2"
             title="ลบหมุดพิกัด"
+            aria-label="ลบหมุดพิกัด"
             @click="removeMarker"
           />
         </div>
