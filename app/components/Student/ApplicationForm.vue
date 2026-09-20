@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { PROVINCES } from '~/utils/geo'
+
 interface Company {
   id: number
   name: string
@@ -21,6 +23,7 @@ const props = defineProps<{
   initialData?: any
   isEdit?: boolean
   embedded?: boolean
+  preselectedCompanyId?: number | string
 }>()
 
 const emit = defineEmits<{
@@ -39,8 +42,8 @@ const selectedCompanyId = ref<number | null>(props.initialData?.companyId || nul
 const selectedCompany = ref<Company | null>(props.initialData?.company || null)
 
 const { data: searchedCompanies } = await useFetch<Company[]>('/api/student/companies', {
-  query: computed(() => ({ search: companySearch.value })),
-  watch: [companySearch]
+  query: computed(() => ({ search: companySearch.value, id: props.preselectedCompanyId })),
+  watch: [companySearch, () => props.preselectedCompanyId]
 })
 
 // New Company Form
@@ -76,6 +79,18 @@ const form = reactive({
 const errors = reactive<Record<string, string>>({})
 const isSubmitting = ref(false)
 
+const provinceOptions = PROVINCES.map(province => ({ label: province, value: province }))
+const positionOptions = [
+  'Frontend Developer',
+  'Backend Developer',
+  'Full Stack Developer',
+  'Data Analyst',
+  'UX/UI Designer',
+  'Software Tester',
+  'IT Support',
+  'System Support'
+].map(position => ({ label: position, value: position }))
+
 const selectExistingCompany = (comp: Company) => {
   selectedCompanyId.value = comp.id
   selectedCompany.value = comp
@@ -85,6 +100,12 @@ const selectExistingCompany = (comp: Company) => {
     form.coords.lng = comp.longitude
   }
 }
+
+watch(searchedCompanies, companies => {
+  const requestedId = Number(props.preselectedCompanyId)
+  const company = requestedId ? companies?.find(item => item.id === requestedId) : null
+  if (company && selectedCompanyId.value !== company.id) selectExistingCompany(company)
+}, { immediate: true })
 
 const getFullAddress = (c: Company | typeof newCompany) => {
   return [
@@ -187,7 +208,7 @@ const handleSubmit = async () => {
         body: payload
       })
       notify.success('บันทึกการสมัครสถานประกอบการเรียบร้อยแล้ว')
-      await router.push(`/student/applications/${res.id}`)
+      await router.push(props.embedded ? '/student/applications' : `/student/applications/${res.id}`)
     }
   } catch (err: any) {
     notify.error(err.data?.message || 'เกิดข้อผิดพลาดในการบันทึกข้อมูล')
@@ -356,7 +377,15 @@ const handleCancel = () => {
 
         <div>
           <UFormField label="จังหวัด" required :error="errors.province">
-            <UInput v-model="newCompany.province" size="xl" placeholder="เช่น กรุงเทพมหานคร" class="w-full" />
+            <USelectMenu
+              v-model="newCompany.province"
+              :items="provinceOptions"
+              value-key="value"
+              size="xl"
+              placeholder="เลือกจังหวัด"
+              :search-input="{ placeholder: 'ค้นหาจังหวัด...' }"
+              class="w-full"
+            />
           </UFormField>
         </div>
 
@@ -377,7 +406,17 @@ const handleCancel = () => {
       <div class="grid gap-4 sm:grid-cols-3">
         <div class="sm:col-span-2">
           <UFormField label="ตำแหน่งที่สมัคร" required :error="errors.applicationPosition">
-            <UInput v-model="form.applicationPosition" size="xl" placeholder="เช่น Software Engineer Intern, Data Analyst" class="w-full" />
+            <USelectMenu
+              v-model="form.applicationPosition"
+              :items="positionOptions"
+              value-key="value"
+              size="xl"
+              placeholder="เลือกตำแหน่งที่สมัคร"
+              :search-input="{ placeholder: 'ค้นหาตำแหน่ง...' }"
+              create-item
+              @create="form.applicationPosition = $event"
+              class="w-full"
+            />
           </UFormField>
         </div>
 

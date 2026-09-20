@@ -126,13 +126,13 @@ export default defineEventHandler(async (event) => {
     nextAction = {
       type: 'LETTER_READY',
       label: 'มีหนังสือพร้อมดาวน์โหลด กรุณาส่งหนังสือตอบรับ',
-      to: `/student/requests/${latestRequest.id}`
+      to: '/student/applications'
     }
   } else if (latestRequest?.status === 'RETURNED_FOR_REVISION') {
     nextAction = {
       type: 'RETURNED_FOR_REVISION',
       label: 'เอกสารมีข้อเสนอแนะให้แก้ไข กรุณาอัปโหลดฉบับใหม่',
-      to: `/student/requests/${latestRequest.id}`
+      to: '/student/applications'
     }
   } else if (activeApplication?.status === 'ACCEPTED') {
     nextAction = {

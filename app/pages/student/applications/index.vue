@@ -47,7 +47,9 @@ interface Application {
 }
 
 const notify = useNotify()
+const route = useRoute()
 const isApplicationModalOpen = ref(false)
+const applicationNotice = ref<string | null>(null)
 
 const { data: contextData } = await useFetch<any>('/api/student/context')
 const { data: rawApplications, status, error, refresh } = await useFetch<Application[]>('/api/student/applications')
@@ -127,9 +129,12 @@ watch(pageCount, count => {
   if (page.value > count) page.value = count
 })
 
+const clearedFeaturedApplicationId = ref<number | null>(null)
+
 const featuredApplication = computed(() => {
   const activeId = contextData.value?.activeApplication?.id
-  return rawApplications.value?.find(item => item.id === activeId) || rawApplications.value?.[0] || null
+  if (activeId === clearedFeaturedApplicationId.value) return null
+  return rawApplications.value?.find(item => item.id === activeId) || null
 })
 
 const featuredRequest = computed(() => {
@@ -138,6 +143,24 @@ const featuredRequest = computed(() => {
 })
 
 const latestResponseDocument = computed(() => featuredRequest.value?.documents?.[0] || null)
+
+const getRequestStatusBadge = (status?: string) => {
+  switch (status) {
+    case 'SUBMITTED':
+    case 'STAFF_PROCESSING':
+      return { label: 'เจ้าหน้าที่กำลังดำเนินการ', color: 'warning' as const }
+    case 'LETTER_READY':
+      return { label: 'มีหนังสือพร้อมดาวน์โหลด', color: 'primary' as const }
+    case 'DOCUMENT_UNDER_REVIEW':
+      return { label: 'รอตรวจสอบหนังสือตอบรับ', color: 'warning' as const }
+    case 'RETURNED_FOR_REVISION':
+      return { label: 'กรุณาแก้ไขหนังสือตอบรับ', color: 'error' as const }
+    case 'PLACEMENT_CONFIRMED':
+      return { label: 'ยืนยันสถานที่ฝึกงานแล้ว', color: 'success' as const }
+    default:
+      return { label: 'ยังไม่มีคำร้อง', color: 'neutral' as const }
+  }
+}
 
 const companyAddress = computed(() => {
   if (featuredRequest.value?.address) return featuredRequest.value.address
@@ -208,41 +231,125 @@ const getStatusBadge = (s: string) => {
   }
 }
 
+const openApplicationModal = () => {
+  if (contextData.value?.canApply) {
+    applicationNotice.value = null
+    isApplicationModalOpen.value = true
+    return
+  }
+
+  applicationNotice.value = contextData.value?.reason || 'ขออภัย ขณะนี้ยังไม่สามารถกรอกข้อมูลสถานประกอบการใหม่ได้'
+}
+
+watch([() => route.query.companyId, contextData], ([companyId, context]) => {
+  if (companyId && context && Number.isInteger(Number(companyId))) openApplicationModal()
+}, { immediate: true })
+
+const applicationToUpdate = ref<Application | null>(null)
+const outcomeStatus = ref('')
+const isUpdatingOutcome = ref(false)
+const isUploadModalOpen = ref(false)
+const selectedFile = ref<File | null>(null)
+const isUploading = ref(false)
+
+const outcomeOptions = computed(() => {
+  if (!applicationToUpdate.value) return []
+
+  const options = []
+  if (applicationToUpdate.value.status === 'SUBMITTED') {
+    options.push({ label: 'กำลังดำเนินการ', value: 'AWAITING_RESPONSE' })
+  }
+  options.push(
+    { label: 'ยืนยันสถานประกอบการ', value: 'ACCEPTED' },
+    { label: 'ปฏิเสธ', value: 'REJECTED' }
+  )
+  return options
+})
+
+const openOutcomeModal = (application: Application) => {
+  applicationToUpdate.value = application
+  outcomeStatus.value = application.status === 'SUBMITTED' ? 'AWAITING_RESPONSE' : 'ACCEPTED'
+}
+
+const updateOutcome = async () => {
+  if (!applicationToUpdate.value || !outcomeStatus.value) return
+
+  const applicationId = applicationToUpdate.value.id
+  const targetStatus = outcomeStatus.value
+  isUpdatingOutcome.value = true
+  try {
+    await $fetch(`/api/student/applications/${applicationId}/outcome`, {
+      method: 'POST',
+      body: { status: targetStatus }
+    })
+    notify.success('อัปเดตผลการสมัครเรียบร้อยแล้ว')
+    applicationToUpdate.value = null
+    if (targetStatus === 'REJECTED') clearedFeaturedApplicationId.value = applicationId
+    await Promise.all([refresh(), refreshNuxtData('/api/student/context')])
+  } catch (err: any) {
+    notify.error(err.data?.message || 'ไม่สามารถอัปเดตผลการสมัครได้')
+  } finally {
+    isUpdatingOutcome.value = false
+  }
+}
+
+const onFileChange = (event: Event) => {
+  selectedFile.value = (event.target as HTMLInputElement).files?.[0] || null
+}
+
+const uploadSignedDocument = async () => {
+  if (!featuredApplication.value || !selectedFile.value) {
+    notify.warning('กรุณาเลือกไฟล์หนังสือตอบรับก่อนอัปโหลด')
+    return
+  }
+
+  isUploading.value = true
+  try {
+    const formData = new FormData()
+    formData.append('file', selectedFile.value)
+    await $fetch(`/api/student/applications/${featuredApplication.value.id}/signed-document`, {
+      method: 'POST',
+      body: formData
+    })
+    notify.success('อัปโหลดหนังสือตอบรับเรียบร้อยแล้ว กรุณารอเจ้าหน้าที่ตรวจสอบ')
+    isUploadModalOpen.value = false
+    selectedFile.value = null
+    await Promise.all([refresh(), refreshNuxtData('/api/student/context')])
+  } catch (err: any) {
+    notify.error(err.data?.message || 'ไม่สามารถอัปโหลดหนังสือตอบรับได้')
+  } finally {
+    isUploading.value = false
+  }
+}
+
 const columns: TableColumn<Application>[] = [
   { id: 'company', header: 'บริษัท / ตำแหน่ง' },
   { id: 'location', header: 'ที่อยู่ / พิกัดบริษัท' },
   { id: 'recipient', header: 'ผู้รับหนังสือ / ที่อยู่ออกหนังสือ' },
   { accessorKey: 'appliedAt', header: 'วันที่สมัคร' },
   { accessorKey: 'status', header: 'สถานะ' },
-  { accessorKey: 'updatedAt', header: 'อัปเดตล่าสุด' },
-  { id: 'actions', header: 'จัดการ' }
+  { accessorKey: 'updatedAt', header: 'อัปเดตล่าสุด' }
 ]
 
-// Delete modal state
-const isDeleteModalOpen = ref(false)
-const appToDelete = ref<Application | null>(null)
-const isDeleting = ref(false)
+const isConfirmModalOpen = ref(false)
+const isConfirming = ref(false)
 
-const openDeleteModal = (app: Application) => {
-  appToDelete.value = app
-  isDeleteModalOpen.value = true
-}
+const confirmFeaturedApplication = async () => {
+  if (!featuredApplication.value) return
 
-const handleDeleteConfirm = async () => {
-  if (!appToDelete.value) return
-  isDeleting.value = true
+  isConfirming.value = true
   try {
-    await $fetch(`/api/student/applications/${appToDelete.value.id}`, { method: 'DELETE' })
-    notify.success('ลบรายการสมัครเรียบร้อยแล้ว')
-    isDeleteModalOpen.value = false
-    appToDelete.value = null
-    await refresh()
+    await $fetch(`/api/student/applications/${featuredApplication.value.id}/confirm`, { method: 'POST' })
+    notify.success('ยืนยันสถานประกอบการและส่งคำร้องเรียบร้อยแล้ว')
+    isConfirmModalOpen.value = false
+    await Promise.all([refresh(), refreshNuxtData('/api/student/context')])
   } catch (err: any) {
-    notify.error(err.data?.message || 'ไม่สามารถลบรายการได้')
+    notify.error(err.data?.message || 'ไม่สามารถยืนยันสถานประกอบการได้')
   } finally {
-    isDeleting.value = false
+    isConfirming.value = false
   }
 }
+
 </script>
 
 <template>
@@ -258,9 +365,7 @@ const handleDeleteConfirm = async () => {
             size="xl"
             icon="i-lucide-plus"
             label="กรอกข้อมูล"
-            :disabled="!contextData?.canApply"
-            :title="contextData?.canApply ? 'กรอกข้อมูลการสมัคร' : (contextData?.reason || 'ยังไม่สามารถกรอกข้อมูลได้')"
-            @click="isApplicationModalOpen = true"
+            @click="openApplicationModal"
           />
           <UIButtonRefresh :loading="status === 'pending'" @refresh="refresh" />
           <AppNotificationBell />
@@ -270,6 +375,16 @@ const handleDeleteConfirm = async () => {
 
     <template #body>
       <div class="space-y-6 pb-8">
+        <UAlert
+          v-if="applicationNotice"
+          color="warning"
+          variant="subtle"
+          icon="i-lucide-circle-alert"
+          title="ยังไม่สามารถกรอกข้อมูลสถานประกอบการใหม่ได้"
+          :description="applicationNotice"
+          :actions="[{ label: 'ปิดข้อความ', color: 'neutral', variant: 'ghost', onClick: () => { applicationNotice = null } }]"
+        />
+
         <!-- Top Card: ข้อมูลที่ฝึกงาน (Empty State) -->
         <UCard v-if="!featuredApplication">
           <UEmpty
@@ -284,8 +399,7 @@ const handleDeleteConfirm = async () => {
                 size="xl"
                 icon="i-lucide-plus"
                 label="กรอกข้อมูลที่ฝึกงาน"
-                :disabled="!contextData?.canApply"
-                @click="isApplicationModalOpen = true"
+                @click="openApplicationModal"
               />
             </template>
           </UEmpty>
@@ -305,10 +419,64 @@ const handleDeleteConfirm = async () => {
                     <p class="mt-1 text-sm leading-6 text-muted">ข้อมูลบริษัท ตำแหน่ง และสถานะการสมัครล่าสุด</p>
                   </div>
                 </div>
-                <div class="flex flex-wrap items-center gap-2 sm:justify-end">
-                  <UBadge :color="getStatusBadge(featuredApplication.status).color" variant="subtle" size="md" class="shrink-0">
-                    {{ featuredRequest?.status === 'PLACEMENT_CONFIRMED' ? 'ยืนยันสถานที่ฝึกงานแล้ว' : getStatusBadge(featuredApplication.status).label }}
+                <div class="flex w-full flex-col items-stretch gap-3 sm:w-auto sm:items-end">
+                  <UBadge :color="featuredRequest ? getRequestStatusBadge(featuredRequest.status).color : getStatusBadge(featuredApplication.status).color" variant="subtle" size="md" class="shrink-0">
+                    {{ featuredRequest ? getRequestStatusBadge(featuredRequest.status).label : getStatusBadge(featuredApplication.status).label }}
                   </UBadge>
+                  <div class="flex flex-wrap gap-2 sm:justify-end">
+                    <UButton
+                      v-if="['SUBMITTED', 'AWAITING_RESPONSE', 'INTERVIEW'].includes(featuredApplication.status)"
+                      color="primary"
+                      size="xl"
+                      icon="i-lucide-square-pen"
+                      label="อัปเดตผลการสมัคร"
+                      @click="openOutcomeModal(featuredApplication)"
+                    />
+                    <UButton
+                      v-if="featuredApplication.status === 'ACCEPTED'"
+                      color="success"
+                      size="xl"
+                      icon="i-lucide-check-circle"
+                      label="ยืนยันสถานประกอบการ"
+                      @click="isConfirmModalOpen = true"
+                    />
+                    <UButton
+                      v-if="featuredRequest?.letterFilePath"
+                      :to="`/api/student/applications/${featuredApplication.id}/letter`"
+                      target="_blank"
+                      color="neutral"
+                      variant="outline"
+                      size="xl"
+                      icon="i-lucide-download"
+                      label="ดาวน์โหลดหนังสือ"
+                    />
+                    <UButton
+                      v-if="latestResponseDocument"
+                      :to="`/api/student/documents/${latestResponseDocument.id}/download`"
+                      target="_blank"
+                      color="neutral"
+                      variant="outline"
+                      size="xl"
+                      icon="i-lucide-download"
+                      label="ดาวน์โหลดหนังสือตอบรับ"
+                    />
+                    <UButton
+                      v-if="featuredRequest && ['LETTER_READY', 'RETURNED_FOR_REVISION'].includes(featuredRequest.status)"
+                      color="primary"
+                      size="xl"
+                      icon="i-lucide-upload"
+                      :label="featuredRequest.status === 'RETURNED_FOR_REVISION' ? 'อัปโหลดฉบับแก้ไข' : 'ส่งหนังสือตอบรับ'"
+                      @click="isUploadModalOpen = true"
+                    />
+                    <UButton
+                      v-if="['REJECTED', 'WITHDRAWN'].includes(featuredApplication.status) && contextData?.canApply"
+                      color="primary"
+                      size="xl"
+                      icon="i-lucide-plus"
+                      label="กรอกข้อมูลที่ฝึกงานใหม่"
+                      @click="openApplicationModal"
+                    />
+                  </div>
                 </div>
               </div>
             </template>
@@ -383,7 +551,6 @@ const handleDeleteConfirm = async () => {
                 </div>
                 <h3 class="mt-4 text-sm font-semibold text-ink">หนังสือขอความอนุเคราะห์</h3>
                 <p class="mt-1 flex-1 text-sm leading-6 text-muted">หนังสือจากมหาวิทยาลัยสำหรับยื่นต่อสถานประกอบการ</p>
-                <UButton :disabled="!featuredRequest?.letterFilePath" :to="featuredRequest?.letterFilePath ? `/api/student/requests/${featuredRequest.id}/letter` : undefined" target="_blank" color="neutral" variant="outline" size="sm" icon="i-lucide-download" label="ดาวน์โหลดหนังสือ" class="mt-4 justify-center sm:self-start" />
               </article>
 
               <article class="flex min-w-0 flex-col rounded-panel border border-divider p-4 sm:p-5">
@@ -393,7 +560,6 @@ const handleDeleteConfirm = async () => {
                 </div>
                 <h3 class="mt-4 text-sm font-semibold text-ink">หนังสือตอบรับ</h3>
                 <p class="mt-1 flex-1 text-sm leading-6 text-muted">หนังสือตอบรับฉบับล่าสุดที่ส่งกลับจากสถานประกอบการ</p>
-                <UButton :disabled="!latestResponseDocument" :to="latestResponseDocument ? `/api/student/documents/${latestResponseDocument.id}/download` : undefined" target="_blank" color="neutral" variant="outline" size="sm" icon="i-lucide-download" label="ดาวน์โหลดหนังสือ" class="mt-4 justify-center sm:self-start" />
               </article>
             </div>
           </UCard>
@@ -574,49 +740,6 @@ const handleDeleteConfirm = async () => {
                   <span class="whitespace-nowrap text-xs text-muted">{{ formatThaiDateTime(row.original.updatedAt) }}</span>
                 </template>
 
-                <template #actions-header>
-                  <span class="block text-right">จัดการ</span>
-                </template>
-
-                <template #actions-cell="{ row }">
-                  <div class="flex items-center justify-end gap-1 whitespace-nowrap">
-                    <UButton
-                      v-if="['SUBMITTED', 'AWAITING_RESPONSE', 'INTERVIEW'].includes(row.original.status)"
-                      size="xs"
-                      color="neutral"
-                      variant="ghost"
-                      icon="i-lucide-pencil"
-                      label="แก้ไข"
-                      :to="`/student/applications/${row.original.id}/edit`"
-                    />
-                    <UButton
-                      v-if="['REJECTED', 'WITHDRAWN'].includes(row.original.status) && contextData?.canApply"
-                      size="xs"
-                      color="primary"
-                      variant="ghost"
-                      icon="i-lucide-refresh-cw"
-                      label="สมัครใหม่"
-                      @click="isApplicationModalOpen = true"
-                    />
-                    <UButton
-                      v-if="row.original.status === 'REJECTED'"
-                      size="xs"
-                      color="error"
-                      variant="ghost"
-                      icon="i-lucide-trash-2"
-                      label="ลบ"
-                      @click="openDeleteModal(row.original)"
-                    />
-                    <UButton
-                      size="xs"
-                      color="neutral"
-                      variant="ghost"
-                      icon="i-lucide-eye"
-                      label="ดูรายละเอียด"
-                      :to="`/student/applications/${row.original.id}`"
-                    />
-                  </div>
-                </template>
               </UTable>
             </div>
 
@@ -638,14 +761,56 @@ const handleDeleteConfirm = async () => {
 
       <!-- Confirm Delete Modal for REJECTED -->
       <UIConfirmModal
-        v-model:open="isDeleteModalOpen"
-        title="ยืนยันการลบรายการสมัคร"
-        :description="`ท่านต้องการลบรายการสมัครสำหรับ ${appToDelete?.company.name} ใช่หรือไม่? การดำเนินการนี้ไม่สามารถย้อนกลับได้`"
-        confirm-label="ลบรายการ"
-        confirm-color="error"
-        :loading="isDeleting"
-        @confirm="handleDeleteConfirm"
+        v-model:open="isConfirmModalOpen"
+        title="ยืนยันสถานประกอบการ"
+        :description="`ยืนยันสถานประกอบการ ${featuredApplication?.company.name || ''} และส่งคำร้องให้เจ้าหน้าที่ใช่หรือไม่?`"
+        confirm-label="ยืนยันและส่งคำร้อง"
+        confirm-color="success"
+        :loading="isConfirming"
+        @confirm="confirmFeaturedApplication"
       />
+
+      <UModal
+        :open="Boolean(applicationToUpdate)"
+        title="อัปเดตผลการสมัคร"
+        description="บันทึกผลล่าสุดจากสถานประกอบการ"
+        @update:open="(open) => { if (!open) applicationToUpdate = null }"
+      >
+        <template #body>
+          <UFormField label="ผลการสมัคร" required>
+            <USelect v-model="outcomeStatus" :items="outcomeOptions" size="xl" class="w-full" />
+          </UFormField>
+        </template>
+        <template #footer>
+          <div class="flex w-full justify-end gap-3">
+            <UButton size="xl" color="neutral" variant="outline" label="ยกเลิก" @click="applicationToUpdate = null" />
+            <UButton size="xl" color="primary" label="บันทึกผลการสมัคร" :loading="isUpdatingOutcome" @click="updateOutcome" />
+          </div>
+        </template>
+      </UModal>
+
+      <UModal
+        v-model:open="isUploadModalOpen"
+        title="ส่งหนังสือตอบรับให้เจ้าหน้าที่"
+        description="รองรับไฟล์ PDF, JPG หรือ PNG ขนาดไม่เกิน 10MB"
+      >
+        <template #body>
+          <UFormField label="เลือกไฟล์หนังสือตอบรับ" required>
+            <input
+              type="file"
+              accept=".pdf,.jpg,.jpeg,.png"
+              class="block w-full cursor-pointer text-sm text-muted file:mr-4 file:rounded-control file:border-0 file:bg-primary/10 file:px-4 file:py-2.5 file:text-sm file:font-semibold file:text-primary hover:file:bg-primary/20"
+              @change="onFileChange"
+            >
+          </UFormField>
+        </template>
+        <template #footer>
+          <div class="flex w-full justify-end gap-3">
+            <UButton size="xl" color="neutral" variant="outline" label="ยกเลิก" @click="isUploadModalOpen = false" />
+            <UButton size="xl" color="primary" icon="i-lucide-upload" label="อัปโหลด" :loading="isUploading" @click="uploadSignedDocument" />
+          </div>
+        </template>
+      </UModal>
 
       <!-- Embedded Application Modal -->
       <UModal
@@ -656,7 +821,7 @@ const handleDeleteConfirm = async () => {
       >
         <template #body>
           <div class="max-h-[80vh] overflow-y-auto pr-1">
-            <StudentApplicationForm embedded class="max-w-none" @cancel="isApplicationModalOpen = false" />
+            <StudentApplicationForm :preselected-company-id="typeof route.query.companyId === 'string' ? route.query.companyId : undefined" embedded class="max-w-none" @cancel="isApplicationModalOpen = false" />
           </div>
         </template>
       </UModal>

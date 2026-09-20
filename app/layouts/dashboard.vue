@@ -218,9 +218,9 @@ const studentLinks: NavigationMenuItem[] = [
     onSelect: handleSelect
   },
   {
-    label: 'คำร้องสถานที่ฝึกงาน',
-    icon: 'i-lucide-file-text',
-    to: '/student/requests',
+    label: 'ค้นหาสถานประกอบการ',
+    icon: 'i-lucide-search',
+    to: '/student/companies',
     onSelect: handleSelect
   },
   {

@@ -56,7 +56,7 @@ export default defineEventHandler(async (event) => {
         userId: request.companyApplication.studentUserId,
         title: 'คำร้องไม่ได้รับการอนุมัติ',
         message: `คำร้องสำหรับ ${request.companyName} ถูกปฏิเสธ: ${reason}`,
-        link: `/student/requests/${request.id}`
+        link: '/student/applications'
       }
     })
 

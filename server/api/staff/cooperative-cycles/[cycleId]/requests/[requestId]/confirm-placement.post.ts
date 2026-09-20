@@ -58,7 +58,7 @@ export default defineEventHandler(async (event) => {
         userId: request.companyApplication.studentUserId,
         title: 'ยืนยันสถานที่ฝึกงานเรียบร้อยแล้ว',
         message: `สถานที่ฝึกงาน ${request.companyName} ได้รับการยืนยันแล้ว`,
-        link: `/student/requests/${request.id}`
+        link: '/student/applications'
       }
     })
 

@@ -92,7 +92,7 @@ export default defineEventHandler(async (event) => {
           userId: request.companyApplication.studentUserId,
           title: notifTitle,
           message: notifMessage,
-          link: `/student/requests/${request.id}`
+          link: '/student/applications'
         }
       })
 

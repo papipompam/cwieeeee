@@ -61,14 +61,14 @@ const formatThaiDate = (value?: string | null) => value
         <template #footer>
           <div class="flex items-center justify-between gap-3">
             <span class="text-xs text-muted">ยืนยันเมื่อ {{ formatThaiDate(data.placement.confirmedAt) }}</span>
-            <UButton size="xl" color="primary" label="ดูคำร้อง" :to="`/student/requests/${data.placement.id}`" />
+            <UButton size="xl" color="primary" label="ดูการสมัคร" to="/student/applications" />
           </div>
         </template>
       </UCard>
 
       <UEmpty v-else icon="i-lucide-map-pin" title="ยังไม่มีสถานที่ฝึกงานที่ยืนยันแล้ว" description="สถานที่ฝึกงานจะแสดงที่นี่หลังเจ้าหน้าที่ตรวจสอบเอกสารเสร็จสิ้น">
         <template v-if="data?.currentRequest" #links>
-          <UButton size="xl" color="primary" label="ติดตามคำร้อง" :to="`/student/requests/${data.currentRequest.id}`" />
+          <UButton size="xl" color="primary" label="ติดตามการสมัคร" to="/student/applications" />
         </template>
       </UEmpty>
     </template>

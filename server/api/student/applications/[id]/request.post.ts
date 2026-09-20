@@ -59,7 +59,7 @@ export default defineEventHandler(async (event) => {
     })
 
     await tx.notification.create({
-      data: { userId: user.id, title: 'ส่งคำร้องสถานที่ฝึกงานเรียบร้อย', message: `คำร้องสำหรับ ${current.company.name} ถูกส่งต่อให้เจ้าหน้าที่แล้ว`, link: `/student/requests/${request.id}` }
+      data: { userId: user.id, title: 'ส่งคำร้องสถานที่ฝึกงานเรียบร้อย', message: `คำร้องสำหรับ ${current.company.name} ถูกส่งต่อให้เจ้าหน้าที่แล้ว`, link: '/student/applications' }
     })
     const staffs = await tx.user.findMany({ where: { role: 'STAFF', isActive: true }, select: { id: true } })
     if (staffs.length) {

@@ -98,12 +98,12 @@ const isConfirming = ref(false)
 const handleConfirmApplication = async () => {
   isConfirming.value = true
   try {
-    const createdRequest: any = await $fetch(`/api/student/applications/${id.value}/confirm`, {
+    await $fetch(`/api/student/applications/${id.value}/confirm`, {
       method: 'POST'
     })
-    notify.success('ยืนยันสถานที่ฝึกงานและส่งคำร้องสำเร็จ!')
+    notify.success('ยืนยันสถานประกอบการและส่งคำร้องเรียบร้อยแล้ว')
     isConfirmModalOpen.value = false
-    await router.push(`/student/requests/${createdRequest.id}`)
+    await router.push('/student/applications')
   } catch (err: any) {
     notify.error(err.data?.message || 'ไม่สามารถยืนยันคำร้องได้')
   } finally {
@@ -111,22 +111,6 @@ const handleConfirmApplication = async () => {
   }
 }
 
-// Delete REJECTED modal state
-const isDeleteModalOpen = ref(false)
-const isDeleting = ref(false)
-
-const handleDeleteConfirm = async () => {
-  isDeleting.value = true
-  try {
-    await $fetch(`/api/student/applications/${id.value}`, { method: 'DELETE' })
-    notify.success('ลบรายการสมัครเรียบร้อยแล้ว')
-    await router.push('/student/applications')
-  } catch (err: any) {
-    notify.error(err.data?.message || 'ไม่สามารถลบรายการได้')
-  } finally {
-    isDeleting.value = false
-  }
-}
 </script>
 
 <template>
@@ -219,29 +203,17 @@ const handleDeleteConfirm = async () => {
                   />
                 </template>
 
-                <!-- If CONFIRMED: Link directly to Request Detail -->
+                <!-- If CONFIRMED: Return to the unified applications view -->
                 <template v-else-if="app.status === 'CONFIRMED'">
                   <UButton
-                    v-if="app.cooperativeRequest"
                     color="primary"
                     size="sm"
-                    icon="i-lucide-file-text"
-                    label="ไปยังคำร้องสถานที่ฝึกงาน"
-                    :to="`/student/requests/${app.cooperativeRequest.id}`"
+                    icon="i-lucide-briefcase-business"
+                    label="ดูสถานะการสมัคร"
+                    to="/student/applications"
                   />
                 </template>
 
-                <!-- If REJECTED: Delete option -->
-                <template v-else-if="app.status === 'REJECTED'">
-                  <UButton
-                    color="error"
-                    variant="ghost"
-                    size="sm"
-                    icon="i-lucide-trash-2"
-                    label="ลบรายการนี้"
-                    @click="isDeleteModalOpen = true"
-                  />
-                </template>
               </div>
             </div>
           </UCard>
@@ -254,7 +226,7 @@ const handleDeleteConfirm = async () => {
             icon="i-lucide-lock"
             title="รายการนี้ได้รับการยืนยันและส่งคำร้องเรียบร้อยแล้ว"
             description="ข้อมูลหลักถูกบันทึกเป็น Snapshot สำหรับเจ้าหน้าที่"
-            :actions="app.cooperativeRequest ? [{ label: 'ดูคำร้อง', color: 'success', variant: 'outline', to: `/student/requests/${app.cooperativeRequest.id}` }] : []"
+            :actions="[{ label: 'ดูสถานะการสมัคร', color: 'success', variant: 'outline', to: '/student/applications' }]"
           />
 
           <!-- Application Details Grid -->
@@ -389,16 +361,6 @@ const handleDeleteConfirm = async () => {
         @confirm="handleConfirmApplication"
       />
 
-      <!-- Delete Rejected Modal -->
-      <UIConfirmModal
-        v-model:open="isDeleteModalOpen"
-        title="ยืนยันการลบรายการสมัคร"
-        description="ท่านต้องการลบรายการที่ถูกปฏิเสธนี้ใช่หรือไม่? ข้อมูลจะถูกลบออกจากระบบอย่างถาวร"
-        confirm-label="ลบรายการ"
-        confirm-color="error"
-        :loading="isDeleting"
-        @confirm="handleDeleteConfirm"
-      />
     </template>
   </UDashboardPanel>
 </template>

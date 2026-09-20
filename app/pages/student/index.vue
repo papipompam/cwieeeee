@@ -80,8 +80,7 @@ const workflowSteps = [
 ]
 
 const actionCards = computed(() => [
-  { title: 'เปิดคำร้องปัจจุบัน', description: 'ดูสถานะและขั้นตอนถัดไปของคำร้อง', icon: 'i-lucide-clipboard-list', to: context.value?.nextAction?.to || '/student/requests', primary: true },
-  { title: 'ติดตามการสมัคร', description: 'ดูสถานะการติดต่อสถานประกอบการ', icon: 'i-lucide-briefcase-business', to: '/student/applications', primary: false },
+  { title: 'เปิดคำร้องและติดตามการสมัคร', description: 'ดูสถานะและขั้นตอนถัดไปของการสมัคร', icon: 'i-lucide-clipboard-list', to: '/student/applications', primary: true },
   { title: 'ดูตารางนิเทศ', description: 'ตรวจวัน เวลา และอาจารย์นิเทศ', icon: 'i-lucide-calendar-days', to: '/student/visits', primary: false }
 ])
 </script>

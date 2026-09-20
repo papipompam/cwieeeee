@@ -61,7 +61,7 @@ export default defineEventHandler(async (event) => {
         userId: request.companyApplication.studentUserId,
         title: 'เอกสารถูกส่งกลับเพื่อแก้ไข',
         message: `เอกสารสำหรับ ${request.companyName} ต้องแก้ไข: ${reason}`,
-        link: `/student/requests/${request.id}`
+        link: '/student/applications'
       }
     })
 
