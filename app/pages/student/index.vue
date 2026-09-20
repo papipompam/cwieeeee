@@ -43,18 +43,17 @@ const statusMeta = computed(() => {
 })
 
 const currentStep = computed(() => {
-  if (context.value?.placement || context.value?.latestRequest?.status === 'PLACEMENT_CONFIRMED') return 5
+  if (context.value?.placement || context.value?.latestRequest?.status === 'PLACEMENT_CONFIRMED') return 3
 
   switch (context.value?.latestRequest?.status) {
     case 'DOCUMENT_UNDER_REVIEW':
-      return 4
     case 'RETURNED_FOR_REVISION':
-      return 3
-    case 'LETTER_READY':
       return 2
+    case 'LETTER_READY':
+      return 1
     case 'SUBMITTED':
     case 'STAFF_PROCESSING':
-      return 1
+      return 0
     default:
       return context.value?.activeApplication ? 0 : 0
   }
@@ -75,10 +74,8 @@ const referenceCode = computed(() => {
 
 const workflowSteps = [
   'ยื่นคำร้องขอเอกสารขอความอนุเคราะห์ฝึกงาน',
-  'รับเอกสารจากเจ้าหน้าที่',
-  'ยื่นหนังสือให้สถานประกอบการ',
+  'ยื่นเอกสารขอความอนุเคราะห์ให้สถานประกอบการ',
   'ส่งหนังสือตอบรับให้เจ้าหน้าที่',
-  'เจ้าหน้าที่ตรวจสอบเอกสาร',
   'ยืนยันสถานที่ฝึกงาน'
 ]
 
@@ -160,7 +157,7 @@ const actionCards = computed(() => [
             </dl>
 
             <div class="mt-6 overflow-x-auto pb-1">
-              <ol class="grid min-w-[52rem] grid-cols-6" aria-label="ลำดับสถานะการดำเนินการ">
+              <ol class="grid min-w-[52rem] grid-cols-4" aria-label="ลำดับสถานะการดำเนินการ">
                 <li
                   v-for="(step, index) in workflowSteps"
                   :key="step"
