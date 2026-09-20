@@ -46,7 +46,7 @@ const handleSubmit = async (formData: any) => {
     </template>
 
     <template #body>
-      <div class="max-w-4xl mx-auto p-4 sm:p-6">
+      <div class="mx-auto w-full max-w-4xl">
         <CompanyForm
           :is-editing="false"
           :loading="isSubmitting"

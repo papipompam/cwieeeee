@@ -25,6 +25,11 @@ interface CycleReference {
   id: number
 }
 
+interface MenuGroup {
+  label: string
+  items: NavigationMenuItem[]
+}
+
 const { data: cycles } = await useFetch<CycleReference[]>('/api/cooperative-cycles', {
   immediate: currentRole.value === 'staff'
 })
@@ -53,7 +58,7 @@ const staffLinks = computed<NavigationMenuItem[]>(() => {
 
   return [
     {
-      label: 'ภาพรวม',
+      label: 'หน้าหลัก',
       icon: 'i-lucide-layout-dashboard',
       to: '/staff',
       onSelect: handleSelect
@@ -197,7 +202,7 @@ const studentLinks: NavigationMenuItem[] = [
     onSelect: handleSelect
   },
   {
-    label: 'การสมัครสถานประกอบการ',
+    label: 'สมัครและยืนยันที่ฝึกงาน',
     icon: 'i-lucide-briefcase-business',
     to: '/student/applications',
     onSelect: handleSelect
@@ -213,38 +218,66 @@ const studentLinks: NavigationMenuItem[] = [
     icon: 'i-lucide-calendar-days',
     to: '/student/visits',
     onSelect: handleSelect
+  },
+  {
+    label: 'รีวิวสถานประกอบการ',
+    icon: 'i-lucide-message-square-star',
+    to: '/student/company-review',
+    onSelect: handleSelect
   }
 ]
 
-const currentLinks = computed<NavigationMenuItem[]>(() => {
-  const links = currentRole.value === 'teacher'
-    ? teacherLinks
+const currentMenuGroups = computed<MenuGroup[]>(() => {
+  const groups: MenuGroup[] = currentRole.value === 'teacher'
+    ? [
+        { label: 'ภาพรวม', items: teacherLinks.slice(0, 1) },
+        { label: 'การนิเทศของฉัน', items: teacherLinks.slice(1, 4) },
+        { label: 'ข้อมูลประกอบการนิเทศ', items: teacherLinks.slice(4) }
+      ]
     : currentRole.value === 'student'
-      ? studentLinks
-      : staffLinks.value
+      ? [
+          { label: 'ภาพรวม', items: studentLinks.slice(0, 1) },
+          { label: 'การฝึกงานของฉัน', items: studentLinks.slice(1) }
+        ]
+      : [
+          { label: 'ภาพรวม', items: staffLinks.value.slice(0, 2) },
+          { label: 'จัดการข้อมูล', items: staffLinks.value.slice(2, 6) },
+          { label: 'ระบบ', items: staffLinks.value.slice(6) }
+        ]
 
   if (user.value?.mustChangePassword) {
-    return links.map(item => ({
-      ...item,
-      disabled: true,
-      children: item.children?.map(child => ({ ...child, disabled: true }))
+    return groups.map(group => ({
+      ...group,
+      items: group.items.map(item => ({
+        ...item,
+        disabled: true,
+        children: item.children?.map(child => ({ ...child, disabled: true }))
+      }))
     }))
   }
 
-  return links
+  return groups
 })
 </script>
 
 <template>
-  <UDashboardGroup unit="rem" :class="{ 'student-ui-theme': route.path.startsWith('/student') }">
+  <UDashboardGroup
+    unit="rem"
+    :class="{
+      'student-ui-theme': route.path.startsWith('/student'),
+      'staff-ui-theme': route.path.startsWith('/staff')
+    }"
+  >
     <UDashboardSidebar
       id="dashboard-sidebar"
       v-model:open="open"
       collapsible
-      resizable
+      :default-size="16"
+      :collapsed-size="5"
       class="app-sidebar"
       :ui="{
-        content: 'app-sidebar w-[min(20rem,calc(100vw-2rem))] max-w-none',
+        root: 'w-64! data-[collapsed=true]:w-20!',
+        content: 'app-sidebar w-72 max-w-[85vw]',
         header: 'px-4 sm:px-5',
         body: 'px-3 py-3 sm:px-4',
         footer: 'justify-center border-t border-sidebar-border px-3 py-3 sm:px-4'
@@ -272,24 +305,31 @@ const currentLinks = computed<NavigationMenuItem[]>(() => {
       </template>
 
       <template #default="{ collapsed }">
-        <UNavigationMenu
-          :collapsed="collapsed"
-          :items="currentLinks"
-          orientation="vertical"
-          color="neutral"
-          variant="pill"
-          tooltip
-          class="sidebar-menu"
-          :ui="{
-            root: 'gap-2',
-            list: 'space-y-1',
-            link: 'min-h-11 gap-3 rounded-control px-3 py-2 text-sm font-medium focus-visible:before:outline-primary/50',
-            linkLeadingIcon: 'size-5',
-            childList: 'mt-1 space-y-1 border-sidebar-border',
-            childLink: 'min-h-10 gap-2.5 rounded-control px-3 py-2',
-            childLinkIcon: 'size-4.5'
-          }"
-        />
+        <nav aria-label="เมนูหลัก" :class="collapsed ? 'space-y-3' : 'space-y-5'">
+          <section v-for="group in currentMenuGroups" :key="group.label">
+            <p v-if="!collapsed" class="mb-2 px-3 text-xs font-semibold text-sidebar-muted">
+              {{ group.label }}
+            </p>
+            <UNavigationMenu
+              :collapsed="collapsed"
+              :items="group.items"
+              orientation="vertical"
+              color="neutral"
+              variant="pill"
+              tooltip
+              class="sidebar-menu"
+              :ui="{
+                root: 'gap-2',
+                list: 'space-y-1',
+                link: 'min-h-11 gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors duration-150 focus-visible:before:outline-primary/50',
+                linkLeadingIcon: 'size-5 transition-colors duration-150',
+                childList: 'mt-1 space-y-1 border-sidebar-border',
+                childLink: 'min-h-10 gap-2.5 rounded-xl px-3 py-2.5 transition-colors duration-150',
+                childLinkIcon: 'size-4.5 transition-colors duration-150'
+              }"
+            />
+          </section>
+        </nav>
         <div v-if="isDevelopment && currentRole === 'student'" class="mt-5 border-t border-sidebar-border pt-4">
           <p v-if="!collapsed" class="mb-2 px-3 text-xs font-semibold text-sidebar-muted">สำหรับนักพัฒนา</p>
           <UButton
@@ -299,7 +339,8 @@ const currentLinks = computed<NavigationMenuItem[]>(() => {
             :color="route.path === '/dev/ui' ? 'primary' : 'neutral'"
             :variant="route.path === '/dev/ui' ? 'solid' : 'ghost'"
             :square="collapsed"
-            class="min-h-11 w-full justify-start gap-3 rounded-control px-3 text-sm font-medium"
+            class="min-h-11 w-full justify-start gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors duration-150"
+            :class="route.path === '/dev/ui' ? 'hover:bg-primary' : 'hover:bg-white/10 hover:text-white'"
             aria-label="Design System"
             title="Design System"
             @click="handleSelect"

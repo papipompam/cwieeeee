@@ -20,6 +20,11 @@ interface Company {
 const props = defineProps<{
   initialData?: any
   isEdit?: boolean
+  embedded?: boolean
+}>()
+
+const emit = defineEmits<{
+  cancel: []
 }>()
 
 const notify = useNotify()
@@ -190,10 +195,18 @@ const handleSubmit = async () => {
     isSubmitting.value = false
   }
 }
+
+const handleCancel = () => {
+  if (props.embedded) {
+    emit('cancel')
+    return
+  }
+  router.back()
+}
 </script>
 
 <template>
-  <form class="space-y-6 max-w-4xl" @submit.prevent="handleSubmit">
+  <form class="student-form-content space-y-6 max-w-4xl" @submit.prevent="handleSubmit">
     <!-- Company Selection Section -->
     <div class="rounded-xl border border-default bg-default p-5 shadow-xs space-y-4">
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -427,7 +440,7 @@ const handleSubmit = async () => {
         color="neutral"
         variant="ghost"
         label="ยกเลิก"
-        @click="router.back()"
+        @click="handleCancel"
       />
       <UButton
         type="submit"
@@ -440,3 +453,18 @@ const handleSubmit = async () => {
     </div>
   </form>
 </template>
+
+<style scoped>
+.student-form-content :is(h3, p, label, dt, dd) {
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.student-form-content :is(input, textarea, select) {
+  font-size: 1rem;
+}
+
+.student-form-content .text-xs {
+  font-size: 1rem;
+}
+</style>

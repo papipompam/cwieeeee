@@ -13,6 +13,7 @@ defineOptions({ inheritAttrs: false })
     <template #right="slotProps">
       <slot name="right" v-bind="slotProps" />
       <AppUserMenu header class="w-auto shrink-0" />
+      <AppStudentProfileModal />
     </template>
   </UDashboardNavbar>
 </template>

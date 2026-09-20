@@ -415,38 +415,52 @@ const columns: TableColumn<Student>[] = [
 <template>
   <UDashboardPanel id="staff-students">
     <template #header>
-      <AppDashboardNavbar title="จัดการข้อมูลนักศึกษา">
-        <template #leading>
+      <AppDashboardNavbar>
+        <template #left>
           <UDashboardSidebarCollapse />
         </template>
 
         <template #right>
-          <UButton
-            label="นำเข้าไฟล์"
-            icon="i-lucide-upload"
-            color="primary"
-            @click="openImportModal"
-          />
-          <UButton
-            label="ส่งออกข้อมูล"
-            icon="i-lucide-download"
-            color="neutral"
-            variant="outline"
-            @click="exportStudents"
-          />
-          <UButton
-            label="เพิ่มนักศึกษา"
-            icon="i-lucide-plus"
-            color="primary"
-            @click="openCreateModal"
-          />
           <AppNotificationBell />
         </template>
       </AppDashboardNavbar>
     </template>
 
     <template #body>
-      <div class="flex flex-col gap-4 p-4 sm:p-6">
+      <div class="flex flex-col gap-6">
+        <header class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div class="min-w-0">
+            <h1 class="text-2xl font-bold tracking-tight text-highlighted sm:text-3xl">ข้อมูลนักศึกษา</h1>
+            <p class="mt-1 text-sm font-normal leading-6 text-muted">ค้นหา เพิ่ม แก้ไข และจัดการบัญชีโดยไม่ลบประวัติเดิม</p>
+          </div>
+
+          <div class="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:justify-end">
+            <UButton
+              label="นำเข้าข้อมูล"
+              icon="i-lucide-upload"
+              color="neutral"
+              variant="outline"
+              class="min-h-11 justify-center rounded-xl bg-default px-4 hover:bg-muted/50"
+              @click="openImportModal"
+            />
+            <UButton
+              label="ส่งออกข้อมูล"
+              icon="i-lucide-download"
+              color="neutral"
+              variant="outline"
+              class="min-h-11 justify-center rounded-xl bg-default px-4 hover:bg-muted/50"
+              @click="exportStudents"
+            />
+            <UButton
+              label="เพิ่มนักศึกษา"
+              icon="i-lucide-plus"
+              color="primary"
+              class="col-span-2 min-h-11 justify-center rounded-xl px-4 sm:col-span-1"
+              @click="openCreateModal"
+            />
+          </div>
+        </header>
+
         <!-- Control Row -->
         <div class="flex flex-col gap-3 rounded-lg sm:flex-row sm:items-center sm:justify-between">
           <div class="flex min-w-0 flex-1 items-center gap-2 sm:max-w-md">

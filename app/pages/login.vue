@@ -4,14 +4,6 @@ const error = ref('')
 const loading = ref(false)
 const passwordVisible = ref(false)
 
-useHead({
-  link: [
-    { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
-    { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
-    { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Prompt:wght@400;600;700&display=swap' }
-  ]
-})
-
 const submit = async () => {
   error.value = ''
   if (!state.loginId.trim() || !state.password) { error.value = 'กรุณากรอกรหัสผู้ใช้และรหัสผ่าน'; return }
@@ -80,9 +72,3 @@ const submit = async () => {
     </section>
   </main>
 </template>
-
-<style scoped>
-.login-page {
-  font-family: Prompt, system-ui, sans-serif;
-}
-</style>

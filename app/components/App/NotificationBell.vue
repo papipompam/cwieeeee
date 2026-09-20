@@ -45,10 +45,16 @@ watch(isOpen, (open) => {
 
 <template>
   <UPopover v-model:open="isOpen">
-    <UButton color="neutral" variant="ghost" icon="i-lucide-bell" aria-label="การแจ้งเตือน" class="relative">
+    <UButton
+      color="neutral"
+      variant="outline"
+      icon="i-lucide-bell"
+      aria-label="การแจ้งเตือน"
+      class="relative h-[46px] w-[46px] rounded-xl border-gray-200 bg-white text-gray-500 shadow-none hover:bg-gray-50 hover:text-gray-700 justify-center shrink-0 cursor-pointer"
+    >
       <span
         v-if="data && data.unreadCount > 0"
-        class="absolute top-1.5 right-1.5 size-2 rounded-full bg-error ring-2 ring-default"
+        class="absolute top-2.5 right-2.5 size-2 rounded-full bg-error ring-2 ring-white"
       />
     </UButton>
 
