@@ -398,7 +398,7 @@ const columns: TableColumn<CooperativeCycle>[] = [
 <template>
   <UDashboardPanel id="staff-cycles">
     <template #header>
-      <UDashboardNavbar title="รอบสหกิจ">
+      <AppDashboardNavbar title="รอบสหกิจ">
         <template #leading>
           <UDashboardSidebarCollapse />
         </template>
@@ -412,7 +412,7 @@ const columns: TableColumn<CooperativeCycle>[] = [
           />
           <AppNotificationBell />
         </template>
-      </UDashboardNavbar>
+      </AppDashboardNavbar>
     </template>
 
     <template #body>

@@ -2,490 +2,204 @@
 definePageMeta({ layout: 'dashboard' })
 
 interface StudentContextResponse {
-  student: {
-    id: number
-    studentId: string
-    name: string
-    cohortYear: number | null
-    classGroup: number | null
-    phone: string | null
-    isActive: boolean
-  }
-  cycle: {
-    id: number
-    term: number
-    academicYear: number
-    cohortYear: number
-    status: string
-    applicationStartDate: string
-    applicationEndDate: string
-    internshipStartDate: string
-    internshipEndDate: string
-    note: string | null
-  } | null
+  student: { studentId: string; name: string; cohortYear: number | null; classGroup: number | null; isActive: boolean }
+  cycle: { term: number; academicYear: number; applicationStartDate: string; applicationEndDate: string; internshipStartDate: string; internshipEndDate: string } | null
   canApply: boolean
   reason: string | null
-  activeApplication: {
-    id: number
-    status: string
-    appliedAt: string
-    applicationPosition: string | null
-    company: { id: number; name: string; province: string }
-    cooperativeRequest?: { id: number; status: string; companyName: string; position: string | null } | null
-  } | null
-  latestRequest: {
-    id: number
-    status: string
-    companyName: string
-    position: string | null
-    confirmedAt: string
-  } | null
-  placement: {
-    requestId: number
-    companyName: string
-    internshipLocationName: string | null
-    position: string | null
-    address: string | null
-    province: string | null
-    confirmedAt: string
-  } | null
-  upcomingVisit: {
-    id: number
-    visitNo: number
-    visitDate: string
-    period: string
-    companyName: string
-    supervisorName: string | null
-  } | null
-  unreadNotificationsCount: number
-  recentNotifications: Array<{
-    id: number
-    title: string
-    message: string
-    link: string | null
-    isRead: boolean
-    createdAt: string
-  }>
-  nextAction: {
-    type: string
-    label: string
-    to: string
-  } | null
+  activeApplication: { id: number; status: string; appliedAt: string; applicationPosition: string | null; company: { name: string; province: string } } | null
+  latestRequest: { id: number; status: string; companyName: string; position: string | null; confirmedAt: string } | null
+  placement: { requestId: number; companyName: string; position: string | null; province: string | null } | null
+  upcomingVisit: { id: number; visitDate: string; companyName: string } | null
+  nextAction: { label: string; to: string } | null
 }
 
 const { data: context, status, error, refresh } = await useFetch<StudentContextResponse>('/api/student/context')
 
 const formatThaiDate = (value?: string | null) => {
   if (!value) return '—'
-  return new Intl.DateTimeFormat('th-TH', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric'
-  }).format(new Date(value))
+  return new Intl.DateTimeFormat('th-TH', { year: 'numeric', month: 'short', day: 'numeric' }).format(new Date(value))
 }
 
-const getAppStatusBadge = (s: string) => {
-  switch (s) {
-    case 'SUBMITTED':
-      return { label: 'ส่งข้อมูลการสมัครแล้ว', color: 'info' as const }
-    case 'AWAITING_RESPONSE':
-      return { label: 'รอผลตอบกลับ', color: 'warning' as const }
-    case 'INTERVIEW':
-      return { label: 'รอสัมภาษณ์', color: 'info' as const }
-    case 'ACCEPTED':
-      return { label: 'บริษัทตอบรับแล้ว', color: 'success' as const }
-    case 'REJECTED':
-      return { label: 'บริษัทปฏิเสธ', color: 'error' as const }
-    case 'WITHDRAWN':
-      return { label: 'ยกเลิกการสมัคร', color: 'neutral' as const }
-    case 'CONFIRMED':
-      return { label: 'ยืนยันและส่งคำร้องแล้ว', color: 'success' as const }
-    default:
-      return { label: s, color: 'neutral' as const }
-  }
-}
+const statusMeta = computed(() => {
+  if (!context.value) return { label: 'กำลังโหลดสถานะ', color: 'neutral' as const }
+  if (context.value.placement) return { label: 'ยืนยันสถานที่ฝึกงาน', color: 'success' as const }
 
-const getReqStatusBadge = (s: string) => {
-  switch (s) {
-    case 'SUBMITTED':
-      return { label: 'ส่งคำร้องแล้ว', color: 'info' as const }
-    case 'STAFF_PROCESSING':
-      return { label: 'รอเจ้าหน้าที่ดำเนินการ', color: 'warning' as const }
-    case 'LETTER_READY':
-      return { label: 'มีหนังสือพร้อมดาวน์โหลด', color: 'primary' as const }
-    case 'DOCUMENT_UNDER_REVIEW':
-      return { label: 'รอตรวจสอบเอกสาร', color: 'warning' as const }
-    case 'RETURNED_FOR_REVISION':
-      return { label: 'ถูกส่งกลับให้แก้ไข', color: 'error' as const }
+  switch (context.value.latestRequest?.status || context.value.activeApplication?.status) {
     case 'PLACEMENT_CONFIRMED':
-      return { label: 'ยืนยันสถานที่ฝึกงานแล้ว', color: 'success' as const }
+    case 'CONFIRMED':
+    case 'ACCEPTED':
+      return { label: 'ยืนยันสถานที่ฝึกงาน', color: 'success' as const }
+    case 'RETURNED_FOR_REVISION':
     case 'REJECTED':
-      return { label: 'ไม่ผ่านการยืนยัน', color: 'error' as const }
-    case 'CANCELLED':
-      return { label: 'ยกเลิกคำร้อง', color: 'neutral' as const }
+      return { label: 'ต้องดำเนินการแก้ไข', color: 'error' as const }
+    case 'STAFF_PROCESSING':
+    case 'AWAITING_RESPONSE':
+      return { label: 'อยู่ระหว่างดำเนินการ', color: 'warning' as const }
     default:
-      return { label: s, color: 'neutral' as const }
+      return context.value.canApply
+        ? { label: 'พร้อมยื่นสมัคร', color: 'primary' as const }
+        : { label: context.value.reason || 'ยังไม่มีรายการดำเนินการ', color: 'neutral' as const }
   }
-}
+})
 
 const currentStep = computed(() => {
-  if (!context.value?.cycle) return 1
-  if (context.value.placement) return 5
-  if (context.value.latestRequest) return 3
-  if (context.value.activeApplication) return 2
-  return 1
+  if (context.value?.placement || context.value?.latestRequest?.status === 'PLACEMENT_CONFIRMED') return 5
+
+  switch (context.value?.latestRequest?.status) {
+    case 'DOCUMENT_UNDER_REVIEW':
+      return 4
+    case 'RETURNED_FOR_REVISION':
+      return 3
+    case 'LETTER_READY':
+      return 2
+    case 'SUBMITTED':
+    case 'STAFF_PROCESSING':
+      return 1
+    default:
+      return context.value?.activeApplication ? 0 : 0
+  }
 })
 
-const workflowSteps = computed(() => {
-  const cycle = context.value?.cycle
-  return [
-    {
-      value: 1,
-      title: 'ยื่นสมัคร',
-      description: cycle ? `${formatThaiDate(cycle.applicationStartDate)} – ${formatThaiDate(cycle.applicationEndDate)}` : 'รอรอบสหกิจเปิดรับ',
-      icon: 'i-lucide-send'
-    },
-    { value: 2, title: 'รอผลบริษัท', description: 'ติดตามผลการสมัคร', icon: 'i-lucide-clock-3' },
-    { value: 3, title: 'ส่งคำร้อง', description: 'หนังสือและเอกสารตอบรับ', icon: 'i-lucide-file-check-2' },
-    { value: 4, title: 'ยืนยันสถานที่', description: 'เจ้าหน้าที่ตรวจสอบเรียบร้อย', icon: 'i-lucide-badge-check' },
-    {
-      value: 5,
-      title: 'ฝึกงานและนิเทศ',
-      description: cycle ? `${formatThaiDate(cycle.internshipStartDate)} – ${formatThaiDate(cycle.internshipEndDate)}` : 'ตามกำหนดการนิเทศ',
-      icon: 'i-lucide-briefcase-business'
-    }
-  ]
+const currentCompany = computed(() =>
+  context.value?.placement?.companyName
+  || context.value?.latestRequest?.companyName
+  || context.value?.activeApplication?.company.name
+  || 'ยังไม่ได้เลือกสถานประกอบการ'
+)
+
+const referenceCode = computed(() => {
+  if (context.value?.latestRequest) return `REQ-${String(context.value.latestRequest.id).padStart(4, '0')}`
+  if (context.value?.activeApplication) return `APP-${String(context.value.activeApplication.id).padStart(4, '0')}`
+  return context.value?.student.studentId || '—'
 })
 
-const personalStatus = computed(() => {
-  if (!context.value) return { label: 'กำลังโหลดสถานะ', color: 'neutral' as const }
-  if (context.value.placement) return { label: 'ยืนยันสถานที่ฝึกงานแล้ว', color: 'success' as const }
-  if (context.value.latestRequest) return getReqStatusBadge(context.value.latestRequest.status)
-  if (context.value.activeApplication) return getAppStatusBadge(context.value.activeApplication.status)
-  if (context.value.canApply) return { label: 'พร้อมยื่นสมัครสถานประกอบการ', color: 'primary' as const }
-  return { label: context.value.reason || 'ยังไม่มีรายการดำเนินการ', color: 'neutral' as const }
-})
+const workflowSteps = [
+  'ยื่นคำร้องขอเอกสารขอความอนุเคราะห์ฝึกงาน',
+  'รับเอกสารจากเจ้าหน้าที่',
+  'ยื่นหนังสือให้สถานประกอบการ',
+  'ส่งหนังสือตอบรับให้เจ้าหน้าที่',
+  'เจ้าหน้าที่ตรวจสอบเอกสาร',
+  'ยืนยันสถานที่ฝึกงาน'
+]
+
+const actionCards = computed(() => [
+  { title: 'เปิดคำร้องปัจจุบัน', description: 'ดูสถานะและขั้นตอนถัดไปของคำร้อง', icon: 'i-lucide-clipboard-list', to: context.value?.nextAction?.to || '/student/requests', primary: true },
+  { title: 'ติดตามการสมัคร', description: 'ดูสถานะการติดต่อสถานประกอบการ', icon: 'i-lucide-briefcase-business', to: '/student/applications', primary: false },
+  { title: 'ดูตารางนิเทศ', description: 'ตรวจวัน เวลา และอาจารย์นิเทศ', icon: 'i-lucide-calendar-days', to: '/student/visits', primary: false }
+])
 </script>
 
 <template>
   <UDashboardPanel id="student-overview-page">
     <template #header>
-      <UDashboardNavbar title="ภาพรวมสหกิจศึกษา">
-        <template #leading>
-          <UDashboardSidebarCollapse />
+      <AppDashboardNavbar>
+        <template #leading><UDashboardSidebarCollapse /></template>
+        <template #title>
+          <div class="flex min-w-0 flex-col">
+            <span class="truncate text-xs font-normal text-muted">CWIE BRU / หน้าหลัก</span>
+            <span class="truncate text-lg font-bold text-highlighted">หน้าหลัก</span>
+          </div>
         </template>
-        <template #right>
-          <AppNotificationBell />
-          <UIButtonRefresh :loading="status === 'pending'" @refresh="refresh" />
-          <UButton
-            v-if="context?.canApply"
-            color="primary"
-            icon="i-lucide-plus"
-            label="ยื่นสมัครสถานประกอบการ"
-            to="/student/applications/new"
-          />
-        </template>
-      </UDashboardNavbar>
+        <template #right><AppNotificationBell /></template>
+      </AppDashboardNavbar>
     </template>
 
     <template #body>
-      <div class="mx-auto w-full max-w-5xl space-y-6 pb-12">
-        <!-- Error Alert -->
+      <main class="mx-auto w-full max-w-7xl space-y-7 pb-12">
         <UAlert
           v-if="error"
           color="error"
           icon="i-lucide-circle-alert"
-          title="ไม่สามารถโหลดข้อมูลภาพรวมได้"
+          title="ไม่สามารถโหลดข้อมูลหน้าหลักได้"
           :description="error.message"
           :actions="[{ label: 'ลองอีกครั้ง', color: 'error', variant: 'subtle', onClick: () => refresh() }]"
         />
 
-        <!-- Loading Skeletons -->
-        <div v-else-if="status === 'pending'" class="grid gap-4 md:grid-cols-2">
-          <USkeleton class="h-40 rounded-lg" />
-          <USkeleton class="h-40 rounded-lg" />
-          <USkeleton class="h-40 rounded-lg md:col-span-2" />
+        <div v-else-if="status === 'pending'" class="space-y-6">
+          <USkeleton class="h-12 w-48 rounded-lg" />
+          <USkeleton class="h-64 rounded-panel" />
+          <div class="grid gap-3 md:grid-cols-3"><USkeleton v-for="item in 3" :key="item" class="h-24 rounded-panel" /></div>
         </div>
 
         <template v-else-if="context">
-          <section class="rounded-xl border border-default bg-default p-5 shadow-xs space-y-4">
-            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <h2 class="font-semibold text-highlighted">สถานะสหกิจศึกษาของฉัน</h2>
-                <p v-if="context.cycle" class="mt-0.5 text-xs text-muted">
-                  ภาคเรียนที่ {{ context.cycle.term }}/{{ context.cycle.academicYear }}
-                </p>
-              </div>
-              <UBadge :color="personalStatus.color" variant="subtle" size="sm">
-                {{ personalStatus.label }}
-              </UBadge>
-            </div>
-
-            <UStepper
-              :items="workflowSteps"
-              :model-value="currentStep"
-              :disabled="true"
-              class="overflow-x-auto pb-1"
-            />
-
-            <p v-if="context.upcomingVisit" class="flex items-center gap-1.5 text-xs text-muted">
-              <UIcon name="i-lucide-calendar-days" class="size-4 text-primary" />
-              นิเทศครั้งถัดไป {{ formatThaiDate(context.upcomingVisit.visitDate) }} · {{ context.upcomingVisit.companyName }}
-            </p>
+          <section>
+            <p class="text-xs text-muted">รอบที่กำลังแสดง</p>
+            <h2 class="mt-1 text-base font-bold text-highlighted">
+              {{ context.cycle ? `ภาคเรียนที่ ${context.cycle.term}/${context.cycle.academicYear}` : 'ยังไม่มีรอบสหกิจศึกษาปัจจุบัน' }}
+            </h2>
           </section>
 
-          <!-- Profile & Current Cycle Top Banner -->
-          <div class="grid gap-4 md:grid-cols-3">
-            <!-- Student Profile Card -->
-            <div class="rounded-xl border border-default bg-default p-5 shadow-xs space-y-3">
-              <div class="flex items-center gap-3">
-                <div class="size-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold">
-                  <UIcon name="i-lucide-user" class="size-5" />
-                </div>
+          <UCard :ui="{ root: 'rounded-panel shadow-panel', body: 'p-5 sm:p-6' }">
+            <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div class="flex items-start gap-3">
+                <span class="grid size-10 shrink-0 place-items-center rounded-control bg-warning-soft text-warning">
+                  <UIcon name="i-lucide-file-check-2" class="size-5" aria-hidden="true" />
+                </span>
                 <div>
-                  <h2 class="font-semibold text-highlighted leading-snug">{{ context.student.name }}</h2>
-                  <p class="text-xs text-muted">รหัสนักศึกษา: {{ context.student.studentId }}</p>
+                  <h3 class="font-semibold text-highlighted">สถานะการดำเนินการ</h3>
+                  <p class="mt-1 text-sm text-muted">
+                    <template v-if="context.activeApplication || context.latestRequest">{{ referenceCode }}<template v-if="currentCompany"> · {{ currentCompany }}</template></template>
+                    <template v-else>ยังไม่มีคำร้องในรอบนี้</template>
+                  </p>
                 </div>
               </div>
-              <div class="pt-2 border-t border-default/60 flex items-center justify-between text-xs text-muted">
-                <span>รุ่น {{ context.student.cohortYear || '—' }} (หมู่ {{ context.student.classGroup || '—' }})</span>
-                <UBadge :color="context.student.isActive ? 'success' : 'neutral'" variant="subtle" size="sm">
-                  {{ context.student.isActive ? 'ปกติ' : 'ระงับ' }}
-                </UBadge>
-              </div>
+              <UBadge :color="statusMeta.color" variant="subtle" size="md">{{ statusMeta.label }}</UBadge>
             </div>
 
-            <!-- Current Cycle Card -->
-            <div class="rounded-xl border border-default bg-default p-5 shadow-xs space-y-2 md:col-span-2 flex flex-col justify-between">
-              <div>
-                <div class="flex items-center justify-between">
-                  <span class="text-xs font-medium text-muted">รอบสหกิจศึกษาปัจจุบัน</span>
-                  <UBadge v-if="context.cycle" color="primary" variant="subtle" size="sm">
-                    ภาคเรียนที่ {{ context.cycle.term }}/{{ context.cycle.academicYear }}
-                  </UBadge>
-                  <UBadge v-else color="neutral" variant="subtle" size="sm">ยังไม่มีรอบเปิดรับ</UBadge>
-                </div>
-                <div v-if="context.cycle" class="mt-2 grid grid-cols-2 gap-3 text-xs">
-                  <div>
-                    <span class="text-muted block">ช่วงรับสมัคร</span>
-                    <span class="font-medium text-highlighted">{{ formatThaiDate(context.cycle.applicationStartDate) }} - {{ formatThaiDate(context.cycle.applicationEndDate) }}</span>
-                  </div>
-                  <div>
-                    <span class="text-muted block">ช่วงปฏิบัติงาน</span>
-                    <span class="font-medium text-highlighted">{{ formatThaiDate(context.cycle.internshipStartDate) }} - {{ formatThaiDate(context.cycle.internshipEndDate) }}</span>
-                  </div>
-                </div>
-                <p v-else class="text-xs text-muted mt-2">
-                  {{ context.reason || 'ยังไม่มีรอบสหกิจศึกษาที่เปิดรับสมัครสำหรับรุ่นของท่าน' }}
-                </p>
-              </div>
+            <dl v-if="context.cycle" class="mt-5 grid gap-x-6 gap-y-4 text-sm sm:grid-cols-[8rem_minmax(12rem,auto)] xl:grid-cols-[8rem_12rem_minmax(15rem,1fr)_minmax(15rem,1fr)]">
+              <div><dt class="text-xs text-muted">ปีการศึกษา</dt><dd class="mt-1 font-semibold text-highlighted">{{ context.cycle.academicYear }}</dd></div>
+              <div><dt class="text-xs text-muted">ภาคเรียน / รุ่น</dt><dd class="mt-1 text-highlighted">ภาคเรียน {{ context.cycle.term }} · รุ่น {{ context.student.cohortYear || '—' }}</dd></div>
+              <div><dt class="text-xs text-muted">ช่วงส่งข้อมูลสถานประกอบการ</dt><dd class="mt-1 text-highlighted">{{ formatThaiDate(context.cycle.applicationStartDate) }} – {{ formatThaiDate(context.cycle.applicationEndDate) }}</dd></div>
+              <div><dt class="text-xs text-muted">ช่วงฝึกงาน</dt><dd class="mt-1 text-highlighted">{{ formatThaiDate(context.cycle.internshipStartDate) }} – {{ formatThaiDate(context.cycle.internshipEndDate) }}</dd></div>
+            </dl>
 
-              <div v-if="context.reason && context.cycle" class="text-xs text-muted bg-muted/20 px-3 py-1.5 rounded-md mt-2">
-                {{ context.reason }}
-              </div>
-            </div>
-          </div>
-
-          <!-- Next Action (Hero Card) -->
-          <div v-if="context.nextAction" class="rounded-xl border-2 border-primary/40 bg-primary/5 p-6 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div class="space-y-1">
-              <span class="text-xs font-semibold uppercase tracking-wider text-primary">งานถัดไปที่ต้องดำเนินการ</span>
-              <h3 class="text-base font-semibold text-highlighted">{{ context.nextAction.label }}</h3>
-            </div>
-            <UButton
-              color="primary"
-              size="lg"
-              icon="i-lucide-arrow-right"
-              trailing
-              :label="context.nextAction.label"
-              :to="context.nextAction.to"
-            />
-          </div>
-
-          <!-- Status Cards Grid -->
-          <div class="grid gap-6 md:grid-cols-2">
-            <!-- Active Application Card -->
-            <div class="rounded-xl border border-default bg-default p-5 shadow-xs space-y-4">
-              <div class="flex items-center justify-between">
-                <div class="flex items-center gap-2">
-                  <UIcon name="i-lucide-briefcase-business" class="size-5 text-primary" />
-                  <h3 class="font-semibold text-highlighted">การสมัครสถานประกอบการ</h3>
-                </div>
-                <NuxtLink to="/student/applications" class="text-xs text-primary hover:underline flex items-center gap-1">
-                  ดูประวัติทั้งหมด <UIcon name="i-lucide-chevron-right" class="size-3" />
-                </NuxtLink>
-              </div>
-
-              <div v-if="context.activeApplication" class="space-y-3 pt-2">
-                <div class="flex items-start justify-between gap-2">
-                  <div>
-                    <h4 class="font-medium text-highlighted text-sm">{{ context.activeApplication.company.name }}</h4>
-                    <p class="text-xs text-muted">จ.{{ context.activeApplication.company.province }} • ตำแหน่ง: {{ context.activeApplication.applicationPosition || '—' }}</p>
-                  </div>
-                  <UBadge
-                    :color="getAppStatusBadge(context.activeApplication.status).color"
-                    variant="subtle"
-                    size="sm"
-                  >
-                    {{ getAppStatusBadge(context.activeApplication.status).label }}
-                  </UBadge>
-                </div>
-                <div class="flex items-center justify-between text-xs text-muted pt-2 border-t border-default/60">
-                  <span>วันที่ยื่นสมัคร: {{ formatThaiDate(context.activeApplication.appliedAt) }}</span>
-                  <UButton
-                    size="xs"
-                    color="neutral"
-                    variant="ghost"
-                    label="ดูรายละเอียด"
-                    :to="`/student/applications/${context.activeApplication.id}`"
+            <div class="mt-6 overflow-x-auto pb-1">
+              <ol class="grid min-w-[52rem] grid-cols-6" aria-label="ลำดับสถานะการดำเนินการ">
+                <li
+                  v-for="(step, index) in workflowSteps"
+                  :key="step"
+                  class="relative flex flex-col items-center px-2 text-center"
+                  :aria-current="index === currentStep ? 'step' : undefined"
+                >
+                  <span
+                    v-if="index < workflowSteps.length - 1"
+                    class="absolute left-1/2 top-3 h-0.5 w-full"
+                    :class="index < currentStep ? 'bg-primary' : 'bg-divider'"
+                    aria-hidden="true"
                   />
-                </div>
-              </div>
-              <div v-else class="text-center py-6 text-xs text-muted space-y-2">
-                <UIcon name="i-lucide-inbox" class="size-8 text-muted mx-auto opacity-50" />
-                <p>ยังไม่มีรายการสมัครที่กำลังดำเนินการ</p>
-                <UButton
-                  v-if="context.canApply"
-                  size="xs"
-                  color="primary"
-                  label="เริ่มยื่นสมัคร"
-                  to="/student/applications/new"
-                />
-              </div>
-            </div>
-
-            <!-- Latest Request Card -->
-            <div class="rounded-xl border border-default bg-default p-5 shadow-xs space-y-4">
-              <div class="flex items-center justify-between">
-                <div class="flex items-center gap-2">
-                  <UIcon name="i-lucide-file-text" class="size-5 text-primary" />
-                  <h3 class="font-semibold text-highlighted">คำร้องสถานที่ฝึกงาน</h3>
-                </div>
-                <NuxtLink to="/student/requests" class="text-xs text-primary hover:underline flex items-center gap-1">
-                  ดูคำร้องทั้งหมด <UIcon name="i-lucide-chevron-right" class="size-3" />
-                </NuxtLink>
-              </div>
-
-              <div v-if="context.latestRequest" class="space-y-3 pt-2">
-                <div class="flex items-start justify-between gap-2">
-                  <div>
-                    <h4 class="font-medium text-highlighted text-sm">{{ context.latestRequest.companyName }}</h4>
-                    <p class="text-xs text-muted">ตำแหน่ง: {{ context.latestRequest.position || '—' }}</p>
-                  </div>
-                  <UBadge
-                    :color="getReqStatusBadge(context.latestRequest.status).color"
-                    variant="subtle"
-                    size="sm"
+                  <span
+                    class="relative z-10 grid size-6 place-items-center rounded-full border-2 bg-default"
+                    :class="index <= currentStep ? 'border-primary bg-primary text-ink' : 'border-divider text-transparent'"
+                    aria-hidden="true"
                   >
-                    {{ getReqStatusBadge(context.latestRequest.status).label }}
-                  </UBadge>
-                </div>
-                <div class="flex items-center justify-between text-xs text-muted pt-2 border-t border-default/60">
-                  <span>ยืนยันเมื่อ: {{ formatThaiDate(context.latestRequest.confirmedAt) }}</span>
-                  <UButton
-                    size="xs"
-                    color="neutral"
-                    variant="ghost"
-                    label="ดูคำร้อง"
-                    :to="`/student/requests/${context.latestRequest.id}`"
-                  />
-                </div>
-              </div>
-              <div v-else class="text-center py-6 text-xs text-muted space-y-1">
-                <UIcon name="i-lucide-file-clock" class="size-8 text-muted mx-auto opacity-50" />
-                <p>ยังไม่มีคำร้องสถานที่ฝึกงาน</p>
-              </div>
+                    <UIcon v-if="index < currentStep" name="i-lucide-check" class="size-3.5" />
+                    <span v-else-if="index === currentStep" class="size-2 rounded-full bg-ink" />
+                  </span>
+                  <span class="mt-3 text-xs font-medium leading-5" :class="index <= currentStep ? 'text-highlighted' : 'text-muted'">{{ step }}</span>
+                </li>
+              </ol>
             </div>
-          </div>
+          </UCard>
 
-          <!-- Placement & Visits Section (if confirmed) -->
-          <div v-if="context.placement" class="rounded-xl border border-success/30 bg-success/5 p-5 shadow-xs space-y-4">
-            <div class="flex items-center justify-between">
-              <div class="flex items-center gap-2">
-                <UIcon name="i-lucide-building-2" class="size-5 text-success" />
-                <h3 class="font-semibold text-highlighted">สถานที่ฝึกงานที่ยืนยันแล้ว</h3>
-              </div>
-              <UButton size="xs" color="success" variant="ghost" label="ดูข้อมูลสถานที่ฝึกงาน" to="/student/placement" />
-            </div>
-            <div class="grid gap-2 text-xs sm:grid-cols-3">
-              <div>
-                <span class="text-muted block">สถานประกอบการ</span>
-                <span class="font-medium text-highlighted text-sm">{{ context.placement.companyName }}</span>
-              </div>
-              <div>
-                <span class="text-muted block">ตำแหน่ง</span>
-                <span class="font-medium text-highlighted">{{ context.placement.position || '—' }}</span>
-              </div>
-              <div>
-                <span class="text-muted block">จังหวัด</span>
-                <span class="font-medium text-highlighted">{{ context.placement.province || '—' }}</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Supervision Visit (if available) -->
-          <div v-if="context.upcomingVisit" class="rounded-xl border border-default bg-default p-5 shadow-xs space-y-3">
-            <div class="flex items-center justify-between">
-              <div class="flex items-center gap-2">
-                <UIcon name="i-lucide-calendar-days" class="size-5 text-primary" />
-                <h3 class="font-semibold text-highlighted">ตารางนิเทศครั้งถัดไป</h3>
-              </div>
-              <UButton size="xs" color="neutral" variant="ghost" label="ดูตารางนิเทศทั้งหมด" to="/student/visits" />
-            </div>
-            <div class="grid gap-2 text-xs sm:grid-cols-3 pt-1">
-              <div>
-                <span class="text-muted block">ครั้งที่ / ช่วงเวลา</span>
-                <span class="font-medium text-highlighted">ครั้งที่ {{ context.upcomingVisit.visitNo }} ({{ context.upcomingVisit.period === 'MORNING' ? 'ช่วงเช้า' : 'ช่วงบ่าย' }})</span>
-              </div>
-              <div>
-                <span class="text-muted block">วันที่นิเทศ</span>
-                <span class="font-medium text-highlighted">{{ formatThaiDate(context.upcomingVisit.visitDate) }}</span>
-              </div>
-              <div>
-                <span class="text-muted block">อาจารย์ผู้นิเทศ</span>
-                <span class="font-medium text-highlighted">{{ context.upcomingVisit.supervisorName || '—' }}</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Notifications Widget -->
-          <div class="rounded-xl border border-default bg-default p-5 shadow-xs space-y-3">
-            <div class="flex items-center justify-between">
-              <div class="flex items-center gap-2">
-                <UIcon name="i-lucide-bell" class="size-5 text-primary" />
-                <h3 class="font-semibold text-highlighted">การแจ้งเตือนล่าสุด</h3>
-                <UBadge v-if="context.unreadNotificationsCount > 0" color="error" size="sm" variant="subtle">
-                  ยังไม่อ่าน {{ context.unreadNotificationsCount }}
-                </UBadge>
-              </div>
-              <NuxtLink to="/student/notifications" class="text-xs text-primary hover:underline flex items-center gap-1">
-                ดูทั้งหมด <UIcon name="i-lucide-chevron-right" class="size-3" />
-              </NuxtLink>
-            </div>
-
-            <div v-if="context.recentNotifications.length > 0" class="divide-y divide-default/50">
+          <section>
+            <h2 class="text-lg font-bold text-highlighted">ดำเนินการต่อ</h2>
+            <p class="mt-1 text-sm text-muted">เปิดงานสำคัญได้ทันทีโดยไม่ต้องค้นหาในเมนู</p>
+            <div class="mt-3 grid gap-3 md:grid-cols-3">
               <NuxtLink
-                v-for="n in context.recentNotifications"
-                :key="n.id"
-                :to="n.link || '/student/notifications'"
-                class="py-2.5 flex items-start justify-between gap-3 text-xs hover:bg-muted/10 px-2 rounded-md transition-colors"
+                v-for="card in actionCards"
+                :key="card.title"
+                :to="card.to"
+                class="group flex min-h-24 items-center gap-3 rounded-panel border p-4 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                :class="card.primary ? 'border-primary bg-warning-soft hover:bg-primary/15' : 'border-default bg-default hover:bg-elevated'"
               >
-                <div class="space-y-0.5">
-                  <div class="flex items-center gap-2">
-                    <span v-if="!n.isRead" class="size-1.5 rounded-full bg-primary" />
-                    <span class="font-medium text-highlighted">{{ n.title }}</span>
-                  </div>
-                  <p class="text-muted line-clamp-1">{{ n.message }}</p>
-                </div>
-                <span class="text-[11px] text-muted shrink-0">{{ formatThaiDate(n.createdAt) }}</span>
+                <div class="grid size-10 shrink-0 place-items-center rounded-control" :class="card.primary ? 'bg-primary text-ink' : 'bg-elevated text-muted'"><UIcon :name="card.icon" class="size-5" /></div>
+                <div class="min-w-0 flex-1"><h3 class="font-bold text-highlighted">{{ card.title }}</h3><p class="mt-0.5 text-xs text-muted">{{ card.description }}</p></div>
+                <UIcon name="i-lucide-arrow-right" class="size-4 shrink-0 text-muted transition-transform group-hover:translate-x-0.5" />
               </NuxtLink>
             </div>
-            <div v-else class="py-4 text-center text-xs text-muted">
-              ไม่มีการแจ้งเตือน
-            </div>
-          </div>
+          </section>
         </template>
-      </div>
+      </main>
     </template>
   </UDashboardPanel>
 </template>

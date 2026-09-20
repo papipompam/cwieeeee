@@ -22,10 +22,10 @@ const formatThaiDate = (value?: string | null) => value
 <template>
   <UDashboardPanel id="student-placement-page">
     <template #header>
-      <UDashboardNavbar title="สถานที่ฝึกงาน">
+      <AppDashboardNavbar title="สถานที่ฝึกงาน">
         <template #leading><UDashboardSidebarCollapse /></template>
         <template #right><UIButtonRefresh :loading="status === 'pending'" @refresh="refresh" /></template>
-      </UDashboardNavbar>
+      </AppDashboardNavbar>
     </template>
 
     <template #body>

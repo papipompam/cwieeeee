@@ -3,6 +3,7 @@ import type { DropdownMenuItem } from '@nuxt/ui'
 
 defineProps<{
   collapsed?: boolean
+  header?: boolean
 }>()
 
 const user = useState<{ id: number, loginId: string, role: 'STAFF' | 'TEACHER' | 'STUDENT', name: string, mustChangePassword: boolean } | null>('current-user', () => null)
@@ -55,22 +56,24 @@ const menuItems = computed<DropdownMenuItem[][]>(() => {
 </script>
 
 <template>
-  <div v-if="user" class="w-full">
+  <div v-if="user" :class="header ? 'w-auto' : 'w-full'">
     <UDropdownMenu :items="menuItems">
       <UButton
         color="neutral"
         variant="ghost"
-        :class="collapsed ? 'justify-center p-2' : 'w-full justify-start text-left px-2 py-2'"
+        aria-label="เมนูผู้ใช้"
+        title="เมนูผู้ใช้"
+        :class="header ? 'justify-start rounded-control border border-default px-2 py-1.5 text-left sm:min-w-56' : collapsed ? 'justify-center p-2' : 'w-full justify-start px-2 py-2 text-left'"
       >
         <div class="flex items-center gap-2.5 w-full min-w-0">
           <div class="size-8 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0 font-semibold text-xs">
             {{ (user.name || user.loginId).charAt(0).toUpperCase() }}
           </div>
-          <div v-if="!collapsed" class="flex flex-col min-w-0 flex-1 leading-tight">
+          <div v-if="!collapsed" :class="header ? 'hidden min-w-0 flex-1 flex-col leading-tight sm:flex' : 'flex min-w-0 flex-1 flex-col leading-tight'">
             <span class="text-xs font-medium text-highlighted truncate">{{ user.name || user.loginId }}</span>
             <span class="text-[11px] text-muted truncate">{{ roleLabel }} • {{ user.loginId }}</span>
           </div>
-          <UIcon v-if="!collapsed" name="i-lucide-chevrons-up-down" class="size-4 text-muted shrink-0" />
+          <UIcon v-if="!collapsed" name="i-lucide-chevron-down" :class="header ? 'hidden size-4 shrink-0 text-muted sm:block' : 'size-4 shrink-0 text-muted'" />
         </div>
       </UButton>
     </UDropdownMenu>

@@ -249,7 +249,7 @@ const columns: TableColumn<Company>[] = [
 <template>
   <UDashboardPanel id="staff-companies">
     <template #header>
-      <UDashboardNavbar title="จัดการข้อมูลสถานประกอบการ">
+      <AppDashboardNavbar title="จัดการข้อมูลสถานประกอบการ">
         <template #leading>
           <UDashboardSidebarCollapse />
         </template>
@@ -263,7 +263,7 @@ const columns: TableColumn<Company>[] = [
           />
           <AppNotificationBell />
         </template>
-      </UDashboardNavbar>
+      </AppDashboardNavbar>
     </template>
 
     <template #body>

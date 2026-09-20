@@ -39,18 +39,29 @@ const columns: TableColumn<VisitItem>[] = [
 <template>
   <UDashboardPanel id="student-visits-page">
     <template #header>
-      <UDashboardNavbar title="ตารางการนิเทศงานสหกิจศึกษา">
+      <AppDashboardNavbar title="ตารางการนิเทศงานสหกิจศึกษา">
         <template #leading>
           <UDashboardSidebarCollapse />
         </template>
         <template #right>
           <UIButtonRefresh :loading="status === 'pending'" @refresh="refresh" />
         </template>
-      </UDashboardNavbar>
+      </AppDashboardNavbar>
     </template>
 
     <template #body>
-      <div class="space-y-4">
+      <div class="space-y-4 pb-8">
+        <section class="overflow-hidden rounded-xl border border-default bg-default shadow-xs" aria-labelledby="visits-heading">
+          <div class="flex items-start justify-between gap-4 border-b border-default p-5 sm:p-6">
+            <div>
+              <h2 id="visits-heading" class="text-lg font-bold text-highlighted">รายการนัดนิเทศ</h2>
+              <p class="mt-1 text-sm leading-6 text-muted">ดูวัน เวลา สถานประกอบการ และอาจารย์ผู้นิเทศของคุณ</p>
+            </div>
+            <span class="grid size-10 shrink-0 place-items-center rounded-lg bg-info/10 text-info">
+              <UIcon name="i-lucide-calendar-days" class="size-5" />
+            </span>
+          </div>
+
         <UAlert
           v-if="error"
           color="error"
@@ -59,12 +70,12 @@ const columns: TableColumn<VisitItem>[] = [
           :description="error.message"
         />
 
-        <div class="rounded-lg border border-default bg-default overflow-hidden">
+        <div class="overflow-hidden">
           <UTable
             :columns="columns"
             :data="visits || []"
             :loading="status === 'pending'"
-            class="min-w-full"
+            class="min-w-full overflow-x-auto"
           >
             <template #visitNo-cell="{ row }">
               <span class="font-semibold text-highlighted text-xs">ครั้งที่ {{ row.original.visitNo }}</span>
@@ -104,6 +115,7 @@ const columns: TableColumn<VisitItem>[] = [
             </template>
           </UTable>
         </div>
+        </section>
       </div>
     </template>
   </UDashboardPanel>

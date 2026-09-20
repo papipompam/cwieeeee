@@ -54,7 +54,7 @@ const handleSubmit = async (formData: any) => {
 <template>
   <UDashboardPanel id="staff-company-edit">
     <template #header>
-      <UDashboardNavbar :title="company ? `แก้ไข ${company.name}` : 'แก้ไขสถานประกอบการ'">
+      <AppDashboardNavbar :title="company ? `แก้ไข ${company.name}` : 'แก้ไขสถานประกอบการ'">
         <template #leading>
           <UButton
             icon="i-lucide-arrow-left"
@@ -67,7 +67,7 @@ const handleSubmit = async (formData: any) => {
         <template #right>
           <AppNotificationBell />
         </template>
-      </UDashboardNavbar>
+      </AppDashboardNavbar>
     </template>
 
     <template #body>

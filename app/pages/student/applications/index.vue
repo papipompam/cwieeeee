@@ -149,7 +149,7 @@ const handleDeleteConfirm = async () => {
 <template>
   <UDashboardPanel id="student-applications-page">
     <template #header>
-      <UDashboardNavbar title="การสมัครสถานประกอบการ">
+      <AppDashboardNavbar title="การสมัครสถานประกอบการ">
         <template #leading>
           <UDashboardSidebarCollapse />
         </template>
@@ -163,21 +163,33 @@ const handleDeleteConfirm = async () => {
             to="/student/applications/new"
           />
         </template>
-      </UDashboardNavbar>
+      </AppDashboardNavbar>
     </template>
 
     <template #body>
-      <div class="space-y-4">
+      <div class="space-y-4 pb-8">
+        <section class="overflow-hidden rounded-xl border border-default bg-default shadow-xs" aria-labelledby="applications-heading">
+          <div class="border-b border-default p-5 sm:p-6">
+            <div class="flex items-start justify-between gap-4">
+              <div>
+                <h2 id="applications-heading" class="text-lg font-bold text-highlighted">รายการสมัครสถานประกอบการ</h2>
+                <p class="mt-1 text-sm leading-6 text-muted">ติดตามบริษัทที่สมัคร อัปเดตผลตอบกลับ และเลือกสถานที่ฝึกงาน</p>
+              </div>
+              <span class="grid size-10 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
+                <UIcon name="i-lucide-briefcase-business" class="size-5" />
+              </span>
+            </div>
+
         <!-- Control Row -->
-        <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+        <div class="mt-5 flex flex-col items-stretch justify-between gap-3 lg:flex-row lg:items-center">
           <UInput
             v-model="search"
             icon="i-lucide-search"
             placeholder="ค้นหาสถานประกอบการ หรือตำแหน่ง..."
-            class="w-full sm:w-64"
+            class="w-full lg:max-w-sm"
           />
 
-          <div class="flex flex-wrap items-center gap-2 self-end sm:self-auto">
+          <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center lg:justify-end">
             <USelect
               v-model="statusFilter"
               :items="[
@@ -190,7 +202,7 @@ const handleDeleteConfirm = async () => {
                 { label: 'ยกเลิกการสมัคร', value: 'WITHDRAWN' },
                 { label: 'ยืนยันและส่งคำร้องแล้ว', value: 'CONFIRMED' }
               ]"
-              class="w-44"
+              class="w-full sm:w-52"
             />
             <USelect
               v-if="availableProvinces.length > 0"
@@ -199,7 +211,7 @@ const handleDeleteConfirm = async () => {
                 { label: 'ทุกจังหวัด', value: 'ALL' },
                 ...availableProvinces.map(p => ({ label: p, value: p }))
               ]"
-              class="w-36"
+              class="w-full sm:w-40"
             />
             <UButton
               v-if="hasActiveFilter"
@@ -213,9 +225,10 @@ const handleDeleteConfirm = async () => {
             <UIButtonRefresh :loading="status === 'pending'" @refresh="refresh" />
           </div>
         </div>
+          </div>
 
         <!-- Reason Banner if cannot apply -->
-        <div v-if="contextData && !contextData.canApply && contextData.reason" class="text-xs text-muted bg-muted/20 px-3.5 py-2 rounded-lg flex items-center gap-2">
+        <div v-if="contextData && !contextData.canApply && contextData.reason" class="mx-5 mt-4 flex items-center gap-2 rounded-lg bg-elevated px-3.5 py-2 text-xs text-muted sm:mx-6">
           <UIcon name="i-lucide-info" class="size-4 text-primary shrink-0" />
           <span>{{ contextData.reason }}</span>
         </div>
@@ -231,12 +244,12 @@ const handleDeleteConfirm = async () => {
         />
 
         <!-- Table -->
-        <div class="rounded-lg border border-default bg-default overflow-hidden">
+        <div class="mt-4 overflow-hidden border-t border-default">
           <UTable
             :columns="columns"
             :data="paginatedApplications"
             :loading="status === 'pending'"
-            class="min-w-full"
+            class="min-w-full overflow-x-auto"
           >
             <!-- ID Column -->
             <template #id-cell="{ row }">
@@ -347,6 +360,7 @@ const handleDeleteConfirm = async () => {
             />
           </div>
         </div>
+        </section>
       </div>
 
       <!-- Confirm Delete Modal for REJECTED -->

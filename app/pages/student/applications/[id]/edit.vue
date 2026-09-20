@@ -15,8 +15,9 @@ const canEdit = computed(() => {
 <template>
   <UDashboardPanel id="student-edit-application-page">
     <template #header>
-      <UDashboardNavbar title="แก้ไขการสมัครสถานประกอบการ">
+      <AppDashboardNavbar title="แก้ไขการสมัครสถานประกอบการ">
         <template #leading>
+          <UDashboardSidebarCollapse />
           <UButton
             icon="i-lucide-arrow-left"
             color="neutral"
@@ -24,7 +25,7 @@ const canEdit = computed(() => {
             :to="`/student/applications/${id}`"
           />
         </template>
-      </UDashboardNavbar>
+      </AppDashboardNavbar>
     </template>
 
     <template #body>

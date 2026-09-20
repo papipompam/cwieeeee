@@ -90,7 +90,7 @@ const columns: TableColumn<Item>[] = [
 
 <template>
   <UDashboardPanel id="teacher-company-evaluations">
-    <template #header><UDashboardNavbar title="ประเมินสถานประกอบการ"><template #leading><UDashboardSidebarCollapse /></template><template #right><AppNotificationBell /></template></UDashboardNavbar></template>
+    <template #header><AppDashboardNavbar title="ประเมินสถานประกอบการ"><template #leading><UDashboardSidebarCollapse /></template><template #right><AppNotificationBell /></template></AppDashboardNavbar></template>
     <template #body>
       <div class="space-y-4 p-4 sm:p-6">
         <UAlert v-if="error" color="error" title="ไม่สามารถโหลดงานประเมินได้" :description="error.message" />

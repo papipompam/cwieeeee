@@ -3,6 +3,7 @@ import type { NavigationMenuItem } from '@nuxt/ui'
 
 const open = ref(false)
 const route = useRoute()
+const isDevelopment = import.meta.dev
 const { activeCycleId: savedCycleId, setActiveCycle } = useStaffActiveCycle()
 
 const user = useState<{ id: number, loginId: string, role: 'STAFF' | 'TEACHER' | 'STUDENT', name: string, mustChangePassword: boolean } | null>('current-user', () => null)
@@ -189,7 +190,7 @@ const teacherLinks: NavigationMenuItem[] = [
 
 const studentLinks: NavigationMenuItem[] = [
   {
-    label: 'ภาพรวม',
+    label: 'หน้าหลัก',
     icon: 'i-lucide-layout-dashboard',
     to: '/student',
     exact: true,
@@ -211,12 +212,6 @@ const studentLinks: NavigationMenuItem[] = [
     label: 'ตารางนิเทศ',
     icon: 'i-lucide-calendar-days',
     to: '/student/visits',
-    onSelect: handleSelect
-  },
-  {
-    label: 'การแจ้งเตือน',
-    icon: 'i-lucide-bell',
-    to: '/student/notifications',
     onSelect: handleSelect
   }
 ]
@@ -241,24 +236,38 @@ const currentLinks = computed<NavigationMenuItem[]>(() => {
 </script>
 
 <template>
-  <UDashboardGroup unit="rem">
+  <UDashboardGroup unit="rem" :class="{ 'student-ui-theme': route.path.startsWith('/student') }">
     <UDashboardSidebar
       id="dashboard-sidebar"
       v-model:open="open"
       collapsible
       resizable
-      class="bg-elevated/25"
-      :ui="{ footer: 'border-t border-default' }"
+      class="app-sidebar"
+      :ui="{
+        content: 'app-sidebar w-[min(20rem,calc(100vw-2rem))] max-w-none',
+        header: 'px-4 sm:px-5',
+        body: 'px-3 py-3 sm:px-4',
+        footer: 'justify-center border-t border-sidebar-border px-3 py-3 sm:px-4'
+      }"
     >
       <template #header="{ collapsed }">
-        <NuxtLink to="/" class="flex items-center gap-2.5 overflow-hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-md px-1 py-1">
-          <div class="size-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
-            <UIcon name="i-lucide-graduation-cap" class="size-5" />
-          </div>
-          <div v-if="!collapsed" class="flex flex-col overflow-hidden text-left min-w-0">
-            <span class="font-bold text-sm tracking-tight text-highlighted truncate leading-tight">CWIE CS BRU</span>
-            <span class="text-[11px] text-muted truncate leading-tight mt-0.5">ระบบนิเทศสหกิจศึกษา</span>
-          </div>
+        <NuxtLink
+          to="/"
+          class="flex w-full items-center justify-center overflow-hidden rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          aria-label="สาขาวิชาวิทยาการคอมพิวเตอร์ มหาวิทยาลัยราชภัฏบุรีรัมย์"
+        >
+          <img
+            v-if="collapsed"
+            src="/images/brand/computer-science-mark.png"
+            alt=""
+            class="h-auto w-10 object-contain"
+          >
+          <img
+            v-else
+            src="/images/brand/computer-science-full.png"
+            alt=""
+            class="h-auto w-full object-contain"
+          >
         </NuxtLink>
       </template>
 
@@ -267,13 +276,46 @@ const currentLinks = computed<NavigationMenuItem[]>(() => {
           :collapsed="collapsed"
           :items="currentLinks"
           orientation="vertical"
+          color="neutral"
+          variant="pill"
           tooltip
+          class="sidebar-menu"
+          :ui="{
+            root: 'gap-2',
+            list: 'space-y-1',
+            link: 'min-h-11 gap-3 rounded-control px-3 py-2 text-sm font-medium focus-visible:before:outline-primary/50',
+            linkLeadingIcon: 'size-5',
+            childList: 'mt-1 space-y-1 border-sidebar-border',
+            childLink: 'min-h-10 gap-2.5 rounded-control px-3 py-2',
+            childLinkIcon: 'size-4.5'
+          }"
         />
+        <div v-if="isDevelopment && currentRole === 'student'" class="mt-5 border-t border-sidebar-border pt-4">
+          <p v-if="!collapsed" class="mb-2 px-3 text-xs font-semibold text-sidebar-muted">สำหรับนักพัฒนา</p>
+          <UButton
+            to="/dev/ui"
+            icon="i-lucide-blocks"
+            :label="collapsed ? undefined : 'Design System'"
+            :color="route.path === '/dev/ui' ? 'primary' : 'neutral'"
+            :variant="route.path === '/dev/ui' ? 'solid' : 'ghost'"
+            :square="collapsed"
+            class="min-h-11 w-full justify-start gap-3 rounded-control px-3 text-sm font-medium"
+            aria-label="Design System"
+            title="Design System"
+            @click="handleSelect"
+          />
+        </div>
       </template>
 
       <template #footer="{ collapsed }">
-        <AppUserMenu :collapsed="collapsed" class="w-full" />
+        <span v-if="!collapsed" class="text-center text-xs font-medium tracking-wide text-sidebar-muted">
+          วิทยาการคอมพิวเตอร์
+        </span>
+        <span v-else class="text-xs font-semibold text-sidebar-muted" aria-label="วิทยาการคอมพิวเตอร์">
+          CS
+        </span>
       </template>
+
     </UDashboardSidebar>
 
     <slot />

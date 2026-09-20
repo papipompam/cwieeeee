@@ -29,7 +29,7 @@ const handleSubmit = async (formData: any) => {
 <template>
   <UDashboardPanel id="staff-company-new">
     <template #header>
-      <UDashboardNavbar title="เพิ่มสถานประกอบการใหม่">
+      <AppDashboardNavbar title="เพิ่มสถานประกอบการใหม่">
         <template #leading>
           <UButton
             icon="i-lucide-arrow-left"
@@ -42,7 +42,7 @@ const handleSubmit = async (formData: any) => {
         <template #right>
           <AppNotificationBell />
         </template>
-      </UDashboardNavbar>
+      </AppDashboardNavbar>
     </template>
 
     <template #body>

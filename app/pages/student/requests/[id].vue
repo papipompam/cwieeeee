@@ -82,8 +82,9 @@ const handleUpload = async () => {
 <template>
   <UDashboardPanel id="student-request-detail-page">
     <template #header>
-      <UDashboardNavbar :title="`คำร้อง REQ-${String(id).padStart(4, '0')}`">
+      <AppDashboardNavbar :title="`คำร้อง REQ-${String(id).padStart(4, '0')}`">
         <template #leading>
+          <UDashboardSidebarCollapse />
           <UButton
             icon="i-lucide-arrow-left"
             color="neutral"
@@ -94,7 +95,7 @@ const handleUpload = async () => {
         <template #right>
           <UIButtonRefresh :loading="fetchStatus === 'pending'" @refresh="refresh" />
         </template>
-      </UDashboardNavbar>
+      </AppDashboardNavbar>
     </template>
 
     <template #body>

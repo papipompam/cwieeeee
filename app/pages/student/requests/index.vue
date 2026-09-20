@@ -160,28 +160,40 @@ const columns: TableColumn<RequestItem>[] = [
 <template>
   <UDashboardPanel id="student-requests-page">
     <template #header>
-      <UDashboardNavbar title="คำร้องสถานที่ฝึกงาน">
+      <AppDashboardNavbar title="คำร้องสถานที่ฝึกงาน">
         <template #leading>
           <UDashboardSidebarCollapse />
         </template>
         <template #right>
           <AppNotificationBell />
         </template>
-      </UDashboardNavbar>
+      </AppDashboardNavbar>
     </template>
 
     <template #body>
-      <div class="space-y-4">
+      <div class="space-y-4 pb-8">
+        <section class="overflow-hidden rounded-xl border border-default bg-default shadow-xs" aria-labelledby="requests-heading">
+          <div class="border-b border-default p-5 sm:p-6">
+            <div class="flex items-start justify-between gap-4">
+              <div>
+                <h2 id="requests-heading" class="text-lg font-bold text-highlighted">รายการคำร้องสถานที่ฝึกงาน</h2>
+                <p class="mt-1 text-sm leading-6 text-muted">ติดตามการออกหนังสือ ดาวน์โหลดเอกสาร และส่งหนังสือตอบรับ</p>
+              </div>
+              <span class="grid size-10 shrink-0 place-items-center rounded-lg bg-info/10 text-info">
+                <UIcon name="i-lucide-files" class="size-5" />
+              </span>
+            </div>
+
         <!-- Control Row -->
-        <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+        <div class="mt-5 flex flex-col items-stretch justify-between gap-3 lg:flex-row lg:items-center">
           <UInput
             v-model="search"
             icon="i-lucide-search"
             placeholder="ค้นหาตามชื่อบริษัท หรือตำแหน่ง..."
-            class="w-full sm:w-64"
+            class="w-full lg:max-w-sm"
           />
 
-          <div class="flex flex-wrap items-center gap-2 self-end sm:self-auto">
+          <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center lg:justify-end">
             <USelect
               v-model="statusFilter"
               :items="[
@@ -193,7 +205,7 @@ const columns: TableColumn<RequestItem>[] = [
                 { label: 'ถูกส่งกลับให้แก้ไข', value: 'RETURNED_FOR_REVISION' },
                 { label: 'ยืนยันสถานที่ฝึกงานแล้ว', value: 'PLACEMENT_CONFIRMED' }
               ]"
-              class="w-52"
+              class="w-full sm:w-60"
             />
             <UButton
               v-if="search || statusFilter !== 'ALL'"
@@ -207,6 +219,7 @@ const columns: TableColumn<RequestItem>[] = [
             <UIButtonRefresh :loading="status === 'pending'" @refresh="refresh" />
           </div>
         </div>
+          </div>
 
         <UAlert
           v-if="error"
@@ -216,12 +229,12 @@ const columns: TableColumn<RequestItem>[] = [
           :description="error.message"
         />
 
-        <div class="rounded-lg border border-default bg-default overflow-hidden">
+        <div class="overflow-hidden border-t border-default">
           <UTable
             :columns="columns"
             :data="filteredRequests"
             :loading="status === 'pending'"
-            class="min-w-full"
+            class="min-w-full overflow-x-auto"
           >
             <template #id-cell="{ row }">
               <span class=" text-xs text-muted">REQ-{{ String(row.original.id).padStart(4, '0') }}</span>
@@ -323,6 +336,7 @@ const columns: TableColumn<RequestItem>[] = [
             </template>
           </UTable>
         </div>
+        </section>
       </div>
 
       <!-- Upload Signed Document Modal -->

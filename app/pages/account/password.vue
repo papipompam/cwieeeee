@@ -42,7 +42,7 @@ const submit = async () => {
 <template>
   <UDashboardPanel id="account-password">
     <template #header>
-      <UDashboardNavbar title="เปลี่ยนรหัสผ่าน" icon="i-lucide-key-round" />
+      <AppDashboardNavbar title="เปลี่ยนรหัสผ่าน" icon="i-lucide-key-round" />
     </template>
 
     <template #body>

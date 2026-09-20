@@ -237,7 +237,7 @@ const columns: TableColumn<Appointment>[] = [
 <template>
   <UDashboardPanel id="teacher-visits">
     <template #header>
-      <UDashboardNavbar title="ตารางนิเทศของฉัน"><template #leading><UDashboardSidebarCollapse /></template><template #right><AppNotificationBell /></template></UDashboardNavbar>
+      <AppDashboardNavbar title="ตารางนิเทศของฉัน"><template #leading><UDashboardSidebarCollapse /></template><template #right><AppNotificationBell /></template></AppDashboardNavbar>
     </template>
 
     <template #body>

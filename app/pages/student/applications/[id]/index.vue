@@ -132,8 +132,9 @@ const handleDeleteConfirm = async () => {
 <template>
   <UDashboardPanel id="student-application-detail-page">
     <template #header>
-      <UDashboardNavbar :title="app?.company?.name || 'รายละเอียดการสมัคร'">
+      <AppDashboardNavbar :title="app?.company?.name || 'รายละเอียดการสมัคร'">
         <template #leading>
+          <UDashboardSidebarCollapse />
           <UButton
             icon="i-lucide-arrow-left"
             color="neutral"
@@ -144,7 +145,7 @@ const handleDeleteConfirm = async () => {
         <template #right>
           <UIButtonRefresh :loading="fetchStatus === 'pending'" @refresh="refresh" />
         </template>
-      </UDashboardNavbar>
+      </AppDashboardNavbar>
     </template>
 
     <template #body>

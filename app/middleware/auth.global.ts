@@ -1,5 +1,6 @@
 export default defineNuxtRouteMiddleware(async (to) => {
   if (to.path === '/login') return
+  if (to.path.startsWith('/dev')) return
   const requestFetch = useRequestFetch()
   const user = await requestFetch<{ role: 'STAFF' | 'TEACHER' | 'STUDENT', mustChangePassword: boolean } | null>('/api/auth/me')
   if (!user) return navigateTo('/login')

@@ -32,14 +32,14 @@ const handleSavePhone = async () => {
 <template>
   <UDashboardPanel id="student-profile-page">
     <template #header>
-      <UDashboardNavbar title="ข้อมูลส่วนตัว">
+      <AppDashboardNavbar title="ข้อมูลส่วนตัว">
         <template #leading>
           <UDashboardSidebarCollapse />
         </template>
         <template #right>
           <UIButtonRefresh :loading="status === 'pending'" @refresh="refresh" />
         </template>
-      </UDashboardNavbar>
+      </AppDashboardNavbar>
     </template>
 
     <template #body>

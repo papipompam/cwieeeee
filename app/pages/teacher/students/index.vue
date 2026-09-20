@@ -44,7 +44,7 @@ const columns: TableColumn<StudentRecord>[] = [
 <template>
   <UDashboardPanel id="teacher-students">
     <template #header>
-      <UDashboardNavbar title="ข้อมูลการสมัครที่ฝึกงานของนักศึกษา"><template #leading><UDashboardSidebarCollapse /></template><template #right><AppNotificationBell /></template></UDashboardNavbar>
+      <AppDashboardNavbar title="ข้อมูลการสมัครที่ฝึกงานของนักศึกษา"><template #leading><UDashboardSidebarCollapse /></template><template #right><AppNotificationBell /></template></AppDashboardNavbar>
     </template>
 
     <template #body>

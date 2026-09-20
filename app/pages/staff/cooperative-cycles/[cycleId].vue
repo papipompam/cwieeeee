@@ -75,7 +75,7 @@ const currentModuleTitle = computed(() => {
   <UDashboardPanel id="staff-cycle-workspace">
     <!-- Top Navbar -->
     <template #header>
-      <UDashboardNavbar>
+      <AppDashboardNavbar>
         <template #leading>
           <div class="flex items-center gap-2">
             <UDashboardSidebarCollapse />
@@ -111,7 +111,7 @@ const currentModuleTitle = computed(() => {
         <template #right>
           <AppNotificationBell />
         </template>
-      </UDashboardNavbar>
+      </AppDashboardNavbar>
     </template>
 
     <template #body>

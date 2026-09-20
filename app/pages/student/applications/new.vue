@@ -9,8 +9,9 @@ const { data: contextData } = await useFetch<any>('/api/student/context')
 <template>
   <UDashboardPanel id="student-new-application-page">
     <template #header>
-      <UDashboardNavbar title="เพิ่มการสมัครสถานประกอบการ">
+      <AppDashboardNavbar title="เพิ่มการสมัครสถานประกอบการ">
         <template #leading>
+          <UDashboardSidebarCollapse />
           <UButton
             icon="i-lucide-arrow-left"
             color="neutral"
@@ -18,7 +19,7 @@ const { data: contextData } = await useFetch<any>('/api/student/context')
             to="/student/applications"
           />
         </template>
-      </UDashboardNavbar>
+      </AppDashboardNavbar>
     </template>
 
     <template #body>

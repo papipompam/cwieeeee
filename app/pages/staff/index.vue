@@ -67,13 +67,13 @@ const formatDate = (value: string) => new Date(value).toLocaleDateString('th-TH'
 <template>
   <UDashboardPanel id="staff-overview">
     <template #header>
-      <UDashboardNavbar title="ภาพรวมระบบ">
+      <AppDashboardNavbar title="ภาพรวมระบบ">
         <template #leading><UDashboardSidebarCollapse /></template>
         <template #right>
           <UButton label="จัดการรอบสหกิจ" icon="i-lucide-calendar-range" to="/staff/cooperative-cycles?select=1" />
           <AppNotificationBell />
         </template>
-      </UDashboardNavbar>
+      </AppDashboardNavbar>
     </template>
 
     <template #body>

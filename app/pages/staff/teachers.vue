@@ -344,7 +344,7 @@ const columns: TableColumn<Teacher>[] = [
 <template>
   <UDashboardPanel id="staff-teachers">
     <template #header>
-      <UDashboardNavbar title="จัดการข้อมูลอาจารย์">
+      <AppDashboardNavbar title="จัดการข้อมูลอาจารย์">
         <template #leading>
           <UDashboardSidebarCollapse />
         </template>
@@ -358,7 +358,7 @@ const columns: TableColumn<Teacher>[] = [
           />
           <AppNotificationBell />
         </template>
-      </UDashboardNavbar>
+      </AppDashboardNavbar>
     </template>
 
     <template #body>
