@@ -590,7 +590,7 @@ const handleRemoveCompany = async (companyId: number) => {
     <!-- Header & Round Switcher -->
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
       <div>
-        <h2 class="text-base font-semibold text-highlighted flex items-center gap-2">
+        <h2 class="text-base font-bold text-ink flex items-center gap-2">
           <UIcon name="i-lucide-users-round" class="size-5 text-primary" />
           จัดกลุ่มและมอบหมายอาจารย์นิเทศ
         </h2>
@@ -607,7 +607,7 @@ const handleRemoveCompany = async (companyId: number) => {
             v-model="selectedRoundId"
             :items="roundOptions"
             class="w-56"
-            size="md"
+            size="xl"
           />
         </div>
 
@@ -616,7 +616,7 @@ const handleRemoveCompany = async (companyId: number) => {
           icon="i-lucide-calendar-plus"
           color="neutral"
           variant="outline"
-          size="md"
+          size="xl"
           @click="openCreateRoundModal"
         />
 
@@ -630,12 +630,12 @@ const handleRemoveCompany = async (companyId: number) => {
     <!-- Alert / Banner for Unassigned Companies if any -->
     <div
       v-if="unassignedCompanies.length > 0"
-      class="rounded-lg border border-warning/30 bg-warning/5 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+      class="rounded-panel border border-warning/30 bg-warning/5 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
     >
       <div class="flex items-start gap-3">
         <UIcon name="i-lucide-alert-circle" class="size-5 text-warning shrink-0 mt-0.5" />
         <div>
-          <div class="text-sm font-semibold text-highlighted">
+          <div class="text-sm font-bold text-ink">
             มีสถานประกอบการที่ยังไม่ได้จัดกลุ่ม {{ unassignedCompanies.length }} แห่ง
           </div>
           <p class="text-xs text-muted mt-0.5">
@@ -654,16 +654,16 @@ const handleRemoveCompany = async (companyId: number) => {
           />
           <template #content>
             <div class="p-3 w-80 max-h-72 overflow-y-auto space-y-2 text-xs">
-              <div class="font-semibold text-highlighted pb-1 border-b border-default">
+              <div class="font-semibold text-ink pb-1 border-b border-divider">
                 สถานประกอบการยังไม่จัดกลุ่ม
               </div>
               <div
                 v-for="comp in unassignedCompanies"
                 :key="comp.companyId"
-                class="p-2 rounded bg-muted/20 flex items-center justify-between gap-2"
+                class="p-2 rounded bg-surface flex items-center justify-between gap-2"
               >
                 <div class="truncate">
-                  <div class="font-medium text-highlighted truncate">{{ comp.companyName }}</div>
+                  <div class="font-medium text-ink truncate">{{ comp.companyName }}</div>
                   <div class="text-muted text-[11px]">{{ comp.province || 'ไม่ระบุจังหวัด' }} · {{ comp.studentCount }} คน</div>
                 </div>
               </div>
@@ -681,14 +681,14 @@ const handleRemoveCompany = async (companyId: number) => {
           icon="i-lucide-search"
           placeholder="ค้นหากลุ่ม อาจารย์ สถานประกอบการ..."
           class="w-72"
-          size="md"
+          size="xl"
         />
         <UButton
           v-if="searchQuery"
           label="ล้าง"
           color="neutral"
           variant="ghost"
-          size="md"
+          size="xs"
           @click="searchQuery = ''"
         />
       </div>
@@ -699,14 +699,14 @@ const handleRemoveCompany = async (companyId: number) => {
           icon="i-lucide-wand-sparkles"
           color="neutral"
           variant="outline"
-          size="md"
+          size="xl"
           @click="openAutoGroupModal"
         />
         <UButton
           label="สร้างกลุ่มใหม่"
           icon="i-lucide-plus"
           color="primary"
-          size="md"
+          size="xl"
           @click="openCreateGroupModal"
         />
       </div>
@@ -717,14 +717,14 @@ const handleRemoveCompany = async (companyId: number) => {
       <div
         v-for="group in filteredGroups"
         :key="group.id"
-        class="rounded-lg border border-default bg-default shadow-xs flex flex-col justify-between hover:border-primary/40 transition-colors"
+        class="rounded-panel border border-divider bg-canvas shadow-panel flex flex-col justify-between hover:border-primary/40 transition-colors"
       >
         <!-- Card Header -->
-        <div class="p-4 border-b border-default flex items-start justify-between gap-2">
+        <div class="p-4 border-b border-divider flex items-start justify-between gap-2">
           <div class="flex items-center gap-2.5">
             <UIcon name="i-lucide-users" class="size-5 text-primary shrink-0" />
             <div>
-              <h3 class="font-semibold text-sm text-highlighted">{{ group.name }}</h3>
+              <h3 class="font-bold text-sm text-ink">{{ group.name }}</h3>
               <p v-if="group.note" class="text-xs text-muted line-clamp-1 mt-0.5">{{ group.note }}</p>
             </div>
           </div>
@@ -749,18 +749,18 @@ const handleRemoveCompany = async (companyId: number) => {
         <!-- Card Body -->
         <div class="p-4 space-y-3.5 text-xs flex-1">
           <!-- Workload Stats -->
-          <div class="grid grid-cols-3 gap-2 bg-muted/10 p-2.5 rounded-lg text-center">
+          <div class="grid grid-cols-3 gap-2 bg-surface p-2.5 rounded-control text-center">
             <div>
               <div class="text-muted text-[11px]">สถานประกอบการ</div>
-              <div class="text-base font-bold text-highlighted">{{ group.companiesCount }} แห่ง</div>
+              <div class="text-base font-bold text-ink">{{ group.companiesCount }} แห่ง</div>
             </div>
             <div>
               <div class="text-muted text-[11px]">นักศึกษา</div>
-              <div class="text-base font-bold text-highlighted">{{ group.studentsCount }} คน</div>
+              <div class="text-base font-bold text-ink">{{ group.studentsCount }} คน</div>
             </div>
             <div>
               <div class="text-muted text-[11px]">อาจารย์</div>
-              <div class="text-base font-bold text-highlighted">{{ group.teachers.length }} ท่าน</div>
+              <div class="text-base font-bold text-ink">{{ group.teachers.length }} ท่าน</div>
             </div>
           </div>
 
@@ -774,11 +774,11 @@ const handleRemoveCompany = async (companyId: number) => {
               <div
                 v-for="gt in group.teachers"
                 :key="gt.id"
-                class="flex items-center justify-between py-1 px-2 rounded bg-muted/20"
+                class="flex items-center justify-between py-1 px-2 rounded bg-surface"
               >
                 <div class="flex items-center gap-1.5 truncate">
                   <UIcon name="i-lucide-user" class="size-3.5 text-muted shrink-0" />
-                  <span class="truncate font-medium text-highlighted">
+                  <span class="truncate font-medium text-ink">
                     {{ gt.teacher.prefix }}{{ gt.teacher.firstName }} {{ gt.teacher.lastName }}
                   </span>
                 </div>
@@ -815,7 +815,7 @@ const handleRemoveCompany = async (companyId: number) => {
         </div>
 
         <!-- Card Footer -->
-        <div class="p-3 bg-muted/5 border-t border-default flex items-center justify-between gap-2">
+        <div class="p-3 bg-surface border-t border-divider flex items-center justify-between gap-2">
           <NuxtLink
             :to="`/staff/cooperative-cycles/${cycleId}/visits`"
             class="text-xs text-primary hover:underline flex items-center gap-1"
@@ -837,54 +837,55 @@ const handleRemoveCompany = async (companyId: number) => {
     </div>
 
     <!-- Empty State for Groups -->
-    <div
+    <UEmpty
       v-if="filteredGroups.length === 0 && rounds.length > 0"
-      class="text-center py-12 bg-muted/5 rounded-lg border border-dashed border-default"
+      icon="i-lucide-users"
+      title="ยังไม่มีกลุ่มนิเทศในครั้งนี้"
+      description="เริ่มต้นด้วยการสร้างกลุ่มนิเทศเพื่อจัดเส้นทางการออกนิเทศ"
+      class="py-12 bg-surface rounded-panel border border-dashed border-divider"
     >
-      <UIcon name="i-lucide-users" class="size-10 text-muted mx-auto mb-2" />
-      <div class="text-sm font-medium text-highlighted">ยังไม่มีกลุ่มนิเทศในครั้งนี้</div>
-      <p class="text-xs text-muted mt-1">เริ่มต้นด้วยการสร้างกลุ่มนิเทศเพื่อจัดเส้นทางการออกนิเทศ</p>
-      <UButton
-        label="สร้างกลุ่มแรก"
-        icon="i-lucide-plus"
-        color="primary"
-        size="md"
-        class="mt-3"
-        @click="openCreateGroupModal"
-      />
-    </div>
+      <template #actions>
+        <UButton
+          label="สร้างกลุ่มแรก"
+          icon="i-lucide-plus"
+          color="primary"
+          size="xl"
+          @click="openCreateGroupModal"
+        />
+      </template>
+    </UEmpty>
 
     <!-- Empty State for Rounds -->
-    <div
+    <UEmpty
       v-if="rounds.length === 0"
-      class="text-center py-16 bg-muted/5 rounded-xl border border-dashed border-default space-y-3"
+      icon="i-lucide-calendar-plus"
+      title="ยังไม่มีรอบการนิเทศในรอบสหกิจนี้"
+      description="กรุณาสร้างครั้งที่นิเทศเพื่อเริ่มต้นการจัดกลุ่มสถานประกอบการและวางแผนตารางนิเทศ"
+      class="py-16 bg-surface rounded-panel border border-dashed border-divider"
     >
-      <UIcon name="i-lucide-calendar-plus" class="size-12 text-muted mx-auto" />
-      <div class="text-sm font-semibold text-highlighted">ยังไม่มีรอบการนิเทศในรอบสหกิจนี้</div>
-      <p class="text-xs text-muted max-w-sm mx-auto">
-        กรุณาสร้างครั้งที่นิเทศเพื่อเริ่มต้นการจัดกลุ่มสถานประกอบการและวางแผนตารางนิเทศ
-      </p>
-      <UButton
-        label="สร้างครั้งที่นิเทศแรก"
-        icon="i-lucide-plus"
-        color="primary"
-        size="md"
-        @click="openCreateRoundModal"
-      />
-    </div>
+      <template #actions>
+        <UButton
+          label="สร้างครั้งที่นิเทศแรก"
+          icon="i-lucide-plus"
+          color="primary"
+          size="xl"
+          @click="openCreateRoundModal"
+        />
+      </template>
+    </UEmpty>
 
     <!-- Modal: Create Round -->
     <UModal v-model:open="isCreateRoundOpen" title="เพิ่มรอบการนิเทศใหม่">
       <template #body>
         <div class="space-y-4">
-          <div>
-            <label class="block text-xs font-medium text-highlighted mb-1">ชื่อรอบการนิเทศ *</label>
+          <UFormField label="ชื่อรอบการนิเทศ" required>
             <UInput
               v-model="createRoundForm.title"
               placeholder="เช่น การนิเทศรอบที่ 1 หรือ การนิเทศช่วงกลางเทอม"
               class="w-full"
+              size="xl"
             />
-          </div>
+          </UFormField>
         </div>
       </template>
       <template #footer>
@@ -893,11 +894,13 @@ const handleRemoveCompany = async (companyId: number) => {
             label="ยกเลิก"
             color="neutral"
             variant="outline"
+            size="xl"
             @click="isCreateRoundOpen = false"
           />
           <UButton
             label="บันทึกรอบใหม่"
             color="primary"
+            size="xl"
             :loading="isCreatingRound"
             @click="handleCreateRound"
           />
@@ -909,14 +912,14 @@ const handleRemoveCompany = async (companyId: number) => {
       <template #body>
         <div>
           <UFormField label="จำนวนกลุ่มที่ต้องการ" required>
-            <UInput v-model.number="autoGroupForm.groupCount" type="number" min="1" class="w-full" autofocus />
+            <UInput v-model.number="autoGroupForm.groupCount" type="number" min="1" class="w-full" size="xl" autofocus />
           </UFormField>
         </div>
       </template>
       <template #footer>
         <div class="flex w-full justify-end gap-2">
-          <UButton label="ยกเลิก" color="neutral" variant="outline" :disabled="isAutoGrouping" @click="isAutoGroupOpen = false" />
-          <UButton label="สร้างและจัดกลุ่มทั้งหมด" icon="i-lucide-wand-sparkles" :loading="isAutoGrouping" @click="handleAutoGroup" />
+          <UButton label="ยกเลิก" color="neutral" variant="outline" size="xl" :disabled="isAutoGrouping" @click="isAutoGroupOpen = false" />
+          <UButton label="สร้างและจัดกลุ่มทั้งหมด" icon="i-lucide-wand-sparkles" size="xl" :loading="isAutoGrouping" @click="handleAutoGroup" />
         </div>
       </template>
     </UModal>
@@ -925,80 +928,81 @@ const handleRemoveCompany = async (companyId: number) => {
     <UModal
       v-model:open="isGroupModalOpen"
       :title="editingGroupId ? 'แก้ไขข้อมูลกลุ่มนิเทศ' : 'สร้างกลุ่มนิเทศใหม่'"
+      size="xl"
     >
       <template #body>
         <div class="max-h-[65vh] space-y-5 overflow-y-auto pr-1">
-          <div>
-            <label class="block text-xs font-medium text-highlighted mb-1">ชื่อกลุ่ม *</label>
+          <UFormField label="ชื่อกลุ่ม" required>
             <UInput
               v-model="groupForm.name"
               placeholder="เช่น กลุ่มที่ 1 (โซนกรุงเทพและปริมณฑล)"
               class="w-full"
+              size="xl"
             />
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-highlighted mb-1">หมายเหตุ / ข้อมูลเพิ่มเติม</label>
+          </UFormField>
+          <UFormField label="หมายเหตุ / ข้อมูลเพิ่มเติม">
             <UInput
               v-model="groupForm.note"
               placeholder="รายละเอียดพื้นที่หรือเป้าหมายกลุ่ม"
               class="w-full"
+              size="xl"
             />
-          </div>
+          </UFormField>
           <div class="space-y-2">
             <div class="flex items-center justify-between gap-2">
-              <label class="text-xs font-medium text-highlighted">อาจารย์ผู้นิเทศ *</label>
+              <label class="text-xs font-medium text-ink">อาจารย์ผู้นิเทศ *</label>
               <span class="text-xs text-muted">เลือกแล้ว {{ selectedTeacherIds.length }} ท่าน</span>
             </div>
-            <UInput v-model="teacherSearchQuery" icon="i-lucide-search" placeholder="ค้นหาชื่อหรือรหัสอาจารย์" class="w-full" aria-label="ค้นหาอาจารย์ผู้นิเทศ" />
-            <div class="max-h-48 divide-y divide-default overflow-y-auto rounded-lg border border-default">
-              <button v-for="teacher in filteredTeachers" :key="teacher.id" type="button" class="flex w-full items-center gap-3 p-3 text-left hover:bg-muted/50 focus-visible:outline-2 focus-visible:outline-primary" :class="selectedTeacherIds.includes(teacher.id) ? 'bg-primary/10' : 'bg-default'" :aria-pressed="selectedTeacherIds.includes(teacher.id)" @click="toggleTeacher(teacher.id)">
+            <UInput v-model="teacherSearchQuery" icon="i-lucide-search" placeholder="ค้นหาชื่อหรือรหัสอาจารย์" class="w-full" size="xl" aria-label="ค้นหาอาจารย์ผู้นิเทศ" />
+            <div class="max-h-48 divide-y divide-divider overflow-y-auto rounded-control border border-divider">
+              <button v-for="teacher in filteredTeachers" :key="teacher.id" type="button" class="flex w-full items-center gap-3 p-3 text-left hover:bg-surface focus-visible:outline-2 focus-visible:outline-primary" :class="selectedTeacherIds.includes(teacher.id) ? 'bg-primary/10' : 'bg-canvas'" :aria-pressed="selectedTeacherIds.includes(teacher.id)" @click="toggleTeacher(teacher.id)">
                 <UIcon :name="selectedTeacherIds.includes(teacher.id) ? 'i-lucide-circle-check' : 'i-lucide-circle'" class="size-5 shrink-0" :class="selectedTeacherIds.includes(teacher.id) ? 'text-primary' : 'text-muted'" />
-                <span class="min-w-0"><span class="block truncate text-sm font-medium text-highlighted">{{ teacher.prefix }}{{ teacher.firstName }} {{ teacher.lastName }}</span><span class="block text-xs text-muted">รหัสอาจารย์: {{ teacher.teacherId }}</span></span>
+                <span class="min-w-0"><span class="block truncate text-sm font-medium text-ink">{{ teacher.prefix }}{{ teacher.firstName }} {{ teacher.lastName }}</span><span class="block text-xs text-muted">รหัสอาจารย์: {{ teacher.teacherId }}</span></span>
               </button>
               <div v-if="filteredTeachers.length === 0" class="p-4 text-center text-sm text-muted">ไม่พบอาจารย์ที่พร้อมมอบหมาย</div>
             </div>
           </div>
 
           <div class="space-y-2">
-            <div class="flex items-center justify-between gap-2"><label class="text-xs font-medium text-highlighted">สถานประกอบการ *</label><span class="text-xs text-muted">เลือกแล้ว {{ selectedCompanyPlans.length }} แห่ง</span></div>
-            <UInput v-model="companySearchQuery" icon="i-lucide-search" placeholder="ค้นหาชื่อสถานประกอบการ จังหวัด หรือที่อยู่" class="w-full" aria-label="ค้นหาสถานประกอบการ" />
-            <div class="max-h-56 divide-y divide-default overflow-y-auto rounded-lg border border-default">
-              <button v-for="company in filteredCompanies" :key="company.companyId" type="button" class="flex w-full items-center gap-3 p-3 text-left hover:bg-muted/50 focus-visible:outline-2 focus-visible:outline-primary" :class="selectedCompanyPlans.some(plan => plan.companyId === company.companyId) ? 'bg-primary/10' : 'bg-default'" :aria-pressed="selectedCompanyPlans.some(plan => plan.companyId === company.companyId)" @click="toggleCompany(company.companyId)">
+            <div class="flex items-center justify-between gap-2"><label class="text-xs font-medium text-ink">สถานประกอบการ *</label><span class="text-xs text-muted">เลือกแล้ว {{ selectedCompanyPlans.length }} แห่ง</span></div>
+            <UInput v-model="companySearchQuery" icon="i-lucide-search" placeholder="ค้นหาชื่อสถานประกอบการ จังหวัด หรือที่อยู่" class="w-full" size="xl" aria-label="ค้นหาสถานประกอบการ" />
+            <div class="max-h-56 divide-y divide-divider overflow-y-auto rounded-control border border-divider">
+              <button v-for="company in filteredCompanies" :key="company.companyId" type="button" class="flex w-full items-center gap-3 p-3 text-left hover:bg-surface focus-visible:outline-2 focus-visible:outline-primary" :class="selectedCompanyPlans.some(plan => plan.companyId === company.companyId) ? 'bg-primary/10' : 'bg-canvas'" :aria-pressed="selectedCompanyPlans.some(plan => plan.companyId === company.companyId)" @click="toggleCompany(company.companyId)">
                 <UIcon :name="selectedCompanyPlans.some(plan => plan.companyId === company.companyId) ? 'i-lucide-circle-check' : 'i-lucide-circle'" class="size-5 shrink-0" :class="selectedCompanyPlans.some(plan => plan.companyId === company.companyId) ? 'text-primary' : 'text-muted'" />
-                <span class="min-w-0"><span class="block truncate text-sm font-medium text-highlighted">{{ company.companyName }}</span><span class="block truncate text-xs text-muted">{{ company.province || 'ไม่ระบุจังหวัด' }} · นักศึกษา {{ company.studentCount }} คน</span></span>
+                <span class="min-w-0"><span class="block truncate text-sm font-medium text-ink">{{ company.companyName }}</span><span class="block truncate text-xs text-muted">{{ company.province || 'ไม่ระบุจังหวัด' }} · นักศึกษา {{ company.studentCount }} คน</span></span>
               </button>
               <div v-if="filteredCompanies.length === 0" class="p-4 text-center text-sm text-muted">ไม่พบสถานประกอบการที่ยังไม่ถูกจัดกลุ่ม</div>
             </div>
           </div>
 
           <div class="space-y-2">
-            <div><label class="text-xs font-medium text-highlighted">กำหนดการนิเทศรายสถานประกอบการ *</label><p class="mt-0.5 text-xs text-muted">ระบุวันและช่วงเวลา โดยหลายสถานประกอบการสามารถใช้วันและช่วงเวลาเดียวกันได้</p></div>
+            <div><label class="text-xs font-medium text-ink">กำหนดการนิเทศรายสถานประกอบการ *</label><p class="mt-0.5 text-xs text-muted">ระบุวันและช่วงเวลา โดยหลายสถานประกอบการสามารถใช้วันและช่วงเวลาเดียวกันได้</p></div>
             <div v-if="selectedCompanyDetails.length" class="space-y-2">
-              <div v-for="item in selectedCompanyDetails" :key="item.plan.companyId" class="rounded-lg border border-default bg-muted/5 p-3">
-                <div class="mb-2 text-sm font-medium text-highlighted">{{ item.company?.companyName || 'สถานประกอบการ' }}</div>
+              <div v-for="item in selectedCompanyDetails" :key="item.plan.companyId" class="rounded-control border border-divider bg-surface p-3">
+                <div class="mb-2 text-sm font-medium text-ink">{{ item.company?.companyName || 'สถานประกอบการ' }}</div>
                 <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <div><label class="mb-1 block text-xs text-muted">วันนิเทศ</label><UInput v-model="item.plan.scheduledDate" type="date" class="w-full" aria-label="วันนิเทศ" /></div>
-                  <div><label class="mb-1 block text-xs text-muted">ช่วงเวลา</label><USelect v-model="item.plan.period" :items="periodOptions" class="w-full" aria-label="ช่วงเวลานิเทศ" /></div>
+                  <UFormField label="วันนิเทศ"><UInput v-model="item.plan.scheduledDate" type="date" class="w-full" size="xl" aria-label="วันนิเทศ" /></UFormField>
+                  <UFormField label="ช่วงเวลา"><USelect v-model="item.plan.period" :items="periodOptions" class="w-full" size="xl" aria-label="ช่วงเวลานิเทศ" /></UFormField>
                 </div>
               </div>
             </div>
-            <div v-else class="rounded-lg border border-dashed border-default p-3 text-center text-xs text-muted">เลือกสถานประกอบการเพื่อกำหนดตารางนิเทศ</div>
+            <div v-else class="rounded-control border border-dashed border-divider p-3 text-center text-xs text-muted">เลือกสถานประกอบการเพื่อกำหนดตารางนิเทศ</div>
           </div>
 
-          <div class="space-y-3 rounded-lg border border-primary/30 bg-primary/5 p-3">
-            <div><label class="text-xs font-semibold text-highlighted">ประมาณการค่าใช้จ่ายของกลุ่ม</label><p class="mt-0.5 text-xs text-muted">ระบบจะสร้างแผนเดินทางแยกตามวันที่นิเทศ และคำนวณจากข้อมูลนี้</p></div>
+          <div class="space-y-3 rounded-panel border border-primary/30 bg-primary/5 p-3">
+            <div><label class="text-xs font-semibold text-ink">ประมาณการค่าใช้จ่ายของกลุ่ม</label><p class="mt-0.5 text-xs text-muted">ระบบจะสร้างแผนเดินทางแยกตามวันที่นิเทศ และคำนวณจากข้อมูลนี้</p></div>
             <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div><label class="mb-1 block text-xs text-muted">จุดเริ่มต้นเดินทาง</label><UInput v-model="budgetForm.startLocation" class="w-full" aria-label="จุดเริ่มต้นเดินทาง" /></div>
-              <div><label class="mb-1 block text-xs text-muted">อัตราค่าน้ำมัน (บาท/กม.)</label><UInput v-model.number="budgetForm.fuelRate" type="number" min="0" step="0.5" class="w-full" aria-label="ค่าน้ำมันต่อกิโลเมตร" /></div>
-              <div><label class="mb-1 block text-xs text-muted">เบี้ยเลี้ยง (บาท/วัน/คน)</label><UInput v-model.number="budgetForm.perDiemRate" type="number" min="0" class="w-full" aria-label="เบี้ยเลี้ยงต่อวัน" /></div>
-              <div><label class="mb-1 block text-xs text-muted">จำนวนวันเบี้ยเลี้ยง</label><UInput v-model.number="budgetForm.perDiemDays" type="number" min="0" step="0.5" class="w-full" aria-label="จำนวนวันเบี้ยเลี้ยง" /></div>
-              <div><label class="mb-1 block text-xs text-muted">ค่าที่พัก (บาท/ห้อง/คืน)</label><UInput v-model.number="budgetForm.lodgingRate" type="number" min="0" class="w-full" aria-label="ค่าที่พักต่อห้อง" /></div>
-              <div><label class="mb-1 block text-xs text-muted">จำนวนคืน</label><UInput v-model.number="budgetForm.nights" type="number" min="0" class="w-full" aria-label="จำนวนคืน" /></div>
-              <div><label class="mb-1 block text-xs text-muted">จำนวนห้องพัก</label><UInput v-model.number="budgetForm.rooms" type="number" min="0" class="w-full" aria-label="จำนวนห้องพัก" /></div>
-              <div><label class="mb-1 block text-xs text-muted">หมายเหตุงบประมาณ</label><UInput v-model="budgetForm.note" class="w-full" aria-label="หมายเหตุงบประมาณ" /></div>
+              <UFormField label="จุดเริ่มต้นเดินทาง"><UInput v-model="budgetForm.startLocation" class="w-full" size="xl" aria-label="จุดเริ่มต้นเดินทาง" /></UFormField>
+              <UFormField label="อัตราค่าน้ำมัน (บาท/กม.)"><UInput v-model.number="budgetForm.fuelRate" type="number" min="0" step="0.5" class="w-full" size="xl" aria-label="ค่าน้ำมันต่อกิโลเมตร" /></UFormField>
+              <UFormField label="เบี้ยเลี้ยง (บาท/วัน/คน)"><UInput v-model.number="budgetForm.perDiemRate" type="number" min="0" class="w-full" size="xl" aria-label="เบี้ยเลี้ยงต่อวัน" /></UFormField>
+              <UFormField label="จำนวนวันเบี้ยเลี้ยง"><UInput v-model.number="budgetForm.perDiemDays" type="number" min="0" step="0.5" class="w-full" size="xl" aria-label="จำนวนวันเบี้ยเลี้ยง" /></UFormField>
+              <UFormField label="ค่าที่พัก (บาท/ห้อง/คืน)"><UInput v-model.number="budgetForm.lodgingRate" type="number" min="0" class="w-full" size="xl" aria-label="ค่าที่พักต่อห้อง" /></UFormField>
+              <UFormField label="จำนวนคืน"><UInput v-model.number="budgetForm.nights" type="number" min="0" class="w-full" size="xl" aria-label="จำนวนคืน" /></UFormField>
+              <UFormField label="จำนวนห้องพัก"><UInput v-model.number="budgetForm.rooms" type="number" min="0" class="w-full" size="xl" aria-label="จำนวนห้องพัก" /></UFormField>
+              <UFormField label="หมายเหตุงบประมาณ"><UInput v-model="budgetForm.note" class="w-full" size="xl" aria-label="หมายเหตุงบประมาณ" /></UFormField>
             </div>
-            <div class="rounded-md border border-primary/30 bg-default p-3 text-sm">
-              <div class="font-semibold text-highlighted">สรุปค่าใช้จ่ายประมาณการทั้งหมด</div>
+            <div class="rounded-control border border-primary/30 bg-canvas p-3 text-sm">
+              <div class="font-semibold text-ink">สรุปค่าใช้จ่ายประมาณการทั้งหมด</div>
               <div class="mt-1 text-xs text-muted">เดินทาง {{ groupBudgetSummary.travelDays }} วัน · เบี้ยเลี้ยง ฿{{ formatCurrency(groupBudgetSummary.perDiem) }} · ที่พัก ฿{{ formatCurrency(groupBudgetSummary.lodging) }}</div>
               <div class="mt-1 text-lg font-bold text-primary">รวม ฿{{ formatCurrency(groupBudgetSummary.total) }}</div>
             </div>
@@ -1011,11 +1015,13 @@ const handleRemoveCompany = async (companyId: number) => {
             label="ยกเลิก"
             color="neutral"
             variant="outline"
+            size="xl"
             @click="isGroupModalOpen = false"
           />
           <UButton
             :label="editingGroupId ? 'บันทึกการแก้ไข' : 'สร้างกลุ่ม'"
             color="primary"
+            size="xl"
             :loading="isSavingGroup"
             @click="handleSaveGroup"
           />
@@ -1027,35 +1033,37 @@ const handleRemoveCompany = async (companyId: number) => {
     <UModal
       v-model:open="isManageModalOpen"
       :title="`จัดการสมาชิก & สถานประกอบการ: ${activeManageGroup?.name || ''}`"
+      size="xl"
     >
       <template #body>
         <div v-if="activeManageGroup" class="max-h-[65vh] space-y-6 overflow-y-auto pr-1">
           <!-- Teachers Section -->
           <div class="space-y-3">
-            <h4 class="text-xs font-semibold text-highlighted uppercase tracking-wider flex items-center gap-2">
+            <h4 class="text-xs font-semibold text-ink uppercase tracking-wider flex items-center gap-2">
               <UIcon name="i-lucide-user-check" class="size-4 text-primary" />
               อาจารย์ประจำกลุ่ม ({{ activeManageGroup.teachers.length }} ท่าน)
             </h4>
 
-            <div class="space-y-2 rounded-lg border border-default bg-muted/10 p-3">
+            <div class="space-y-2 rounded-panel border border-divider bg-surface p-3">
               <UInput
                 v-model="manageTeacherSearchQuery"
                 icon="i-lucide-search"
                 placeholder="ค้นหาแล้วกดเลือกอาจารย์เพื่อเพิ่มเข้ากลุ่ม"
                 class="w-full"
+                size="xl"
                 aria-label="ค้นหาอาจารย์เพื่อเพิ่มเข้ากลุ่ม"
               />
-              <div class="max-h-40 divide-y divide-default overflow-y-auto rounded border border-default bg-default">
+              <div class="max-h-40 divide-y divide-divider overflow-y-auto rounded-control border border-divider bg-canvas">
                 <button
                   v-for="teacher in filteredTeachersForManage"
                   :key="teacher.id"
                   type="button"
-                  class="flex w-full items-center justify-between gap-3 p-3 text-left hover:bg-muted/50 focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-not-allowed"
+                  class="flex w-full items-center justify-between gap-3 p-3 text-left hover:bg-surface focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-not-allowed"
                   :disabled="isAssigningTeacher"
                   @click="handleAssignTeacher(teacher.id)"
                 >
                   <span class="min-w-0">
-                    <span class="block truncate text-sm font-medium text-highlighted">{{ teacher.prefix }}{{ teacher.firstName }} {{ teacher.lastName }}</span>
+                    <span class="block truncate text-sm font-medium text-ink">{{ teacher.prefix }}{{ teacher.firstName }} {{ teacher.lastName }}</span>
                     <span class="block text-xs text-muted">รหัสอาจารย์: {{ teacher.teacherId }}</span>
                   </span>
                   <UIcon name="i-lucide-plus" class="size-4 shrink-0 text-primary" />
@@ -1065,18 +1073,18 @@ const handleRemoveCompany = async (companyId: number) => {
             </div>
 
             <!-- Teachers List -->
-            <div v-if="activeManageGroup.teachers.length > 0" class="divide-y divide-default border border-default rounded-lg overflow-hidden">
+            <div v-if="activeManageGroup.teachers.length > 0" class="divide-y divide-divider border border-divider rounded-panel overflow-hidden">
               <div
                 v-for="gt in activeManageGroup.teachers"
                 :key="gt.id"
-                class="flex items-center justify-between p-3 bg-default"
+                class="flex items-center justify-between p-3 bg-canvas"
               >
                 <div class="flex items-center gap-2">
                   <div class="size-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-medium text-xs">
                     {{ gt.teacher.firstName?.[0] || 'T' }}
                   </div>
                   <div>
-                    <div class="font-medium text-highlighted text-xs">
+                    <div class="font-medium text-ink text-xs">
                       {{ gt.teacher.prefix }}{{ gt.teacher.firstName }} {{ gt.teacher.lastName }}
                     </div>
                     <div class="text-[11px] text-muted">รหัสอาจารย์: {{ gt.teacher.loginId }}</div>
@@ -1100,37 +1108,38 @@ const handleRemoveCompany = async (companyId: number) => {
                 </div>
               </div>
             </div>
-            <div v-else class="text-xs text-muted italic text-center py-4 bg-muted/5 rounded-lg">
+            <div v-else class="text-xs text-muted italic text-center py-4 bg-surface rounded-panel">
               ยังไม่มีอาจารย์ในกลุ่มนี้
             </div>
           </div>
 
           <!-- Companies Section -->
           <div class="space-y-3">
-            <h4 class="text-xs font-semibold text-highlighted uppercase tracking-wider flex items-center gap-2">
+            <h4 class="text-xs font-semibold text-ink uppercase tracking-wider flex items-center gap-2">
               <UIcon name="i-lucide-building-2" class="size-4 text-primary" />
               สถานประกอบการในกลุ่ม ({{ activeManageGroup.companies.length }} แห่ง)
             </h4>
 
-            <div class="space-y-2 rounded-lg border border-default bg-muted/10 p-3">
+            <div class="space-y-2 rounded-panel border border-divider bg-surface p-3">
               <UInput
                 v-model="manageCompanySearchQuery"
                 icon="i-lucide-search"
                 placeholder="ค้นหาแล้วกดเลือกสถานประกอบการเพื่อเพิ่มเข้ากลุ่ม"
                 class="w-full"
+                size="xl"
                 aria-label="ค้นหาสถานประกอบการเพื่อเพิ่มเข้ากลุ่ม"
               />
-              <div class="max-h-48 divide-y divide-default overflow-y-auto rounded border border-default bg-default">
+              <div class="max-h-48 divide-y divide-divider overflow-y-auto rounded-control border border-divider bg-canvas">
                 <button
                   v-for="company in filteredCompaniesForManage"
                   :key="company.companyId"
                   type="button"
-                  class="flex w-full items-center justify-between gap-3 p-3 text-left hover:bg-muted/50 focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-not-allowed"
+                  class="flex w-full items-center justify-between gap-3 p-3 text-left hover:bg-surface focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-not-allowed"
                   :disabled="isAssigningCompany"
                   @click="handleAssignCompany(company.companyId)"
                 >
                   <span class="min-w-0">
-                    <span class="block truncate text-sm font-medium text-highlighted">{{ company.companyName }}</span>
+                    <span class="block truncate text-sm font-medium text-ink">{{ company.companyName }}</span>
                     <span class="block truncate text-xs text-muted">{{ company.province || 'ไม่ระบุจังหวัด' }} · นักศึกษา {{ company.studentCount }} คน</span>
                   </span>
                   <UIcon name="i-lucide-plus" class="size-4 shrink-0 text-primary" />
@@ -1140,14 +1149,14 @@ const handleRemoveCompany = async (companyId: number) => {
             </div>
 
             <!-- Companies List -->
-            <div v-if="activeManageGroup.companies.length > 0" class="divide-y divide-default border border-default rounded-lg overflow-hidden">
+            <div v-if="activeManageGroup.companies.length > 0" class="divide-y divide-divider border border-divider rounded-panel overflow-hidden">
               <div
                 v-for="gc in activeManageGroup.companies"
                 :key="gc.id"
-                class="flex items-center justify-between p-3 bg-default"
+                class="flex items-center justify-between p-3 bg-canvas"
               >
                 <div class="min-w-0 pr-2">
-                  <div class="font-medium text-highlighted text-xs truncate">
+                  <div class="font-medium text-ink text-xs truncate">
                     {{ gc.company.name }}
                   </div>
                   <div class="text-[11px] text-muted truncate mt-0.5">
@@ -1164,7 +1173,7 @@ const handleRemoveCompany = async (companyId: number) => {
                 />
               </div>
             </div>
-            <div v-else class="text-xs text-muted italic text-center py-4 bg-muted/5 rounded-lg">
+            <div v-else class="text-xs text-muted italic text-center py-4 bg-surface rounded-panel">
               ยังไม่มีสถานประกอบการในกลุ่มนี้
             </div>
           </div>
@@ -1176,6 +1185,7 @@ const handleRemoveCompany = async (companyId: number) => {
             label="ปิดหน้าต่าง"
             color="neutral"
             variant="outline"
+            size="xl"
             @click="isManageModalOpen = false"
           />
         </div>

@@ -451,7 +451,7 @@ const handleDeleteConfirm = async () => {
                   type="button"
                   title="รีเซ็ตตัวกรอง"
                   aria-label="รีเซ็ตตัวกรอง"
-                  class="size-[40px] flex items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 hover:text-gray-700 transition-colors cursor-pointer shrink-0"
+                  class="size-[40px] flex items-center justify-center rounded-xl border border-divider bg-canvas text-muted hover:bg-surface hover:text-ink transition-colors cursor-pointer shrink-0"
                   @click="clearFilters"
                 >
                   <UIcon name="i-lucide-rotate-ccw" class="size-4" />
@@ -498,7 +498,7 @@ const handleDeleteConfirm = async () => {
                 :data="paginatedApplications"
                 :loading="status === 'pending'"
                 class="min-w-[78rem]"
-                :ui="{ tr: 'hover:bg-gray-50/60', td: 'py-4 align-top' }"
+                :ui="{ td: 'py-4 align-top' }"
               >
                 <template #company-cell="{ row }">
                   <div class="min-w-44 max-w-60">

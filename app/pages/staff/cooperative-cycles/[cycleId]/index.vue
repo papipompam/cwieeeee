@@ -153,7 +153,7 @@ const tasks = computed(() => {
     <!-- Header banner -->
     <div class="flex items-center justify-between">
       <div>
-        <h2 class="text-base font-semibold text-highlighted flex items-center gap-2">
+        <h2 class="text-base font-bold text-ink flex items-center gap-2">
           <UIcon name="i-lucide-layout-grid" class="size-5 text-primary" />
           สรุปภาพรวมรอบสหกิจ
         </h2>
@@ -174,25 +174,25 @@ const tasks = computed(() => {
           v-for="item in summaryMetrics"
           :key="item.label"
           :to="item.to"
-          class="rounded-lg border border-default p-3.5 bg-default shadow-xs flex flex-col justify-between hover:border-primary/50 transition-colors group min-h-28"
+          class="rounded-panel border border-divider p-3.5 bg-canvas shadow-panel flex flex-col justify-between hover:border-primary/50 transition-colors group min-h-28"
         >
           <div class="flex items-center justify-between gap-2 mb-2">
-            <span class="text-xs text-muted leading-snug group-hover:text-highlighted transition-colors">{{ item.label }}</span>
-            <div class="p-1 rounded-md bg-muted/20 text-muted group-hover:text-primary transition-colors">
+            <span class="text-xs text-muted leading-snug group-hover:text-ink transition-colors">{{ item.label }}</span>
+            <div class="p-1 rounded-md bg-surface text-muted group-hover:text-primary transition-colors">
               <UIcon :name="item.icon" class="size-4" />
             </div>
           </div>
-          <div class="text-lg font-bold text-highlighted tabular-nums">
+          <div class="text-lg font-bold text-ink tabular-nums">
             {{ item.value }}
           </div>
         </NuxtLink>
       </div>
 
-      <UCard variant="outline" class="h-full" :ui="{ body: 'h-full p-4 sm:p-6' }">
+      <UCard class="h-full" :ui="{ body: 'h-full p-4 sm:p-6' }">
         <div class="flex h-full flex-col items-center justify-center gap-4 sm:flex-row sm:items-center">
           <div class="relative size-44 shrink-0" role="img" aria-label="แผนภูมิวงกลมแสดงสถานะการได้สถานประกอบการของนักศึกษา">
             <svg viewBox="0 0 100 100" class="size-full -rotate-90" aria-hidden="true">
-              <circle cx="50" cy="50" r="38" fill="none" stroke="currentColor" stroke-width="13" class="text-muted/40" />
+              <circle cx="50" cy="50" r="38" fill="none" stroke="currentColor" stroke-width="13" class="text-muted/20" />
               <circle
                 v-for="segment in placementSegments"
                 :key="segment.key"
@@ -209,7 +209,7 @@ const tasks = computed(() => {
               />
             </svg>
             <div class="absolute inset-0 flex flex-col items-center justify-center text-center">
-              <span class="text-2xl font-bold tabular-nums text-highlighted">{{ summary?.cohortStudentsCount ?? 0 }}</span>
+              <span class="text-2xl font-bold tabular-nums text-ink">{{ summary?.cohortStudentsCount ?? 0 }}</span>
               <span class="text-xs text-muted">นักศึกษา</span>
             </div>
           </div>
@@ -220,7 +220,7 @@ const tasks = computed(() => {
                 <span class="size-2.5 shrink-0 rounded-full" :class="segment.colorClass.replace('text-', 'bg-')" />
                 <span class="truncate">{{ segment.label }}</span>
               </span>
-              <span class="shrink-0 font-medium tabular-nums text-highlighted">{{ segment.count }} คน ({{ segment.percent }}%)</span>
+              <span class="shrink-0 font-medium tabular-nums text-ink">{{ segment.count }} คน ({{ segment.percent }}%)</span>
             </li>
           </ul>
         </div>
@@ -230,66 +230,68 @@ const tasks = computed(() => {
     <!-- Section 2: Actionable Tasks Checklist Table -->
     <div>
       <div class="flex items-center justify-between mb-3">
-        <h3 class="text-sm font-semibold text-highlighted flex items-center gap-2">
+        <h3 class="text-sm font-bold text-ink flex items-center gap-2">
           <UIcon name="i-lucide-list-checks" class="size-4 text-primary" />
           งานนิเทศและงบประมาณในรอบนี้
         </h3>
         <span class="text-xs text-muted">หลังยืนยันสถานประกอบการแล้ว</span>
       </div>
 
-      <div class="overflow-hidden rounded-lg border border-default bg-default shadow-xs">
-        <table class="min-w-full divide-y divide-default text-sm text-left">
-          <thead class="bg-muted/30 text-xs font-semibold text-muted uppercase tracking-wider">
-            <tr>
-              <th scope="col" class="px-4 py-3">งานที่ต้องดำเนินการ</th>
-              <th scope="col" class="px-4 py-3">ความคืบหน้า</th>
-              <th scope="col" class="px-4 py-3">คงเหลือ</th>
-              <th scope="col" class="px-4 py-3">สถานะ</th>
-              <th scope="col" class="px-4 py-3 text-right">การดำเนินการ</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-default">
-            <tr
-              v-for="(task, idx) in tasks"
-              :key="idx"
-              class="group cursor-pointer transition-colors hover:bg-primary/5 focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-[-2px]"
-              role="link"
-              tabindex="0"
-              @click="openTask(task.actionTo)"
-              @keydown.enter.prevent="openTask(task.actionTo)"
-              @keydown.space.prevent="openTask(task.actionTo)"
-            >
-              <td class="px-4 py-3.5 font-medium text-highlighted transition-colors group-hover:text-primary">
-                {{ task.name }}
-              </td>
-              <td class="px-4 py-3.5 text-muted">
-                {{ task.progress }}
-              </td>
-              <td class="px-4 py-3.5 text-muted">
-                {{ task.remaining }}
-              </td>
-              <td class="px-4 py-3.5">
-                <UBadge
-                  :label="task.statusLabel"
-                  :color="task.statusColor"
-                  variant="subtle"
-                />
-              </td>
-              <td class="px-4 py-3.5 text-right">
-                <UButton
-                  :label="task.actionLabel"
-                  icon="i-lucide-arrow-right"
-                  color="primary"
-                  variant="ghost"
-                  size="xs"
-                  class="group-hover:bg-primary/10"
-                  :to="task.actionTo"
-                />
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      <UCard :ui="{ body: 'p-0' }">
+        <div class="w-full overflow-x-auto">
+          <table class="min-w-full divide-y divide-divider text-sm text-left">
+            <thead class="bg-surface text-xs font-semibold text-muted uppercase tracking-wider">
+              <tr>
+                <th scope="col" class="px-4 py-3">งานที่ต้องดำเนินการ</th>
+                <th scope="col" class="px-4 py-3">ความคืบหน้า</th>
+                <th scope="col" class="px-4 py-3">คงเหลือ</th>
+                <th scope="col" class="px-4 py-3">สถานะ</th>
+                <th scope="col" class="px-4 py-3 text-right">การดำเนินการ</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-divider">
+              <tr
+                v-for="(task, idx) in tasks"
+                :key="idx"
+                class="group cursor-pointer transition-colors hover:bg-surface focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-[-2px]"
+                role="link"
+                tabindex="0"
+                @click="openTask(task.actionTo)"
+                @keydown.enter.prevent="openTask(task.actionTo)"
+                @keydown.space.prevent="openTask(task.actionTo)"
+              >
+                <td class="px-4 py-3.5 font-medium text-ink transition-colors group-hover:text-primary">
+                  {{ task.name }}
+                </td>
+                <td class="px-4 py-3.5 text-muted">
+                  {{ task.progress }}
+                </td>
+                <td class="px-4 py-3.5 text-muted">
+                  {{ task.remaining }}
+                </td>
+                <td class="px-4 py-3.5">
+                  <UBadge
+                    :label="task.statusLabel"
+                    :color="task.statusColor"
+                    variant="subtle"
+                  />
+                </td>
+                <td class="px-4 py-3.5 text-right">
+                  <UButton
+                    :label="task.actionLabel"
+                    icon="i-lucide-arrow-right"
+                    color="primary"
+                    variant="ghost"
+                    size="xs"
+                    class="group-hover:bg-primary/10"
+                    :to="task.actionTo"
+                  />
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </UCard>
     </div>
   </div>
 </template>

@@ -25,6 +25,23 @@ Reuse these project components before creating equivalents:
 
 Treat `app/app.config.ts` as the source of truth for Nuxt UI theme colors and shared component defaults. Use configured semantic roles (`primary`, `secondary`, `success`, `info`, `warning`, `error`, and `neutral`) and semantic utilities such as `text-muted` or `bg-default`; do not introduce raw palette colors or a second icon set. Inspect a primitive's existing props and behavior before extending it.
 
+### UI Baseline and Delivery Plans
+
+Treat `app/pages/dev/ui.vue` as the visual and interaction reference for dashboard UI. It is a showcase, not a production component library: production pages should compose Nuxt UI and the shared primitives above. Do not recreate the removed `app/components/dev-ui/` prototype layer.
+
+Before creating, changing, or reviewing any dashboard UI, read and follow `docs/fix-ui/UI-CONTRACT.md`. Its component sizes, table anatomy, spacing, typography, states, and browser-verification requirements are the acceptance contract. A page is not aligned merely because it uses Nuxt UI; its rendered result must match the corresponding `/dev/ui` pattern. When a production workflow cannot use the reference pattern without changing behavior, preserve the behavior and document the specific exception instead of silently substituting another design.
+
+For project-wide UI alignment or migration work, read `docs/fix-ui/README.md` and execute only one actor plan at a time in the documented order. For a scoped page change, inspect the matching pattern in `/dev/ui` and the closest production page without expanding the task into a role-wide migration.
+
+- Keep adjacent controls aligned by using the explicit sizes in `docs/fix-ui/UI-CONTRACT.md`. Shared components must expose a size when their callers legitimately need different sizes; do not rely on implicit defaults for a documented pattern.
+- Use `UFormField` with Nuxt UI controls for new or materially changed forms. Preserve visible labels, validation association, submitted values, and server-side validation. Use a native control only when Nuxt UI cannot provide the required behavior.
+- Prefer Nuxt UI slots and `app/app.config.ts` for repeated visual behavior. Do not add global CSS selectors that depend on incidental utility-class combinations or Nuxt UI's internal DOM structure.
+- Verify readable contrast for solid primary, warning, and destructive actions. The amber primary background must use dark ink text where required by the theme; color must not be the only status signal.
+- Add table sorting, selection, bulk actions, pagination, or page-size controls only when the page's data and implemented actions require them. `/dev/ui` demonstrates available patterns; it does not require every table to use every feature.
+- Preserve route, API, authorization, mutation, and business behavior during visual migration. Do not invent actions, columns, filters, or data solely to match the showcase.
+- After changing UI, verify the affected page through the running dev server against `/dev/ui`, inspect computed dimensions where required by the contract, and inspect the browser console after HMR. Typecheck and production build alone do not prove visual parity or that the development path is clean.
+- A role plan is complete only after its checklist, `pnpm typecheck`, `pnpm build`, `git diff --check`, and authenticated desktop/narrow viewport verification pass. Record inaccessible states or missing fixture data as unresolved evidence rather than assuming they work.
+
 ### Data Table Pages
 
 For staff, teacher, or student pages that list operational records, use `UTable` as the default view. Keep its data and controls meaningful to the page; do not add table features merely for visual consistency.

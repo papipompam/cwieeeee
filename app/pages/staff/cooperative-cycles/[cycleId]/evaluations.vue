@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import type { TableColumn } from '@nuxt/ui'
-import type { Ref } from 'vue'
 
 interface AppointmentStudent {
   id: number
@@ -49,10 +48,12 @@ interface SupervisionRound {
 
 const route = useRoute()
 const cycleId = computed(() => Number(route.params.cycleId))
-const cycle = inject<Ref<any>>('currentCycle')
 
 const searchQuery = ref('')
 const selectedRoundId = ref<number | undefined>(undefined)
+const page = ref(1)
+const pageSize = ref(10)
+const pageSizeOptions = [10, 20, 50, 100]
 
 // Fetch Rounds
 const { data: roundsData } = await useFetch<{ rounds: SupervisionRound[] }>(
@@ -78,7 +79,6 @@ const { data, status: fetchStatus, refresh } = await useFetch<AppointmentsRespon
   () => `/api/staff/cooperative-cycles/${cycleId.value}/supervision/rounds/${selectedRoundId.value || 0}/appointments`,
   {
     query: computed(() => ({
-      search: searchQuery.value || undefined,
       pageSize: 100
     })),
     immediate: false,
@@ -86,15 +86,15 @@ const { data, status: fetchStatus, refresh } = await useFetch<AppointmentsRespon
   }
 )
 
-watch([selectedRoundId, searchQuery], () => {
+watch(selectedRoundId, () => {
   if (selectedRoundId.value) refresh()
 }, { immediate: true })
 
-const appointments = computed<SupervisionAppointmentRow[]>(() => data.value?.appointments || [])
+const allAppointments = computed<SupervisionAppointmentRow[]>(() => data.value?.appointments || [])
 
-// Metrics
+// Metrics across all appointments in this round
 const trackingMetrics = computed(() => {
-  const all = appointments.value
+  const all = allAppointments.value
   const awaitingVisit = all.filter((a: SupervisionAppointmentRow) => a.status === 'PUBLISHED' || a.status === 'RESCHEDULED').length
   const completed = all.filter((a: SupervisionAppointmentRow) => a.status === 'COMPLETED').length
   return {
@@ -102,6 +102,44 @@ const trackingMetrics = computed(() => {
     awaitingVisit,
     completed
   }
+})
+
+// Filtered appointments
+const filteredAppointments = computed(() => {
+  if (!searchQuery.value.trim()) return allAppointments.value
+  const q = searchQuery.value.trim().toLowerCase()
+  return allAppointments.value.filter((item) => {
+    const matchCompany = item.companyName?.toLowerCase().includes(q)
+    const matchProvince = item.province?.toLowerCase().includes(q)
+    const matchGroup = item.group?.name?.toLowerCase().includes(q)
+    const matchTeacher = item.teachers?.some(t => `${t.firstName || ''} ${t.lastName || ''}`.toLowerCase().includes(q))
+    const matchStudent = item.students?.some(s => `${s.loginId || ''} ${s.firstName || ''} ${s.lastName || ''}`.toLowerCase().includes(q))
+    return matchCompany || matchProvince || matchGroup || matchTeacher || matchStudent
+  })
+})
+
+const hasFilters = computed(() => Boolean(searchQuery.value.trim()))
+const clearFilters = () => {
+  searchQuery.value = ''
+  page.value = 1
+}
+
+watch([searchQuery, pageSize], () => {
+  page.value = 1
+})
+
+const paginatedAppointments = computed(() => {
+  const start = (page.value - 1) * pageSize.value
+  return filteredAppointments.value.slice(start, start + pageSize.value)
+})
+
+const pageStart = computed(() => {
+  if (filteredAppointments.value.length === 0) return 0
+  return (page.value - 1) * pageSize.value + 1
+})
+
+const pageEnd = computed(() => {
+  return Math.min(page.value * pageSize.value, filteredAppointments.value.length)
 })
 
 const formatDate = (dateStr: string) => {
@@ -145,188 +183,261 @@ const columns: TableColumn<SupervisionAppointmentRow>[] = [
 </script>
 
 <template>
-  <div class="space-y-4">
-    <!-- Header & Controls -->
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-      <div>
-        <h2 class="text-base font-semibold text-highlighted flex items-center gap-2">
-          <UIcon name="i-lucide-clipboard-check" class="size-5 text-primary" />
-          ติดตามผลการประเมินการนิเทศ
-        </h2>
-        <p class="text-xs text-muted mt-0.5">
-          ติดตามสถานะความคืบหน้าการประเมินผลการนิเทศสหกิจศึกษา (สำหรับเจ้าหน้าที่ - โหมดติดตามเท่านั้น)
-        </p>
-      </div>
+  <div class="w-full space-y-6">
+    <UAlert
+      v-if="rounds.length === 0"
+      color="info"
+      variant="subtle"
+      icon="i-lucide-info"
+      title="ยังไม่มีรอบนิเทศ"
+      description="สร้างรอบและจัดกลุ่มพร้อมกำหนดการนิเทศจากหน้า “จัดกลุ่มและมอบหมายอาจารย์นิเทศ” ก่อน"
+    />
 
-      <div class="flex flex-wrap items-center gap-2">
-        <div class="flex items-center gap-2">
-          <span class="text-xs font-medium text-muted">รอบนิเทศ:</span>
-          <USelect
-            v-model="selectedRoundId"
-            :items="roundOptions"
-            class="w-52"
-            size="md"
-          />
+    <template v-else>
+      <!-- Summary Metrics Grid -->
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div class="p-5 rounded-panel border border-divider bg-canvas shadow-panel">
+          <div class="text-xs text-muted">กำหนดการนิเทศทั้งหมด</div>
+          <div class="text-2xl font-bold text-ink mt-1">
+            {{ trackingMetrics.total }} รายการ
+          </div>
         </div>
 
-        <UIButtonRefresh
-          :loading="fetchStatus === 'pending'"
-          @refresh="refresh"
-        />
-      </div>
-    </div>
-
-    <!-- Informational Banner: Teacher Phase Notice -->
-    <div class="rounded-lg border border-info/30 bg-info/5 p-3.5 flex items-start gap-3">
-      <UIcon name="i-lucide-info" class="size-5 text-info shrink-0 mt-0.5" />
-      <div class="text-xs">
-        <div class="font-semibold text-highlighted">หมายเหตุการให้คะแนนและบันทึกผลการประเมิน</div>
-        <p class="text-muted mt-0.5 leading-relaxed">
-          อาจารย์ที่ได้รับมอบหมายจะบันทึกผลและจบการประเมินจากหน้าของตนเอง หน้านี้สำหรับเจ้าหน้าที่ใช้ติดตามผลเท่านั้น
-        </p>
-      </div>
-    </div>
-
-    <!-- Summary Metrics Grid -->
-    <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
-      <div class="p-3.5 rounded-lg border border-default bg-default shadow-xs">
-        <div class="text-xs text-muted">กำหนดการนิเทศทั้งหมด</div>
-        <div class="text-xl font-bold text-highlighted mt-1">
-          {{ trackingMetrics.total }} รายการ
+        <div class="p-5 rounded-panel border border-divider bg-canvas shadow-panel">
+          <div class="text-xs text-muted">รอออกตรวจนิเทศ</div>
+          <div class="text-2xl font-bold text-warning mt-1">
+            {{ trackingMetrics.awaitingVisit }} รายการ
+          </div>
         </div>
-      </div>
 
-      <div class="p-3.5 rounded-lg border border-default bg-default shadow-xs">
-        <div class="text-xs text-muted">รอออกตรวจนิเทศ</div>
-        <div class="text-xl font-bold text-warning mt-1">
-          {{ trackingMetrics.awaitingVisit }} รายการ
-        </div>
-      </div>
-
-      <div class="p-3.5 rounded-lg border border-default bg-default shadow-xs">
+        <div class="p-5 rounded-panel border border-divider bg-canvas shadow-panel">
           <div class="text-xs text-muted">ประเมินเสร็จแล้ว</div>
-        <div class="text-xl font-bold text-success mt-1">
-          {{ trackingMetrics.completed }} รายการ
+          <div class="text-2xl font-bold text-success mt-1">
+            {{ trackingMetrics.completed }} รายการ
+          </div>
         </div>
       </div>
-    </div>
 
-    <!-- Filter Row -->
-    <div class="flex items-center gap-2">
-      <UInput
-        v-model="searchQuery"
-        icon="i-lucide-search"
-        placeholder="ค้นหาสถานประกอบการ อาจารย์ หรือนักศึกษา..."
-        class="w-72"
-        size="md"
-      />
-      <UButton
-        v-if="searchQuery"
-        label="ล้าง"
-        color="neutral"
-        variant="ghost"
-        size="md"
-        @click="searchQuery = ''"
-      />
-    </div>
+      <!-- Informational Banner: Teacher Phase Notice -->
+      <div class="rounded-panel border border-info/30 bg-info/5 p-4 flex items-start gap-3">
+        <UIcon name="i-lucide-info" class="size-5 text-info shrink-0 mt-0.5" />
+        <div class="text-xs">
+          <div class="font-semibold text-ink">หมายเหตุการให้คะแนนและบันทึกผลการประเมิน</div>
+          <p class="text-muted mt-0.5 leading-relaxed">
+            อาจารย์ที่ได้รับมอบหมายจะบันทึกผลและจบการประเมินจากหน้าของตนเอง หน้านี้สำหรับเจ้าหน้าที่ใช้ติดตามผลเท่านั้น
+          </p>
+        </div>
+      </div>
 
-    <!-- Data Table Container -->
-    <div class="overflow-hidden rounded-lg border border-default bg-default shadow-xs">
-      <div class="overflow-x-auto">
-        <UTable
-          :data="appointments"
-          :columns="columns"
-          :loading="fetchStatus === 'pending'"
-          class="min-w-full"
-        >
-          <!-- Company -->
-          <template #company-cell="{ row }">
+      <!-- Data Table Card Container -->
+      <UCard :ui="{ body: 'p-0' }">
+        <!-- Header info and controls -->
+        <div class="border-b border-divider p-5 sm:p-6">
+          <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <div class="font-semibold text-xs text-highlighted">
-                {{ row.original.companyName }}
-              </div>
-              <div class="text-[11px] text-muted mt-0.5 flex items-center gap-1">
-                <UIcon name="i-lucide-map-pin" class="size-3 shrink-0" />
-                <span>{{ row.original.province || 'ไม่ระบุจังหวัด' }}</span>
-                <span>· {{ row.original.group.name }}</span>
-              </div>
-            </div>
-          </template>
-
-          <!-- Scheduled Date -->
-          <template #scheduledDate-cell="{ row }">
-            <div>
-              <div class="font-medium text-highlighted text-xs flex items-center gap-1.5">
-                <UIcon name="i-lucide-calendar" class="size-3.5 text-muted" />
-                {{ formatDate(row.original.scheduledDate) }}
-              </div>
-              <div class="text-[11px] text-muted mt-0.5">
-                {{ periodLabel(row.original.period) }}
-              </div>
-            </div>
-          </template>
-
-          <!-- Supervisors -->
-          <template #supervisors-cell="{ row }">
-            <div class="text-xs">
-              <div
-                v-for="t in row.original.teachers"
-                :key="t.id"
-                class="truncate text-highlighted font-medium"
-              >
-                {{ t.prefix }}{{ t.firstName }} {{ t.lastName }}
-              </div>
-              <div v-if="row.original.teachers.length === 0" class="text-muted italic text-[11px]">
-                ยังไม่ระบุอาจารย์
-              </div>
-            </div>
-          </template>
-
-          <!-- Students -->
-          <template #students-cell="{ row }">
-            <div class="text-xs">
-              <div class="font-medium text-highlighted">
-                {{ row.original.students.length }} คน
-              </div>
-              <div class="text-[11px] text-muted truncate">
-                {{ row.original.students.map(s => `${s.prefix || ''}${s.firstName}`).join(', ') }}
-              </div>
-            </div>
-          </template>
-
-          <!-- Evaluation Tracking Status -->
-          <template #evaluationStatus-cell="{ row }">
-            <div>
-              <template v-if="row.original.status === 'COMPLETED'">
-                <UBadge label="ประเมินเสร็จแล้ว" color="success" variant="subtle" size="xs" />
-                <div v-if="row.original.evaluatedAt" class="text-[11px] text-muted mt-0.5">บันทึกเมื่อ {{ formatDate(row.original.evaluatedAt) }}</div>
-                <div v-if="row.original.evaluationNote" class="mt-1 line-clamp-2 text-[11px] text-muted">{{ row.original.evaluationNote }}</div>
-              </template>
-              <template v-else-if="row.original.status === 'PUBLISHED' || row.original.status === 'RESCHEDULED'">
-                <UBadge label="รอออกตรวจนิเทศตามนัดหมาย" color="warning" variant="subtle" size="xs" />
-                <div class="text-[11px] text-muted mt-0.5">ยังไม่ถึงวันตรวจหรือยังไม่ได้ตรวจเยี่ยม</div>
-              </template>
-              <template v-else-if="row.original.status === 'CANCELLED'">
-                <UBadge label="ยกเลิกการนิเทศแล้ว" color="error" variant="subtle" size="xs" />
-              </template>
-              <template v-else>
-                <UBadge :label="row.original.status" color="neutral" variant="subtle" size="xs" />
-              </template>
-            </div>
-          </template>
-
-          <!-- Empty State -->
-          <template #empty>
-            <div class="py-12 text-center text-muted">
-              <UIcon name="i-lucide-clipboard-check" class="size-8 mx-auto mb-2 text-dimmed" />
-              <p class="font-medium text-highlighted">ยังไม่มีข้อมูลการประเมินผลในรอบนี้</p>
-              <p class="text-xs text-muted mt-1">
-                เมื่อมีการสร้างและเผยแพร่ตารางนิเทศ ระบบจะเริ่มติดตามสถานะการประเมินที่นี่
+              <h3 class="text-lg font-bold text-ink flex items-center gap-2">
+                <UIcon name="i-lucide-clipboard-check" class="size-5 text-primary" />
+                ติดตามผลการประเมินการนิเทศ
+              </h3>
+              <p class="mt-1 text-sm leading-6 text-muted">
+                ติดตามสถานะความคืบหน้าการประเมินผลการนิเทศสหกิจศึกษาตามรอบ
               </p>
             </div>
-          </template>
-        </UTable>
-      </div>
-    </div>
+
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="text-xs font-medium text-muted">รอบนิเทศ:</span>
+              <USelect
+                v-model="selectedRoundId"
+                :items="roundOptions"
+                class="w-56"
+                size="xl"
+              />
+              <UIButtonRefresh
+                :loading="fetchStatus === 'pending'"
+                @refresh="refresh"
+              />
+            </div>
+          </div>
+
+          <!-- Control Row -->
+          <div class="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <UFormField label="ค้นหาตารางประเมิน" class="w-full sm:max-w-sm lg:w-96 lg:flex-none">
+              <UInput
+                v-model="searchQuery"
+                type="search"
+                size="xl"
+                icon="i-lucide-search"
+                class="w-full"
+                placeholder="ค้นหาสถานประกอบการ อาจารย์ หรือนักศึกษา..."
+                aria-label="ค้นหาตารางประเมิน"
+              />
+            </UFormField>
+          </div>
+
+          <!-- Active Filter Chips -->
+          <div v-if="hasFilters" class="mt-3 flex flex-wrap items-center gap-2 text-sm">
+            <span class="text-muted">ตัวกรองที่ใช้:</span>
+            <span v-if="searchQuery" class="inline-flex min-h-8 items-center gap-1 rounded-full bg-surface px-3 text-ink">
+              คำค้น “{{ searchQuery }}”
+            </span>
+            <UButton
+              color="neutral"
+              variant="ghost"
+              size="xs"
+              icon="i-lucide-x"
+              label="ล้างตัวกรอง"
+              @click="clearFilters"
+            />
+          </div>
+        </div>
+
+        <!-- Loading Skeleton -->
+        <div v-if="fetchStatus === 'pending'" class="space-y-3 p-5 sm:p-6" aria-label="กำลังโหลดข้อมูล">
+          <div v-for="row in 4" :key="row" class="grid grid-cols-[1.5fr_1fr_1fr_1fr_1fr] gap-4 max-md:grid-cols-[1fr_7rem]">
+            <USkeleton class="h-10" />
+            <USkeleton class="h-10 max-md:hidden" />
+            <USkeleton class="h-10 max-md:hidden" />
+            <USkeleton class="h-10 max-md:hidden" />
+            <USkeleton class="h-10" />
+          </div>
+        </div>
+
+        <!-- Empty State -->
+        <div v-else-if="!filteredAppointments.length" class="p-5 sm:p-6">
+          <UEmpty
+            icon="i-lucide-clipboard-check"
+            class="min-h-64"
+            :title="hasFilters ? 'ไม่พบรายการที่ตรงกับตัวกรอง' : 'ยังไม่มีข้อมูลการประเมินผลในรอบนี้'"
+            :description="hasFilters ? 'ลองเปลี่ยนคำค้นหา' : 'เมื่อมีการสร้างและเผยแพร่ตารางนิเทศ ระบบจะเริ่มติดตามสถานะการประเมินที่นี่'"
+          >
+            <template #actions>
+              <UButton
+                v-if="hasFilters"
+                size="xl"
+                color="neutral"
+                variant="outline"
+                @click="clearFilters"
+              >
+                ล้างตัวกรอง
+              </UButton>
+            </template>
+          </UEmpty>
+        </div>
+
+        <!-- Table -->
+        <template v-else>
+          <div class="w-full overflow-x-auto">
+            <UTable
+              :data="paginatedAppointments"
+              :columns="columns"
+              class="min-w-full"
+              :ui="{ base: 'w-full min-w-200' }"
+            >
+              <!-- Company -->
+              <template #company-cell="{ row }">
+                <div>
+                  <div class="font-semibold text-sm text-ink">
+                    {{ row.original.companyName }}
+                  </div>
+                  <div class="text-xs text-muted mt-0.5 flex items-center gap-1">
+                    <UIcon name="i-lucide-map-pin" class="size-3.5 shrink-0" />
+                    <span>{{ row.original.province || 'ไม่ระบุจังหวัด' }}</span>
+                    <span>· {{ row.original.group?.name }}</span>
+                  </div>
+                </div>
+              </template>
+
+              <!-- Scheduled Date -->
+              <template #scheduledDate-cell="{ row }">
+                <div>
+                  <div class="font-medium text-ink text-sm flex items-center gap-1.5">
+                    <UIcon name="i-lucide-calendar" class="size-3.5 text-muted" />
+                    {{ formatDate(row.original.scheduledDate) }}
+                  </div>
+                  <div class="text-xs text-muted mt-0.5">
+                    {{ periodLabel(row.original.period) }}
+                  </div>
+                </div>
+              </template>
+
+              <!-- Supervisors -->
+              <template #supervisors-cell="{ row }">
+                <div class="text-sm">
+                  <div
+                    v-for="t in row.original.teachers"
+                    :key="t.id"
+                    class="truncate text-ink font-medium"
+                  >
+                    {{ t.prefix }}{{ t.firstName }} {{ t.lastName }}
+                  </div>
+                  <div v-if="!row.original.teachers || row.original.teachers.length === 0" class="text-muted italic text-xs">
+                    ยังไม่ระบุอาจารย์
+                  </div>
+                </div>
+              </template>
+
+              <!-- Students -->
+              <template #students-cell="{ row }">
+                <div class="text-sm">
+                  <div class="font-medium text-ink">
+                    {{ row.original.students?.length || 0 }} คน
+                  </div>
+                  <div class="text-xs text-muted truncate">
+                    {{ row.original.students?.map(s => `${s.prefix || ''}${s.firstName}`).join(', ') }}
+                  </div>
+                </div>
+              </template>
+
+              <!-- Evaluation Tracking Status -->
+              <template #evaluationStatus-cell="{ row }">
+                <div>
+                  <template v-if="row.original.status === 'COMPLETED'">
+                    <UBadge label="ประเมินเสร็จแล้ว" color="success" variant="subtle" size="xs" />
+                    <div v-if="row.original.evaluatedAt" class="text-xs text-muted mt-0.5">บันทึกเมื่อ {{ formatDate(row.original.evaluatedAt) }}</div>
+                    <div v-if="row.original.evaluationNote" class="mt-1 line-clamp-2 text-xs text-muted">{{ row.original.evaluationNote }}</div>
+                  </template>
+                  <template v-else-if="row.original.status === 'PUBLISHED' || row.original.status === 'RESCHEDULED'">
+                    <UBadge label="รอออกตรวจนิเทศตามนัดหมาย" color="warning" variant="subtle" size="xs" />
+                    <div class="text-xs text-muted mt-0.5">ยังไม่ถึงวันตรวจหรือยังไม่ได้ตรวจเยี่ยม</div>
+                  </template>
+                  <template v-else-if="row.original.status === 'CANCELLED'">
+                    <UBadge label="ยกเลิกการนิเทศแล้ว" color="error" variant="subtle" size="xs" />
+                  </template>
+                  <template v-else>
+                    <UBadge :label="row.original.status" color="neutral" variant="subtle" size="xs" />
+                  </template>
+                </div>
+              </template>
+            </UTable>
+          </div>
+
+          <!-- Footer -->
+          <div class="flex flex-col gap-3 border-t border-divider px-5 py-4 text-sm sm:flex-row sm:items-center sm:justify-between sm:px-6">
+            <div class="flex flex-wrap items-center gap-3">
+              <p class="whitespace-nowrap text-muted">
+                แสดง {{ pageStart }}–{{ pageEnd }} จากทั้งหมด {{ filteredAppointments.length }} รายการ
+              </p>
+              <div class="w-16 shrink-0">
+                <USelect
+                  v-model="pageSize"
+                  size="md"
+                  class="w-full"
+                  :items="pageSizeOptions"
+                  aria-label="จำนวนรายการต่อหน้า"
+                />
+              </div>
+            </div>
+
+            <UPagination
+              v-if="filteredAppointments.length > 0"
+              v-model:page="page"
+              :total="filteredAppointments.length"
+              :items-per-page="pageSize"
+              size="md"
+            />
+          </div>
+        </template>
+      </UCard>
+    </template>
   </div>
 </template>

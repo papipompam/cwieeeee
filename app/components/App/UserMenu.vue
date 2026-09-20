@@ -11,7 +11,9 @@ const isLoggingOut = ref(false)
 const notify = useNotify()
 
 const { data } = await useFetch<any>('/api/auth/me')
-user.value = data.value ?? null
+if (data.value) {
+  user.value = data.value
+}
 
 const logout = async () => {
   if (isLoggingOut.value) return
@@ -45,10 +47,10 @@ const menuItems = computed<DropdownMenuItem[][]>(() => {
     ...(user.value?.role === 'STUDENT'
       ? { onSelect: () => { profileModalOpen.value = true } }
       : { to: '/account/password' }),
-    class: 'bg-white text-gray-700 hover:bg-gray-50 hover:text-gray-900 data-highlighted:bg-gray-50 data-highlighted:text-gray-900',
+    class: 'bg-canvas text-ink hover:bg-surface hover:text-ink data-highlighted:bg-surface data-highlighted:text-ink',
     ui: {
-      itemLeadingIcon: 'text-gray-700 group-hover:text-gray-900 group-data-highlighted:text-gray-900',
-      itemLabel: 'text-gray-700 group-hover:text-gray-900 group-data-highlighted:text-gray-900'
+      itemLeadingIcon: 'text-ink group-hover:text-ink group-data-highlighted:text-ink',
+      itemLabel: 'text-ink group-hover:text-ink group-data-highlighted:text-ink'
     }
   }
 
@@ -56,10 +58,10 @@ const menuItems = computed<DropdownMenuItem[][]>(() => {
     label: 'ออกจากระบบ',
     icon: 'i-lucide-log-out',
     loading: isLoggingOut.value,
-    class: 'bg-white text-red-500 hover:bg-red-50 hover:text-red-600 data-highlighted:bg-red-50 data-highlighted:text-red-600',
+    class: 'bg-canvas text-danger hover:bg-danger-soft hover:text-danger data-highlighted:bg-danger-soft data-highlighted:text-danger',
     ui: {
-      itemLeadingIcon: 'text-red-500 group-hover:text-red-600 group-data-highlighted:text-red-600',
-      itemLabel: 'text-red-500 group-hover:text-red-600 group-data-highlighted:text-red-600'
+      itemLeadingIcon: 'text-danger group-hover:text-danger group-data-highlighted:text-danger',
+      itemLabel: 'text-danger group-hover:text-danger group-data-highlighted:text-danger'
     },
     onSelect: logout
   }
@@ -77,10 +79,10 @@ const menuItems = computed<DropdownMenuItem[][]>(() => {
       :items="menuItems"
       :content="{ align: 'end', side: 'bottom', sideOffset: 8 }"
       :ui="{
-        content: 'w-[255px] overflow-hidden rounded-xl border border-gray-200 bg-white p-0 font-[\'Prompt\',sans-serif] shadow-lg ring-0',
-        viewport: 'p-0 divide-y divide-gray-200 overflow-y-auto flex-1',
+        content: 'w-[255px] overflow-hidden rounded-panel border border-divider bg-canvas p-0 shadow-panel ring-0',
+        viewport: 'p-0 divide-y divide-divider overflow-y-auto flex-1',
         group: 'p-0',
-        item: 'group flex items-center h-[42px] w-full gap-[10px] rounded-none px-[18px] py-[10px] font-[\'Prompt\',sans-serif] transition-colors duration-150 before:hidden cursor-pointer outline-none select-none'
+        item: 'group flex items-center h-[42px] w-full gap-[10px] rounded-none px-[18px] py-[10px] transition-colors duration-150 before:hidden cursor-pointer outline-none select-none'
       }"
     >
       <template #default="{ open }">
@@ -92,36 +94,36 @@ const menuItems = computed<DropdownMenuItem[][]>(() => {
           :class="[
             'cursor-pointer transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50',
             header
-              ? 'flex h-[46px] w-[250px] max-w-[calc(100vw-5rem)] items-center justify-between rounded-xl border border-gray-200 bg-white px-[11px] text-left font-[\'Prompt\',sans-serif] shadow-none hover:bg-gray-50'
+              ? 'flex h-[46px] w-[250px] max-w-[calc(100vw-5rem)] items-center justify-between rounded-xl border border-divider bg-canvas px-[11px] text-left shadow-none hover:bg-surface'
               : collapsed
-                ? 'grid size-[46px] place-items-center rounded-xl border border-gray-200 bg-white p-1 shadow-none hover:bg-gray-50'
-                : 'flex h-[46px] w-full items-center justify-between rounded-xl border border-gray-200 bg-white px-[11px] text-left font-[\'Prompt\',sans-serif] shadow-none hover:bg-gray-50'
+                ? 'grid size-[46px] place-items-center rounded-xl border border-divider bg-canvas p-1 shadow-none hover:bg-surface'
+                : 'flex h-[46px] w-full items-center justify-between rounded-xl border border-divider bg-canvas px-[11px] text-left shadow-none hover:bg-surface'
           ]"
         >
           <div class="flex min-w-0 flex-1 items-center gap-[10px]">
-            <div class="grid size-[38px] shrink-0 place-items-center rounded-full bg-primary text-[14px] font-medium text-gray-900 font-['Prompt',sans-serif]">
+            <div class="grid size-[38px] shrink-0 place-items-center rounded-full bg-primary text-[14px] font-medium text-ink">
               {{ displayName.charAt(0).toUpperCase() }}
             </div>
             <div v-if="!collapsed" class="flex min-w-0 flex-1 flex-col">
-              <span class="truncate text-[15px] font-medium leading-[1.3] text-gray-900 font-['Prompt',sans-serif]">{{ displayName }}</span>
-              <span class="truncate text-[13px] font-normal leading-[1.2] text-gray-500 font-['Prompt',sans-serif]">{{ roleLabel }}</span>
+              <span class="truncate text-[15px] font-medium leading-[1.3] text-ink">{{ displayName }}</span>
+              <span class="truncate text-[13px] font-normal leading-[1.2] text-muted">{{ roleLabel }}</span>
             </div>
           </div>
           <UIcon
             v-if="!collapsed || header"
             name="i-lucide-chevron-down"
-            class="size-4 shrink-0 text-gray-500 transition-transform duration-150"
+            class="size-4 shrink-0 text-muted transition-transform duration-150"
             :class="{ 'rotate-180': open }"
           />
         </button>
       </template>
 
       <template #content-top>
-        <div class="px-[18px] pt-[14px] pb-[12px] font-['Prompt',sans-serif]">
-          <p class="truncate text-[15px] font-medium leading-[1.4] text-gray-900">{{ displayName }}</p>
-          <p class="mt-[2px] truncate text-[13px] font-normal leading-[1.2] text-gray-500">{{ roleLabel }}</p>
+        <div class="px-[18px] pt-[14px] pb-[12px]">
+          <p class="truncate text-[15px] font-medium leading-[1.4] text-ink">{{ displayName }}</p>
+          <p class="mt-[2px] truncate text-[13px] font-normal leading-[1.2] text-muted">{{ roleLabel }}</p>
         </div>
-        <div class="border-b border-gray-200" />
+        <div class="border-b border-divider" />
       </template>
 
       <template #item="{ item }">

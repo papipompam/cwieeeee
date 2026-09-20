@@ -243,18 +243,18 @@ onBeforeUnmount(() => {
           <!-- Search Results Dropdown -->
           <div
             v-if="showResults && searchResults.length > 0"
-            class="absolute z-20 top-full mt-1 w-full bg-default border border-default rounded-lg shadow-lg max-h-60 overflow-y-auto divide-y divide-default"
+            class="absolute z-20 top-full mt-1 w-full bg-canvas border border-divider rounded-panel shadow-panel max-h-60 overflow-y-auto divide-y divide-divider"
           >
             <button
               v-for="(item, idx) in searchResults"
               :key="idx"
               type="button"
-              class="w-full text-left px-3 py-2.5 hover:bg-muted/50 transition-colors flex items-start gap-2 text-xs sm:text-sm cursor-pointer"
+              class="w-full text-left px-3 py-2.5 hover:bg-surface transition-colors flex items-start gap-2 text-xs sm:text-sm cursor-pointer"
               @click="selectSearchResult(item)"
             >
               <UIcon name="i-lucide-map-pin" class="size-4 text-primary shrink-0 mt-0.5" />
               <div class="min-w-0 flex-1">
-                <div class="font-medium text-highlighted truncate">{{ item.name }}</div>
+                <div class="font-medium text-ink truncate">{{ item.name }}</div>
                 <div class="text-xs text-muted truncate">{{ item.displayName }}</div>
               </div>
             </button>
@@ -298,13 +298,13 @@ onBeforeUnmount(() => {
     </div>
 
     <!-- Map Container -->
-    <div class="relative w-full h-80 sm:h-96 rounded-lg border border-default overflow-hidden bg-muted/20">
+    <div class="relative w-full h-80 sm:h-96 rounded-panel border border-divider overflow-hidden bg-surface">
       <div ref="mapContainer" class="w-full h-full z-10" />
 
       <!-- Instruction overlay on bottom left -->
       <div
         v-if="!readonly"
-        class="absolute bottom-2 left-2 z-10 bg-default/90 backdrop-blur-sm px-2.5 py-1.5 rounded-md border border-default text-xs text-muted shadow-sm pointer-events-none flex items-center gap-1.5"
+        class="absolute bottom-2 left-2 z-10 bg-canvas/90 backdrop-blur-sm px-2.5 py-1.5 rounded-control border border-divider text-xs text-muted shadow-sm pointer-events-none flex items-center gap-1.5"
       >
         <UIcon name="i-lucide-mouse-pointer-click" class="size-3.5 text-primary shrink-0" />
         <span>คลิกบนแผนที่เพื่อปักหมุด หรือลากหมุดเพื่อปรับตำแหน่ง</span>
@@ -314,8 +314,8 @@ onBeforeUnmount(() => {
     <!-- Coordinate status indicator -->
     <div class="flex items-center justify-between text-xs text-muted px-1">
       <div class="flex items-center gap-2">
-        <span class="font-medium text-highlighted">สถานะพิกัด:</span>
-        <span v-if="modelValue?.lat != null && modelValue?.lng != null" class=" text-primary font-medium">
+        <span class="font-medium text-ink">สถานะพิกัด:</span>
+        <span v-if="modelValue?.lat != null && modelValue?.lng != null" class="text-primary font-medium">
           {{ modelValue.lat.toFixed(6) }}, {{ modelValue.lng.toFixed(6) }}
         </span>
         <span v-else class="italic text-muted">

@@ -28,7 +28,8 @@ const searchQuery = ref('')
 const statusFilter = ref<'all' | 'active' | 'inactive'>('all')
 const rowSelection = ref<Record<string, boolean>>({})
 const page = ref(1)
-const pageSize = 10
+const pageSize = ref(10)
+const pageSizeOptions = [10, 20, 50, 100]
 
 // Delete modal state
 const isDeleteOpen = ref(false)
@@ -88,8 +89,8 @@ const filteredStaffs = computed(() => {
 })
 
 const paginatedStaffs = computed(() => {
-  const start = (page.value - 1) * pageSize
-  return filteredStaffs.value.slice(start, start + pageSize)
+  const start = (page.value - 1) * pageSize.value
+  return filteredStaffs.value.slice(start, start + pageSize.value)
 })
 
 const selectedIds = computed(() => Object.entries(rowSelection.value)
@@ -98,12 +99,12 @@ const selectedIds = computed(() => Object.entries(rowSelection.value)
 
 const selectedCount = computed(() => selectedIds.value.length)
 const deleteCount = computed(() => pendingDeleteIds.value.length)
-const totalPages = computed(() => Math.max(1, Math.ceil(filteredStaffs.value.length / pageSize)))
+const totalPages = computed(() => Math.max(1, Math.ceil(filteredStaffs.value.length / pageSize.value)))
 const hasFilters = computed(() => Boolean(searchQuery.value) || statusFilter.value !== 'all')
-const pageStart = computed(() => filteredStaffs.value.length ? (page.value - 1) * pageSize + 1 : 0)
-const pageEnd = computed(() => Math.min(page.value * pageSize, filteredStaffs.value.length))
+const pageStart = computed(() => filteredStaffs.value.length ? (page.value - 1) * pageSize.value + 1 : 0)
+const pageEnd = computed(() => Math.min(page.value * pageSize.value, filteredStaffs.value.length))
 
-watch([searchQuery, statusFilter], () => {
+watch([searchQuery, statusFilter, pageSize], () => {
   page.value = 1
   rowSelection.value = {}
 })
@@ -276,11 +277,13 @@ const columns: TableColumn<Staff>[] = [
     id: 'select',
     meta: { class: { th: 'w-12', td: 'w-12' } },
     header: ({ table }) => h(UCheckbox, {
+      size: 'lg',
       modelValue: table.getIsSomePageRowsSelected() ? 'indeterminate' : table.getIsAllPageRowsSelected(),
       'onUpdate:modelValue': (value: boolean | 'indeterminate') => table.toggleAllPageRowsSelected(!!value),
       'aria-label': 'เลือกทุกรายการในหน้านี้'
     }),
     cell: ({ row }) => h(UCheckbox, {
+      size: 'lg',
       modelValue: row.getIsSelected(),
       'onUpdate:modelValue': (value: boolean | 'indeterminate') => row.toggleSelected(!!value),
       'aria-label': `เลือกเจ้าหน้าที่รหัส ${row.original.staffId}`
@@ -289,7 +292,7 @@ const columns: TableColumn<Staff>[] = [
   {
     accessorKey: 'staffId',
     header: 'รหัสเจ้าหน้าที่',
-    meta: { class: { th: 'w-32 ', td: 'w-32  font-medium' } }
+    meta: { class: { th: 'w-36', td: 'w-36 font-semibold' } }
   },
   {
     id: 'fullName',
@@ -299,7 +302,7 @@ const columns: TableColumn<Staff>[] = [
   {
     accessorKey: 'phone',
     header: 'เบอร์มือถือ',
-    meta: { class: { th: 'w-36 ', td: 'w-36 ' } }
+    meta: { class: { th: 'w-36', td: 'w-36' } }
   },
   {
     accessorKey: 'isActive',
@@ -308,7 +311,7 @@ const columns: TableColumn<Staff>[] = [
   },
   {
     id: 'actions',
-    header: 'จัดการ',
+    header: () => h('span', { class: 'block text-right' }, 'จัดการ'),
     meta: { class: { th: 'w-64 text-end', td: 'w-64 text-end' } }
   }
 ]
@@ -324,6 +327,7 @@ const columns: TableColumn<Staff>[] = [
 
         <template #right>
           <UButton
+            size="xl"
             label="เพิ่มเจ้าหน้าที่"
             icon="i-lucide-plus"
             color="primary"
@@ -335,139 +339,245 @@ const columns: TableColumn<Staff>[] = [
     </template>
 
     <template #body>
-      <div class="flex flex-col gap-6">
-        <!-- Control Row -->
-        <div class="flex flex-col gap-3 rounded-lg sm:flex-row sm:items-center sm:justify-between">
-          <div class="flex min-w-0 flex-1 items-center gap-2 sm:max-w-md">
-            <UInput
-              v-model="searchQuery"
-              class="min-w-0 flex-1"
-              icon="i-lucide-search"
-              placeholder="ค้นหารหัสเจ้าหน้าที่ ชื่อ-สกุล หรือเบอร์โทร"
-              aria-label="ค้นหาเจ้าหน้าที่"
-            />
-            <UButton
-              v-if="hasFilters"
-              color="neutral"
-              variant="ghost"
-              label="ล้าง"
-              @click="clearFilters"
-            />
+      <div class="w-full space-y-6 pb-12">
+        <UCard :ui="{ body: 'p-0' }">
+          <div class="border-b border-divider p-5 sm:p-6">
+            <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h3 class="text-lg font-bold text-ink">ข้อมูลเจ้าหน้าที่</h3>
+                <p class="mt-1 text-sm leading-6 text-muted">ค้นหา เพิ่ม แก้ไข และจัดการสิทธิ์บัญชีเจ้าหน้าที่</p>
+              </div>
+            </div>
+
+            <div class="mt-5 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+              <UFormField label="ค้นหาเจ้าหน้าที่" class="w-full sm:max-w-sm lg:w-96 lg:flex-none">
+                <UInput
+                  v-model="searchQuery"
+                  type="search"
+                  size="xl"
+                  icon="i-lucide-search"
+                  class="w-full"
+                  placeholder="ค้นหารหัสเจ้าหน้าที่ หรือชื่อ-สกุล"
+                  aria-label="ค้นหาเจ้าหน้าที่"
+                />
+              </UFormField>
+
+              <div class="flex flex-wrap items-center justify-end gap-2 lg:ml-auto lg:flex-nowrap">
+                <div class="w-full sm:w-36">
+                  <USelect
+                    v-model="statusFilter"
+                    :items="statusOptions"
+                    value-key="value"
+                    class="w-full"
+                    size="xl"
+                    placeholder="สถานะ"
+                    aria-label="กรองตามสถานะการใช้งาน"
+                  />
+                </div>
+                <UIButtonRefresh
+                  :loading="fetchStatus === 'pending'"
+                  @refresh="handleRefresh"
+                />
+              </div>
+            </div>
+
+            <div v-if="hasFilters" class="mt-3 flex flex-wrap items-center gap-2 text-sm">
+              <span class="text-muted">ตัวกรองที่ใช้:</span>
+              <span v-if="searchQuery" class="inline-flex min-h-8 items-center gap-1 rounded-full bg-surface px-3 text-ink">
+                คำค้น “{{ searchQuery }}”
+              </span>
+              <span v-if="statusFilter !== 'all'" class="inline-flex min-h-8 items-center gap-1 rounded-full bg-surface px-3 text-ink">
+                {{ statusOptions.find(o => o.value === statusFilter)?.label }}
+              </span>
+              <UButton
+                color="neutral"
+                variant="ghost"
+                size="xs"
+                icon="i-lucide-x"
+                @click="clearFilters"
+              >
+                ล้างทั้งหมด
+              </UButton>
+            </div>
           </div>
 
-          <div class="flex flex-wrap items-center gap-2">
-            <USelect
-              v-model="statusFilter"
-              :items="statusOptions"
-              value-key="value"
-              class="w-32"
-              aria-label="กรองตามสถานะการใช้งาน"
-            />
-            <UButton
-              v-if="selectedCount"
-              color="error"
-              variant="subtle"
-              icon="i-lucide-trash-2"
-              :label="`ลบ ${selectedCount}`"
-              @click="openBulkDelete"
-            />
-            <UIButtonRefresh
-              :loading="fetchStatus === 'pending'"
-              @refresh="handleRefresh"
-            />
-          </div>
-        </div>
-
-        <!-- Error State -->
-        <UAlert
-          v-if="fetchError"
-          color="error"
-          icon="i-lucide-alert-circle"
-          title="ไม่สามารถเชื่อมต่อข้อมูลเจ้าหน้าที่ได้"
-          :description="fetchError.message"
-        />
-
-        <!-- Data Table -->
-        <div v-else class="overflow-hidden rounded-lg border border-default bg-default">
-          <UTable
-            v-model:row-selection="rowSelection"
-            :data="paginatedStaffs"
-            :columns="columns"
-            :loading="fetchStatus === 'pending'"
-            :get-row-id="staff => String(staff.id)"
-            :ui="{ root: 'overflow-x-auto', base: 'min-w-full' }"
+          <!-- Bulk Actions Bar -->
+          <div
+            v-if="selectedCount"
+            class="flex flex-wrap items-center justify-between gap-3 border-b border-divider bg-warning-soft px-5 py-3 sm:px-6"
+            role="status"
           >
-            <template #isActive-cell="{ row }">
-              <UBadge
-                :label="row.original.isActive ? 'ใช้งาน' : 'ไม่ใช้งาน'"
-                :color="row.original.isActive ? 'success' : 'neutral'"
-                variant="subtle"
+            <p class="text-sm font-semibold text-ink">เลือกแล้ว {{ selectedCount }} รายการ</p>
+            <div class="flex gap-2">
+              <UButton
+                size="sm"
+                color="error"
+                variant="soft"
+                icon="i-lucide-trash-2"
+                :label="`ลบ ${selectedCount} รายการ`"
+                @click="openBulkDelete"
               />
-            </template>
+              <UButton
+                size="sm"
+                color="neutral"
+                variant="ghost"
+                label="ยกเลิกการเลือก"
+                @click="rowSelection = {}"
+              />
+            </div>
+          </div>
 
-            <template #actions-cell="{ row }">
-              <div class="flex justify-end gap-1.5">
+          <!-- Loading Skeleton -->
+          <div v-if="fetchStatus === 'pending'" class="space-y-3 p-5 sm:p-6" aria-label="กำลังโหลดข้อมูล">
+            <div v-for="row in 4" :key="row" class="grid grid-cols-[2rem_1.2fr_1fr_8rem] gap-4 max-md:grid-cols-[1fr_7rem]">
+              <USkeleton class="h-10 max-md:hidden" />
+              <USkeleton class="h-10" />
+              <USkeleton class="h-10 max-md:hidden" />
+              <USkeleton class="h-10" />
+            </div>
+          </div>
+
+          <!-- Error State -->
+          <div v-else-if="fetchError" class="p-5 sm:p-6">
+            <UEmpty
+              icon="i-lucide-triangle-alert"
+              title="ไม่สามารถเชื่อมต่อข้อมูลเจ้าหน้าที่ได้"
+              :description="fetchError.message"
+              variant="subtle"
+              class="min-h-64"
+            >
+              <template #actions>
                 <UButton
-                  label="ดู"
-                  icon="i-lucide-eye"
+                  size="xl"
                   color="neutral"
-                  variant="ghost"
-                  size="xs"
-                  @click="openDetail(row.original)"
-                />
+                  variant="outline"
+                  icon="i-lucide-refresh-cw"
+                  @click="handleRefresh"
+                >
+                  ลองอีกครั้ง
+                </UButton>
+              </template>
+            </UEmpty>
+          </div>
+
+          <!-- Empty State -->
+          <div v-else-if="!paginatedStaffs.length" class="p-5 sm:p-6">
+            <UEmpty
+              icon="i-lucide-inbox"
+              class="min-h-64"
+              :title="hasFilters ? 'ไม่พบรายการที่ตรงกับตัวกรอง' : 'ยังไม่มีข้อมูลเจ้าหน้าที่'"
+              :description="hasFilters ? 'ลองเปลี่ยนคำค้นหรือล้างตัวกรองที่ใช้อยู่' : 'กดปุ่ม &quot;เพิ่มเจ้าหน้าที่&quot; เพื่อบันทึกข้อมูลเข้าสู่ระบบ'"
+            >
+              <template #actions>
                 <UButton
-                  label="แก้ไข"
-                  icon="i-lucide-pencil"
+                  v-if="hasFilters"
+                  size="xl"
                   color="neutral"
-                  variant="ghost"
-                  size="xs"
-                  @click="openEditModal(row.original)"
-                />
+                  variant="outline"
+                  @click="clearFilters"
+                >
+                  ล้างตัวกรอง
+                </UButton>
                 <UButton
-                  label="รหัสผ่าน"
-                  icon="i-lucide-key-round"
-                  color="neutral"
-                  variant="ghost"
-                  size="xs"
-                  @click="openPasswordModal(row.original)"
-                />
-                <UButton
-                  label="ลบ"
-                  icon="i-lucide-trash-2"
-                  color="error"
-                  variant="ghost"
-                  size="xs"
-                  @click="openDelete(row.original)"
-                />
+                  v-else
+                  size="xl"
+                  icon="i-lucide-plus"
+                  @click="openCreateModal"
+                >
+                  เพิ่มเจ้าหน้าที่
+                </UButton>
+              </template>
+            </UEmpty>
+          </div>
+
+          <!-- Data Table -->
+          <template v-else>
+            <div class="w-full overflow-x-auto">
+              <UTable
+                v-model:row-selection="rowSelection"
+                :data="paginatedStaffs"
+                :columns="columns"
+                :get-row-id="staff => String(staff.id)"
+                class="min-w-full"
+                :ui="{ base: 'w-full min-w-200' }"
+              >
+                <template #fullName-cell="{ row }">
+                  <p class="font-semibold text-ink">{{ row.original.prefix }}{{ row.original.firstName }} {{ row.original.lastName }}</p>
+                  <p class="mt-1 text-xs text-muted">{{ row.original.staffId }}</p>
+                </template>
+
+                <template #isActive-cell="{ row }">
+                  <UBadge
+                    :label="row.original.isActive ? 'ใช้งาน' : 'ไม่ใช้งาน'"
+                    :color="row.original.isActive ? 'success' : 'neutral'"
+                    variant="subtle"
+                  />
+                </template>
+
+                <template #actions-cell="{ row }">
+                  <div class="flex items-center justify-end gap-1 whitespace-nowrap">
+                    <UButton
+                      label="ดู"
+                      icon="i-lucide-eye"
+                      color="neutral"
+                      variant="ghost"
+                      size="xs"
+                      @click="openDetail(row.original)"
+                    />
+                    <UButton
+                      label="แก้ไข"
+                      icon="i-lucide-pencil"
+                      color="neutral"
+                      variant="ghost"
+                      size="xs"
+                      @click="openEditModal(row.original)"
+                    />
+                    <UButton
+                      label="รหัสผ่าน"
+                      icon="i-lucide-key-round"
+                      color="neutral"
+                      variant="ghost"
+                      size="xs"
+                      @click="openPasswordModal(row.original)"
+                    />
+                    <UButton
+                      label="ลบ"
+                      icon="i-lucide-trash-2"
+                      color="error"
+                      variant="ghost"
+                      size="xs"
+                      @click="openDelete(row.original)"
+                    />
+                  </div>
+                </template>
+              </UTable>
+            </div>
+
+            <!-- Footer -->
+            <div class="flex flex-col gap-3 border-t border-divider px-5 py-4 text-sm sm:flex-row sm:items-center sm:justify-between sm:px-6">
+              <div class="flex flex-wrap items-center gap-3">
+                <p class="whitespace-nowrap text-muted">
+                  แสดง {{ pageStart }}–{{ pageEnd }} จาก {{ filteredStaffs.length }} รายการ
+                </p>
+                <div class="w-16 shrink-0">
+                  <USelect
+                    v-model="pageSize"
+                    size="md"
+                    class="w-full"
+                    :items="pageSizeOptions"
+                    aria-label="จำนวนรายการต่อหน้า"
+                  />
+                </div>
               </div>
-            </template>
-
-            <template #empty>
-              <div class="py-12 text-center text-muted">
-                <UIcon name="i-lucide-id-card" class="size-10 mx-auto mb-2 text-dimmed" />
-                <p>ไม่พบข้อมูลเจ้าหน้าที่</p>
-                <p class="text-xs text-muted mt-1">กดปุ่ม "เพิ่มเจ้าหน้าที่" เพื่อบันทึกข้อมูลเจ้าหน้าที่เข้าสู่ระบบ</p>
-              </div>
-            </template>
-          </UTable>
-        </div>
-
-        <!-- Pagination & Range Counter -->
-        <div class="flex flex-wrap items-center justify-between gap-3 text-sm text-muted">
-          <span>
-            <template v-if="filteredStaffs.length">
-              แสดง {{ pageStart }}–{{ pageEnd }} จาก {{ filteredStaffs.length }} รายการ
-              <template v-if="selectedCount"> · เลือก {{ selectedCount }} รายการ</template>
-            </template>
-            <template v-else>ไม่พบรายการ</template>
-          </span>
-          <UPagination
-            v-if="filteredStaffs.length > pageSize"
-            v-model:page="page"
-            :total="filteredStaffs.length"
-            :items-per-page="pageSize"
-          />
-        </div>
+              <UPagination
+                v-model:page="page"
+                :total="filteredStaffs.length"
+                :items-per-page="pageSize"
+                size="md"
+              />
+            </div>
+          </template>
+        </UCard>
       </div>
     </template>
   </UDashboardPanel>
@@ -490,7 +600,8 @@ const columns: TableColumn<Staff>[] = [
           <UInput
             v-model="formState.staffId"
             placeholder="เช่น S001"
-            class="w-full "
+            class="w-full"
+            size="xl"
           />
         </UFormField>
 
@@ -501,6 +612,7 @@ const columns: TableColumn<Staff>[] = [
               :items="prefixOptions"
               value-key="value"
               class="w-full"
+              size="xl"
             />
           </UFormField>
 
@@ -509,6 +621,7 @@ const columns: TableColumn<Staff>[] = [
               v-model="formState.firstName"
               placeholder="ชื่อจริง"
               class="w-full"
+              size="xl"
             />
           </UFormField>
 
@@ -517,6 +630,7 @@ const columns: TableColumn<Staff>[] = [
               v-model="formState.lastName"
               placeholder="นามสกุล"
               class="w-full"
+              size="xl"
             />
           </UFormField>
         </div>
@@ -526,16 +640,18 @@ const columns: TableColumn<Staff>[] = [
             v-model="formState.phone"
             placeholder="เช่น 0812345678"
             class="w-full"
+            size="xl"
           />
         </UFormField>
 
-        <div v-if="isEditing" class="border-t border-default pt-3">
+        <div v-if="isEditing" class="border-t border-divider pt-3">
           <UFormField label="สถานะการใช้งาน">
             <div class="flex items-center gap-2 pt-1">
               <USwitch
                 v-model="formState.isActive"
+                size="sm"
               />
-              <span class="text-sm font-medium">
+              <span class="text-sm font-medium text-ink">
                 {{ formState.isActive ? 'เปิดใช้งาน (Active)' : 'ปิดใช้งาน (Inactive)' }}
               </span>
             </div>
@@ -547,6 +663,7 @@ const columns: TableColumn<Staff>[] = [
     <template #footer>
       <div class="flex justify-end gap-2 w-full">
         <UButton
+          size="xl"
           label="ยกเลิก"
           color="neutral"
           variant="outline"
@@ -554,6 +671,7 @@ const columns: TableColumn<Staff>[] = [
           @click="isFormOpen = false"
         />
         <UButton
+          size="xl"
           :label="isEditing ? 'บันทึกการแก้ไข' : 'บันทึกเจ้าหน้าที่'"
           color="primary"
           :loading="isSubmitting"
@@ -585,10 +703,10 @@ const columns: TableColumn<Staff>[] = [
   >
     <template #body>
       <div v-if="selectedStaff" class="space-y-4">
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 rounded-lg border border-default p-4 bg-muted/10 text-sm">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 rounded-panel border border-divider p-4 bg-surface text-sm">
           <div>
             <span class="text-xs text-muted block">รหัสเจ้าหน้าที่</span>
-            <span class=" font-semibold text-highlighted text-base">{{ selectedStaff.staffId }}</span>
+            <span class="font-semibold text-ink text-base">{{ selectedStaff.staffId }}</span>
           </div>
 
           <div>
@@ -603,7 +721,7 @@ const columns: TableColumn<Staff>[] = [
 
           <div>
             <span class="text-xs text-muted block">ชื่อ-นามสกุล</span>
-            <span class="font-medium text-highlighted">{{ selectedStaff.prefix }}{{ selectedStaff.firstName }} {{ selectedStaff.lastName }}</span>
+            <span class="font-medium text-ink">{{ selectedStaff.prefix }}{{ selectedStaff.firstName }} {{ selectedStaff.lastName }}</span>
           </div>
 
           <div>
@@ -611,7 +729,7 @@ const columns: TableColumn<Staff>[] = [
             <a
               v-if="selectedStaff.phone"
               :href="`tel:${selectedStaff.phone}`"
-              class=" font-medium text-primary hover:underline inline-flex items-center gap-1.5 mt-0.5"
+              class="font-medium text-primary hover:underline inline-flex items-center gap-1.5 mt-0.5"
             >
               <UIcon name="i-lucide-phone" class="size-4" />
               {{ selectedStaff.phone }}
@@ -626,6 +744,7 @@ const columns: TableColumn<Staff>[] = [
       <div class="flex w-full justify-between items-center">
         <UButton
           v-if="selectedStaff"
+          size="xl"
           label="แก้ไขข้อมูล"
           icon="i-lucide-pencil"
           color="neutral"
@@ -634,6 +753,7 @@ const columns: TableColumn<Staff>[] = [
         />
         <div class="ml-auto">
           <UButton
+            size="xl"
             label="ปิด"
             color="neutral"
             variant="subtle"

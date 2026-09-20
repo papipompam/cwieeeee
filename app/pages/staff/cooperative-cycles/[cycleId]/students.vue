@@ -91,7 +91,8 @@ const searchQuery = ref('')
 const classGroupFilter = ref<string>('all')
 const statusFilter = ref<'all' | 'active' | 'inactive'>('all')
 const page = ref(1)
-const pageSize = 10
+const pageSize = ref(10)
+const pageSizeOptions = [10, 20, 50, 100]
 
 const isEnrollmentOpen = ref(false)
 const bulkCohortYear = ref<number | null>(null)
@@ -119,12 +120,12 @@ const { data, status: fetchStatus, refresh } = await useFetch<StudentsResponse>(
   {
     query: computed(() => ({
       page: page.value,
-      pageSize,
+      pageSize: pageSize.value,
       search: searchQuery.value || undefined,
       classGroup: classGroupFilter.value !== 'all' ? classGroupFilter.value : undefined,
       status: statusFilter.value !== 'all' ? statusFilter.value : undefined
     })),
-    watch: [page, searchQuery, classGroupFilter, statusFilter]
+    watch: [page, searchQuery, classGroupFilter, statusFilter, pageSize]
   }
 )
 
@@ -211,7 +212,7 @@ const removeEnrollment = async () => {
   }
 }
 
-watch([searchQuery, classGroupFilter, statusFilter], () => {
+watch([searchQuery, classGroupFilter, statusFilter, pageSize], () => {
   page.value = 1
 })
 
@@ -253,7 +254,7 @@ const columns: TableColumn<StudentRow>[] = [
   {
     accessorKey: 'studentId',
     header: 'รหัสนักศึกษา',
-    meta: { class: { th: 'w-36 ', td: 'w-36  text-sm' } }
+    meta: { class: { th: 'w-36', td: 'w-36 font-semibold' } }
   },
   {
     id: 'name',
@@ -275,193 +276,258 @@ const columns: TableColumn<StudentRow>[] = [
   },
   {
     id: 'actions',
-    header: 'จัดการ',
+    header: () => h('span', { class: 'block text-right' }, 'จัดการ'),
     meta: { class: { th: 'w-28 text-end', td: 'w-28 text-end' } }
   }
 ]
 
 const pageStart = computed(() => {
   if (!data.value || data.value.total === 0) return 0
-  return (page.value - 1) * pageSize + 1
+  return (page.value - 1) * pageSize.value + 1
 })
 const pageEnd = computed(() => {
   if (!data.value) return 0
-  return Math.min(page.value * pageSize, data.value.total)
+  return Math.min(page.value * pageSize.value, data.value.total)
 })
 </script>
 
 <template>
-  <div class="space-y-4">
-    <!-- Header info banner -->
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-      <div>
-        <h2 class="text-base font-semibold text-highlighted">
-          นักศึกษาในรอบสหกิจ
-        </h2>
-        <p class="text-xs text-muted">
-          รายชื่อนักศึกษาที่เจ้าหน้าที่เพิ่มเข้ารอบสหกิจศึกษานี้ ({{ data?.total ?? 0 }} คน)
-        </p>
-      </div>
+  <div class="w-full space-y-6">
+    <UCard :ui="{ body: 'p-0' }">
+      <!-- Header info and controls -->
+      <div class="border-b border-divider p-5 sm:p-6">
+        <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h3 class="text-lg font-bold text-ink">นักศึกษาในรอบสหกิจ</h3>
+            <p class="mt-1 text-sm leading-6 text-muted">
+              รายชื่อนักศึกษาที่เจ้าหน้าที่เพิ่มเข้ารอบสหกิจศึกษานี้ ({{ data?.total ?? 0 }} คน)
+            </p>
+          </div>
 
-      <div class="flex flex-wrap items-center gap-2">
-        <UButton
-          label="จัดการฐานข้อมูลนักศึกษา"
-          icon="i-lucide-external-link"
-          color="neutral"
-          variant="outline"
-          size="md"
-          to="/staff/students"
-        />
-        <UButton
-          label="เพิ่มนักศึกษาเข้ารอบ"
-          icon="i-lucide-user-plus"
-          color="primary"
-          size="md"
-          @click="openEnrollment"
-        />
-      </div>
-    </div>
-
-    <!-- Filters and Control Row -->
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-      <div class="flex flex-wrap items-center gap-2">
-        <UInput
-          v-model="searchQuery"
-          icon="i-lucide-search"
-          placeholder="ค้นหารหัสนักศึกษา หรือชื่อ..."
-          class="w-64"
-          size="md"
-        />
-
-        <USelect
-          v-model="classGroupFilter"
-          :items="classGroupOptions"
-          value-key="value"
-          class="w-36"
-          size="md"
-        />
-
-        <USelect
-          v-model="statusFilter"
-          :items="statusOptions"
-          value-key="value"
-          class="w-36"
-          size="md"
-        />
-
-        <UButton
-          v-if="hasFilters"
-          label="ล้างตัวกรอง"
-          icon="i-lucide-x"
-          color="neutral"
-          variant="ghost"
-          size="md"
-          @click="clearFilters"
-        />
-      </div>
-
-      <div class="flex items-center gap-2">
-        <UIButtonRefresh
-          :loading="fetchStatus === 'pending'"
-          @refresh="refresh"
-        />
-      </div>
-    </div>
-
-    <!-- Table -->
-    <div class="rounded-lg border border-default overflow-hidden bg-default shadow-xs">
-      <div class="overflow-x-auto">
-        <UTable
-          :data="data?.students || []"
-          :columns="columns"
-          :loading="fetchStatus === 'pending'"
-          class="min-w-full"
-        >
-          <template #name-cell="{ row }">
-            <span class="font-medium text-highlighted">
-              {{ row.original.prefix }}{{ row.original.firstName }} {{ row.original.lastName }}
-            </span>
-          </template>
-
-          <template #classGroup-cell="{ row }">
-            <span>หมู่ {{ row.original.classGroup }}</span>
-          </template>
-
-          <template #cycleStatus-cell="{ row }">
-            <UBadge
-              :label="row.original.cycleStatus.label"
-              :color="row.original.cycleStatus.color"
-              variant="subtle"
+          <div class="flex flex-wrap items-center gap-2">
+            <UButton
+              size="xl"
+              label="จัดการฐานข้อมูลนักศึกษา"
+              icon="i-lucide-external-link"
+              color="neutral"
+              variant="outline"
+              to="/staff/students"
             />
-          </template>
-
-          <template #latestCompany-cell="{ row }">
-            <div v-if="row.original.latestCompany" class="flex items-center gap-1.5 truncate">
-              <span class="text-highlighted font-medium text-sm truncate">{{ row.original.latestCompany }}</span>
-              <UBadge
-                v-if="row.original.latestApplicationStatus && appStatusDisplayMap[row.original.latestApplicationStatus]"
-                :label="appStatusDisplayMap[row.original.latestApplicationStatus]?.label"
-                :color="appStatusDisplayMap[row.original.latestApplicationStatus]?.color"
-                variant="subtle"
-                size="xs"
-              />
-              <UButton
-                v-if="row.original.latestRequestId"
-                icon="i-lucide-file-text"
-                color="primary"
-                variant="ghost"
-                size="xs"
-                :to="`/staff/cooperative-cycles/${cycleId}/applications/${row.original.latestRequestId}`"
-                title="เปิดคำร้อง"
-              />
-            </div>
-            <span v-else class="text-muted text-xs">—</span>
-          </template>
-
-          <template #actions-cell="{ row }">
-            <div class="flex justify-end gap-1">
-              <UButton
-                label="ดูประวัติ"
-                icon="i-lucide-history"
-                color="neutral"
-                variant="ghost"
-                size="xs"
-                @click="openHistory(row.original.id)"
-              />
-              <UButton
-                label="นำออก"
-                icon="i-lucide-user-minus"
-                color="error"
-                variant="ghost"
-                size="xs"
-                @click="askRemoveEnrollment(row.original)"
-              />
-            </div>
-          </template>
-
-          <template #empty>
-            <div class="py-12 text-center text-muted">
-              <UIcon name="i-lucide-users" class="size-8 mx-auto mb-2 text-muted" />
-              <p>ไม่พบข้อมูลนักศึกษาในรอบนี้</p>
-            </div>
-          </template>
-        </UTable>
-      </div>
-
-      <!-- Pagination Footer -->
-      <div v-if="data && data.total > 0" class="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t border-default text-xs text-muted">
-        <div>
-          แสดง {{ pageStart }} - {{ pageEnd }} จากทั้งหมด {{ data.total }} รายการ
+            <UButton
+              size="xl"
+              label="เพิ่มนักศึกษาเข้ารอบ"
+              icon="i-lucide-user-plus"
+              color="primary"
+              @click="openEnrollment"
+            />
+          </div>
         </div>
 
-        <UPagination
-          v-model:page="page"
-          :total="data.total"
-          :items-per-page="pageSize"
-          size="sm"
-        />
+        <div class="mt-5 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+          <UFormField label="ค้นหานักศึกษา" class="w-full sm:max-w-sm lg:w-96 lg:flex-none">
+            <UInput
+              v-model="searchQuery"
+              type="search"
+              size="xl"
+              icon="i-lucide-search"
+              class="w-full"
+              placeholder="ค้นหารหัสนักศึกษา หรือชื่อ..."
+              aria-label="ค้นหานักศึกษา"
+            />
+          </UFormField>
+
+          <div class="flex flex-wrap items-center justify-end gap-2 lg:ml-auto lg:flex-nowrap">
+            <div class="w-full sm:w-36">
+              <USelect
+                v-model="classGroupFilter"
+                :items="classGroupOptions"
+                value-key="value"
+                class="w-full"
+                size="xl"
+                placeholder="หมู่เรียน"
+                aria-label="กรองตามหมู่เรียน"
+              />
+            </div>
+            <div class="w-full sm:w-36">
+              <USelect
+                v-model="statusFilter"
+                :items="statusOptions"
+                value-key="value"
+                class="w-full"
+                size="xl"
+                placeholder="สถานะ"
+                aria-label="กรองตามสถานะบัญชี"
+              />
+            </div>
+            <UIButtonRefresh
+              :loading="fetchStatus === 'pending'"
+              @refresh="refresh"
+            />
+          </div>
+        </div>
+
+        <div v-if="hasFilters" class="mt-3 flex flex-wrap items-center gap-2 text-sm">
+          <span class="text-muted">ตัวกรองที่ใช้:</span>
+          <span v-if="searchQuery" class="inline-flex min-h-8 items-center gap-1 rounded-full bg-surface px-3 text-ink">
+            คำค้น “{{ searchQuery }}”
+          </span>
+          <span v-if="classGroupFilter !== 'all'" class="inline-flex min-h-8 items-center gap-1 rounded-full bg-surface px-3 text-ink">
+            {{ classGroupOptions.find(o => o.value === classGroupFilter)?.label }}
+          </span>
+          <span v-if="statusFilter !== 'all'" class="inline-flex min-h-8 items-center gap-1 rounded-full bg-surface px-3 text-ink">
+            {{ statusOptions.find(o => o.value === statusFilter)?.label }}
+          </span>
+          <UButton
+            color="neutral"
+            variant="ghost"
+            size="xs"
+            icon="i-lucide-x"
+            @click="clearFilters"
+          >
+            ล้างทั้งหมด
+          </UButton>
+        </div>
       </div>
-    </div>
+
+      <!-- Loading Skeleton -->
+      <div v-if="fetchStatus === 'pending'" class="space-y-3 p-5 sm:p-6" aria-label="กำลังโหลดข้อมูล">
+        <div v-for="row in 4" :key="row" class="grid grid-cols-[2rem_1.2fr_1fr_8rem] gap-4 max-md:grid-cols-[1fr_7rem]">
+          <USkeleton class="h-10 max-md:hidden" />
+          <USkeleton class="h-10" />
+          <USkeleton class="h-10 max-md:hidden" />
+          <USkeleton class="h-10" />
+        </div>
+      </div>
+
+      <!-- Empty State -->
+      <div v-else-if="!data?.students?.length" class="p-5 sm:p-6">
+        <UEmpty
+          icon="i-lucide-inbox"
+          class="min-h-64"
+          :title="hasFilters ? 'ไม่พบรายการที่ตรงกับตัวกรอง' : 'ไม่พบข้อมูลนักศึกษาในรอบนี้'"
+          :description="hasFilters ? 'ลองเปลี่ยนคำค้นหาหรือตัวกรองหมู่เรียน' : 'กดปุ่มเพิ่มนักศึกษาเข้ารอบเพื่อเริ่มต้น'"
+        >
+          <template #actions>
+            <UButton
+              v-if="hasFilters"
+              size="xl"
+              color="neutral"
+              variant="outline"
+              @click="clearFilters"
+            >
+              ล้างตัวกรอง
+            </UButton>
+            <UButton
+              v-else
+              size="xl"
+              icon="i-lucide-user-plus"
+              @click="openEnrollment"
+            >
+              เพิ่มนักศึกษาเข้ารอบ
+            </UButton>
+          </template>
+        </UEmpty>
+      </div>
+
+      <!-- Table -->
+      <template v-else>
+        <div class="w-full overflow-x-auto">
+          <UTable
+            :data="data?.students || []"
+            :columns="columns"
+            class="min-w-full"
+            :ui="{ base: 'w-full min-w-160' }"
+          >
+            <template #name-cell="{ row }">
+              <span class="font-medium text-ink">
+                {{ row.original.prefix }}{{ row.original.firstName }} {{ row.original.lastName }}
+              </span>
+            </template>
+
+            <template #classGroup-cell="{ row }">
+              <span>หมู่ {{ row.original.classGroup }}</span>
+            </template>
+
+            <template #cycleStatus-cell="{ row }">
+              <UBadge
+                :label="row.original.cycleStatus.label"
+                :color="row.original.cycleStatus.color"
+                variant="subtle"
+              />
+            </template>
+
+            <template #latestCompany-cell="{ row }">
+              <div v-if="row.original.latestCompany" class="flex items-center gap-1.5 truncate">
+                <span class="text-ink font-medium text-sm truncate">{{ row.original.latestCompany }}</span>
+                <UBadge
+                  v-if="row.original.latestApplicationStatus && appStatusDisplayMap[row.original.latestApplicationStatus]"
+                  :label="appStatusDisplayMap[row.original.latestApplicationStatus]?.label"
+                  :color="appStatusDisplayMap[row.original.latestApplicationStatus]?.color"
+                  variant="subtle"
+                  size="xs"
+                />
+                <UButton
+                  v-if="row.original.latestRequestId"
+                  icon="i-lucide-file-text"
+                  color="primary"
+                  variant="ghost"
+                  size="xs"
+                  :to="`/staff/cooperative-cycles/${cycleId}/applications/${row.original.latestRequestId}`"
+                  title="เปิดคำร้อง"
+                />
+              </div>
+              <span v-else class="text-muted text-xs">—</span>
+            </template>
+
+            <template #actions-cell="{ row }">
+              <div class="flex items-center justify-end gap-1 whitespace-nowrap">
+                <UButton
+                  label="ดูประวัติ"
+                  icon="i-lucide-history"
+                  color="neutral"
+                  variant="ghost"
+                  size="xs"
+                  @click="openHistory(row.original.id)"
+                />
+                <UButton
+                  label="นำออก"
+                  icon="i-lucide-user-minus"
+                  color="error"
+                  variant="ghost"
+                  size="xs"
+                  @click="askRemoveEnrollment(row.original)"
+                />
+              </div>
+            </template>
+          </UTable>
+        </div>
+
+        <!-- Footer -->
+        <div class="flex flex-col gap-3 border-t border-divider px-5 py-4 text-sm sm:flex-row sm:items-center sm:justify-between sm:px-6">
+          <div class="flex flex-wrap items-center gap-3">
+            <p class="whitespace-nowrap text-muted">
+              แสดง {{ pageStart }}–{{ pageEnd }} จากทั้งหมด {{ data.total }} รายการ
+            </p>
+            <div class="w-16 shrink-0">
+              <USelect
+                v-model="pageSize"
+                size="md"
+                class="w-full"
+                :items="pageSizeOptions"
+                aria-label="จำนวนรายการต่อหน้า"
+              />
+            </div>
+          </div>
+
+          <UPagination
+            v-model:page="page"
+            :total="data.total"
+            :items-per-page="pageSize"
+            size="md"
+          />
+        </div>
+      </template>
+    </UCard>
 
     <UModal
       v-model:open="isEnrollmentOpen"
@@ -471,12 +537,13 @@ const pageEnd = computed(() => {
     >
       <template #body>
         <div class="space-y-5">
-          <div class="rounded-lg border border-default bg-muted/10 p-4">
+          <div class="rounded-panel border border-divider bg-surface p-4">
             <div class="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
               <UFormField label="เพิ่มนักศึกษาที่ใช้งานทั้งรุ่น">
-                <UInput v-model.number="bulkCohortYear" type="number" placeholder="เช่น 2566" />
+                <UInput v-model.number="bulkCohortYear" type="number" placeholder="เช่น 2566" size="xl" />
               </UFormField>
               <UButton
+                size="xl"
                 label="เพิ่มทั้งรุ่น"
                 icon="i-lucide-users-round"
                 :loading="isEnrollmentSaving"
@@ -487,14 +554,14 @@ const pageEnd = computed(() => {
 
           <div class="space-y-2">
             <UFormField label="ค้นหาเพื่อเพิ่มรายบุคคล">
-              <UInput v-model="candidateSearch" icon="i-lucide-search" placeholder="ค้นหารหัสนักศึกษา หรือชื่อ..." />
+              <UInput v-model="candidateSearch" icon="i-lucide-search" placeholder="ค้นหารหัสนักศึกษา หรือชื่อ..." size="xl" />
             </UFormField>
-            <div class="max-h-72 overflow-y-auto rounded-lg border border-default divide-y divide-default">
+            <div class="max-h-72 overflow-y-auto rounded-control border border-divider divide-y divide-divider">
               <div v-if="candidatesFetchStatus === 'pending'" class="p-6 text-center text-sm text-muted">กำลังค้นหานักศึกษา...</div>
               <div v-else-if="!candidates?.length" class="p-6 text-center text-sm text-muted">ไม่พบนักศึกษาที่ใช้งานได้</div>
               <div v-for="candidate in candidates" :key="candidate.id" class="flex items-center justify-between gap-3 p-3">
                 <div class="min-w-0">
-                  <p class="truncate text-sm font-medium text-highlighted">{{ candidate.prefix }}{{ candidate.firstName }} {{ candidate.lastName }}</p>
+                  <p class="truncate text-sm font-medium text-ink">{{ candidate.prefix }}{{ candidate.firstName }} {{ candidate.lastName }}</p>
                   <p class="text-xs text-muted">{{ candidate.studentId }} · รุ่น {{ candidate.cohortYear }} · หมู่ {{ candidate.classGroup }}</p>
                 </div>
                 <UButton
@@ -509,6 +576,18 @@ const pageEnd = computed(() => {
               </div>
             </div>
           </div>
+        </div>
+      </template>
+
+      <template #footer>
+        <div class="flex w-full justify-end">
+          <UButton
+            size="xl"
+            label="ปิด"
+            color="neutral"
+            variant="subtle"
+            @click="isEnrollmentOpen = false"
+          />
         </div>
       </template>
     </UModal>
@@ -539,10 +618,10 @@ const pageEnd = computed(() => {
 
         <div v-else-if="studentHistory" class="space-y-4">
           <!-- Current cycle status card -->
-          <div class="p-3.5 rounded-lg border border-default bg-muted/10 flex items-center justify-between">
+          <div class="p-3.5 rounded-panel border border-divider bg-surface flex items-center justify-between">
             <div>
               <span class="text-xs text-muted block">สถานะในรอบปัจจุบัน</span>
-              <span class="font-medium text-highlighted text-sm">
+              <span class="font-medium text-ink text-sm">
                 ภาคเรียนที่ {{ cycle?.term }}/{{ cycle?.academicYear }}
               </span>
             </div>
@@ -555,12 +634,12 @@ const pageEnd = computed(() => {
 
           <!-- History timeline -->
           <div>
-            <h4 class="text-xs font-semibold text-highlighted uppercase tracking-wider mb-2 flex items-center gap-1.5">
+            <h4 class="text-xs font-semibold text-ink uppercase tracking-wider mb-2 flex items-center gap-1.5">
               <UIcon name="i-lucide-list" class="size-3.5 text-primary" />
               ประวัติการยื่นสถานประกอบการทั้งหมด ({{ studentHistory.applications.length }} รายการ)
             </h4>
 
-            <div v-if="studentHistory.applications.length === 0" class="py-8 text-center text-muted border border-dashed border-default rounded-lg">
+            <div v-if="studentHistory.applications.length === 0" class="py-8 text-center text-muted border border-dashed border-divider rounded-panel">
               <UIcon name="i-lucide-file-x" class="size-6 mx-auto mb-1 text-muted" />
               <p class="text-xs">ยังไม่มีประวัติการยื่นสถานประกอบการ</p>
             </div>
@@ -569,7 +648,7 @@ const pageEnd = computed(() => {
               <div
                 v-for="app in studentHistory.applications"
                 :key="app.id"
-                class="p-3 rounded-lg border border-default bg-default shadow-2xs space-y-1.5"
+                class="p-3 rounded-panel border border-divider bg-canvas shadow-xs space-y-1.5"
               >
                 <div class="flex items-center justify-between">
                   <div class="flex items-center gap-2">
@@ -590,7 +669,7 @@ const pageEnd = computed(() => {
                   />
                 </div>
 
-                <div class="text-sm font-medium text-highlighted">
+                <div class="text-sm font-medium text-ink">
                   {{ app.companyName }}
                 </div>
 
@@ -601,7 +680,7 @@ const pageEnd = computed(() => {
                 </div>
 
                 <!-- Linked request if any -->
-                <div v-if="app.request" class="border-t border-default pt-2 mt-2 flex items-center justify-between text-xs">
+                <div v-if="app.request" class="border-t border-divider pt-2 mt-2 flex items-center justify-between text-xs">
                   <span class="text-muted">
                     คำร้อง #{{ app.request.id }} ({{ app.request.status }})
                   </span>
@@ -625,6 +704,7 @@ const pageEnd = computed(() => {
       <template #footer>
         <div class="flex w-full justify-end">
           <UButton
+            size="xl"
             label="ปิด"
             color="neutral"
             variant="subtle"

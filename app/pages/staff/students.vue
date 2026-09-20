@@ -31,7 +31,8 @@ const classGroupFilter = ref<string>('all')
 const statusFilter = ref<'all' | 'active' | 'inactive'>('all')
 const rowSelection = ref<Record<string, boolean>>({})
 const page = ref(1)
-const pageSize = 10
+const pageSize = ref(10)
+const pageSizeOptions = [10, 20, 50, 100]
 
 // Delete modal state
 const isDeleteOpen = ref(false)
@@ -117,8 +118,8 @@ const filteredStudents = computed(() => {
 })
 
 const paginatedStudents = computed(() => {
-  const start = (page.value - 1) * pageSize
-  return filteredStudents.value.slice(start, start + pageSize)
+  const start = (page.value - 1) * pageSize.value
+  return filteredStudents.value.slice(start, start + pageSize.value)
 })
 
 const selectedIds = computed(() => Object.entries(rowSelection.value)
@@ -127,12 +128,12 @@ const selectedIds = computed(() => Object.entries(rowSelection.value)
 
 const selectedCount = computed(() => selectedIds.value.length)
 const deleteCount = computed(() => pendingDeleteIds.value.length)
-const totalPages = computed(() => Math.max(1, Math.ceil(filteredStudents.value.length / pageSize)))
+const totalPages = computed(() => Math.max(1, Math.ceil(filteredStudents.value.length / pageSize.value)))
 const hasFilters = computed(() => Boolean(searchQuery.value) || cohortFilter.value !== 'all' || classGroupFilter.value !== 'all' || statusFilter.value !== 'all')
-const pageStart = computed(() => filteredStudents.value.length ? (page.value - 1) * pageSize + 1 : 0)
-const pageEnd = computed(() => Math.min(page.value * pageSize, filteredStudents.value.length))
+const pageStart = computed(() => filteredStudents.value.length ? (page.value - 1) * pageSize.value + 1 : 0)
+const pageEnd = computed(() => Math.min(page.value * pageSize.value, filteredStudents.value.length))
 
-watch([searchQuery, cohortFilter, classGroupFilter, statusFilter], () => {
+watch([searchQuery, cohortFilter, classGroupFilter, statusFilter, pageSize], () => {
   page.value = 1
   rowSelection.value = {}
 })
@@ -367,11 +368,13 @@ const columns: TableColumn<Student>[] = [
     id: 'select',
     meta: { class: { th: 'w-12', td: 'w-12' } },
     header: ({ table }) => h(UCheckbox, {
+      size: 'lg',
       modelValue: table.getIsSomePageRowsSelected() ? 'indeterminate' : table.getIsAllPageRowsSelected(),
       'onUpdate:modelValue': (value: boolean | 'indeterminate') => table.toggleAllPageRowsSelected(!!value),
       'aria-label': 'เลือกทุกรายการในหน้านี้'
     }),
     cell: ({ row }) => h(UCheckbox, {
+      size: 'lg',
       modelValue: row.getIsSelected(),
       'onUpdate:modelValue': (value: boolean | 'indeterminate') => row.toggleSelected(!!value),
       'aria-label': `เลือกนักศึกษารหัส ${row.original.studentId}`
@@ -380,7 +383,7 @@ const columns: TableColumn<Student>[] = [
   {
     accessorKey: 'studentId',
     header: 'รหัสนักศึกษา',
-    meta: { class: { th: 'w-36 ', td: 'w-36  font-medium' } }
+    meta: { class: { th: 'w-36', td: 'w-36 font-semibold' } }
   },
   {
     id: 'fullName',
@@ -406,7 +409,7 @@ const columns: TableColumn<Student>[] = [
   },
   {
     id: 'actions',
-    header: 'จัดการ',
+    header: () => h('span', { class: 'block text-right' }, 'จัดการ'),
     meta: { class: { th: 'w-48 text-end', td: 'w-48 text-end' } }
   }
 ]
@@ -427,179 +430,291 @@ const columns: TableColumn<Student>[] = [
     </template>
 
     <template #body>
-      <div class="flex flex-col gap-6">
-        <header class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div class="min-w-0">
-            <h1 class="text-2xl font-bold tracking-tight text-highlighted sm:text-3xl">ข้อมูลนักศึกษา</h1>
-            <p class="mt-1 text-sm font-normal leading-6 text-muted">ค้นหา เพิ่ม แก้ไข และจัดการบัญชีโดยไม่ลบประวัติเดิม</p>
+      <div class="w-full space-y-6 pb-12">
+        <UCard :ui="{ body: 'p-0' }">
+          <div class="border-b border-divider p-5 sm:p-6">
+            <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+              <div>
+                <h3 class="text-lg font-bold text-ink">ข้อมูลนักศึกษา</h3>
+                <p class="mt-1 text-sm leading-6 text-muted">ค้นหา เพิ่ม แก้ไข และจัดการบัญชีโดยไม่ลบประวัติเดิม</p>
+              </div>
+
+              <div class="flex flex-wrap items-center justify-end gap-2">
+                <UButton
+                  size="xl"
+                  label="นำเข้าข้อมูล"
+                  icon="i-lucide-upload"
+                  color="neutral"
+                  variant="outline"
+                  @click="openImportModal"
+                />
+                <UButton
+                  size="xl"
+                  label="ส่งออกข้อมูล"
+                  icon="i-lucide-download"
+                  color="neutral"
+                  variant="outline"
+                  @click="exportStudents"
+                />
+                <UButton
+                  size="xl"
+                  label="เพิ่มนักศึกษา"
+                  icon="i-lucide-plus"
+                  color="primary"
+                  @click="openCreateModal"
+                />
+              </div>
+            </div>
+
+            <div class="mt-5 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+              <UFormField label="ค้นหานักศึกษา" class="w-full sm:max-w-sm lg:w-96 lg:flex-none">
+                <UInput
+                  v-model="searchQuery"
+                  type="search"
+                  size="xl"
+                  icon="i-lucide-search"
+                  class="w-full"
+                  placeholder="ค้นหารหัสนักศึกษา หรือชื่อ-สกุล"
+                  aria-label="ค้นหานักศึกษา"
+                />
+              </UFormField>
+
+              <div class="flex flex-wrap items-center justify-end gap-2 lg:ml-auto lg:flex-nowrap">
+                <div class="w-full sm:w-36">
+                  <USelect
+                    v-model="cohortFilter"
+                    :items="cohortOptions"
+                    value-key="value"
+                    class="w-full"
+                    size="xl"
+                    placeholder="เลือกรุ่น"
+                    aria-label="กรองตามรุ่นนักศึกษา"
+                  />
+                </div>
+                <div class="w-full sm:w-36">
+                  <USelect
+                    v-model="classGroupFilter"
+                    :items="classGroupOptions"
+                    value-key="value"
+                    class="w-full"
+                    size="xl"
+                    placeholder="เลือกหมู่เรียน"
+                    aria-label="กรองตามหมู่เรียน"
+                  />
+                </div>
+                <div class="w-full sm:w-36">
+                  <USelect
+                    v-model="statusFilter"
+                    :items="statusOptions"
+                    value-key="value"
+                    class="w-full"
+                    size="xl"
+                    placeholder="สถานะ"
+                    aria-label="กรองตามสถานะการใช้งาน"
+                  />
+                </div>
+                <UIButtonRefresh
+                  :loading="fetchStatus === 'pending'"
+                  @refresh="handleRefresh"
+                />
+              </div>
+            </div>
+
+            <div v-if="hasFilters" class="mt-3 flex flex-wrap items-center gap-2 text-sm">
+              <span class="text-muted">ตัวกรองที่ใช้:</span>
+              <span v-if="searchQuery" class="inline-flex min-h-8 items-center gap-1 rounded-full bg-surface px-3 text-ink">
+                คำค้น “{{ searchQuery }}”
+              </span>
+              <span v-if="cohortFilter !== 'all'" class="inline-flex min-h-8 items-center gap-1 rounded-full bg-surface px-3 text-ink">
+                {{ cohortOptions.find(o => o.value === cohortFilter)?.label }}
+              </span>
+              <span v-if="classGroupFilter !== 'all'" class="inline-flex min-h-8 items-center gap-1 rounded-full bg-surface px-3 text-ink">
+                {{ classGroupOptions.find(o => o.value === classGroupFilter)?.label }}
+              </span>
+              <span v-if="statusFilter !== 'all'" class="inline-flex min-h-8 items-center gap-1 rounded-full bg-surface px-3 text-ink">
+                {{ statusOptions.find(o => o.value === statusFilter)?.label }}
+              </span>
+              <UButton
+                color="neutral"
+                variant="ghost"
+                size="xs"
+                icon="i-lucide-x"
+                @click="clearFilters"
+              >
+                ล้างทั้งหมด
+              </UButton>
+            </div>
           </div>
 
-          <div class="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:justify-end">
-            <UButton
-              label="นำเข้าข้อมูล"
-              icon="i-lucide-upload"
-              color="neutral"
-              variant="outline"
-              class="min-h-11 justify-center rounded-xl bg-default px-4 hover:bg-muted/50"
-              @click="openImportModal"
-            />
-            <UButton
-              label="ส่งออกข้อมูล"
-              icon="i-lucide-download"
-              color="neutral"
-              variant="outline"
-              class="min-h-11 justify-center rounded-xl bg-default px-4 hover:bg-muted/50"
-              @click="exportStudents"
-            />
-            <UButton
-              label="เพิ่มนักศึกษา"
-              icon="i-lucide-plus"
-              color="primary"
-              class="col-span-2 min-h-11 justify-center rounded-xl px-4 sm:col-span-1"
-              @click="openCreateModal"
-            />
-          </div>
-        </header>
-
-        <!-- Control Row -->
-        <div class="flex flex-col gap-3 rounded-lg sm:flex-row sm:items-center sm:justify-between">
-          <div class="flex min-w-0 flex-1 items-center gap-2 sm:max-w-md">
-            <UInput
-              v-model="searchQuery"
-              class="min-w-0 flex-1"
-              icon="i-lucide-search"
-              placeholder="ค้นหารหัสนักศึกษา หรือชื่อ-สกุล"
-              aria-label="ค้นหานักศึกษา"
-            />
-            <UButton
-              v-if="hasFilters"
-              color="neutral"
-              variant="ghost"
-              label="ล้าง"
-              @click="clearFilters"
-            />
-          </div>
-
-          <div class="flex flex-wrap items-center gap-2">
-            <USelect
-              v-model="cohortFilter"
-              :items="cohortOptions"
-              value-key="value"
-              class="w-32"
-              aria-label="กรองตามรุ่นนักศึกษา"
-            />
-            <USelect
-              v-model="classGroupFilter"
-              :items="classGroupOptions"
-              value-key="value"
-              class="w-32"
-              aria-label="กรองตามหมู่เรียน"
-            />
-            <USelect
-              v-model="statusFilter"
-              :items="statusOptions"
-              value-key="value"
-              class="w-32"
-              aria-label="กรองตามสถานะการใช้งาน"
-            />
-            <UButton
-              v-if="selectedCount"
-              color="error"
-              variant="subtle"
-              icon="i-lucide-trash-2"
-              :label="`ลบ ${selectedCount}`"
-              @click="openBulkDelete"
-            />
-            
-            <UIButtonRefresh
-              :loading="fetchStatus === 'pending'"
-              @refresh="handleRefresh"
-            />
-          </div>
-        </div>
-
-        <!-- Error State -->
-        <UAlert
-          v-if="fetchError"
-          color="error"
-          icon="i-lucide-alert-circle"
-          title="ไม่สามารถเชื่อมต่อข้อมูลนักศึกษาได้"
-          :description="fetchError.message"
-        />
-
-        <!-- Data Table -->
-        <div v-else class="overflow-hidden rounded-lg border border-default bg-default">
-          <UTable
-            v-model:row-selection="rowSelection"
-            :data="paginatedStudents"
-            :columns="columns"
-            :loading="fetchStatus === 'pending'"
-            :get-row-id="student => String(student.id)"
-            :ui="{ root: 'overflow-x-auto', base: 'min-w-full' }"
+          <!-- Bulk Actions Bar -->
+          <div
+            v-if="selectedCount"
+            class="flex flex-wrap items-center justify-between gap-3 border-b border-divider bg-warning-soft px-5 py-3 sm:px-6"
+            role="status"
           >
-            <template #isActive-cell="{ row }">
-              <UBadge
-                :label="row.original.isActive ? 'ใช้งาน' : 'ไม่ใช้งาน'"
-                :color="row.original.isActive ? 'success' : 'neutral'"
-                variant="subtle"
+            <p class="text-sm font-semibold text-ink">เลือกแล้ว {{ selectedCount }} รายการ</p>
+            <div class="flex gap-2">
+              <UButton
+                size="sm"
+                color="error"
+                variant="soft"
+                icon="i-lucide-trash-2"
+                :label="`ลบ ${selectedCount} รายการ`"
+                @click="openBulkDelete"
               />
-            </template>
+              <UButton
+                size="sm"
+                color="neutral"
+                variant="ghost"
+                label="ยกเลิกการเลือก"
+                @click="rowSelection = {}"
+              />
+            </div>
+          </div>
 
-            <template #actions-cell="{ row }">
-              <div class="flex justify-end gap-1.5">
+          <!-- Loading Skeleton -->
+          <div v-if="fetchStatus === 'pending'" class="space-y-3 p-5 sm:p-6" aria-label="กำลังโหลดข้อมูล">
+            <div v-for="row in 4" :key="row" class="grid grid-cols-[2rem_1.2fr_1fr_8rem] gap-4 max-md:grid-cols-[1fr_7rem]">
+              <USkeleton class="h-10 max-md:hidden" />
+              <USkeleton class="h-10" />
+              <USkeleton class="h-10 max-md:hidden" />
+              <USkeleton class="h-10" />
+            </div>
+          </div>
+
+          <!-- Error State -->
+          <div v-else-if="fetchError" class="p-5 sm:p-6">
+            <UEmpty
+              icon="i-lucide-triangle-alert"
+              title="ไม่สามารถเชื่อมต่อข้อมูลนักศึกษาได้"
+              :description="fetchError.message"
+              variant="subtle"
+              class="min-h-64"
+            >
+              <template #actions>
                 <UButton
-                  label="ดู"
-                  icon="i-lucide-eye"
+                  size="xl"
                   color="neutral"
-                  variant="ghost"
-                  size="xs"
-                  @click="openDetail(row.original)"
-                />
+                  variant="outline"
+                  icon="i-lucide-refresh-cw"
+                  @click="handleRefresh"
+                >
+                  ลองอีกครั้ง
+                </UButton>
+              </template>
+            </UEmpty>
+          </div>
+
+          <!-- Empty State -->
+          <div v-else-if="!paginatedStudents.length" class="p-5 sm:p-6">
+            <UEmpty
+              icon="i-lucide-inbox"
+              class="min-h-64"
+              :title="hasFilters ? 'ไม่พบรายการที่ตรงกับตัวกรอง' : 'ยังไม่มีข้อมูลนักศึกษา'"
+              :description="hasFilters ? 'ลองเปลี่ยนคำค้นหรือล้างตัวกรองที่ใช้อยู่' : 'นำเข้าหรือเพิ่มนักศึกษาเพื่อเริ่มต้นใช้งาน'"
+            >
+              <template #actions>
                 <UButton
-                  label="แก้ไข"
-                  icon="i-lucide-pencil"
+                  v-if="hasFilters"
+                  size="xl"
                   color="neutral"
-                  variant="ghost"
-                  size="xs"
-                  @click="openEditModal(row.original)"
-                />
+                  variant="outline"
+                  @click="clearFilters"
+                >
+                  ล้างตัวกรอง
+                </UButton>
                 <UButton
-                  label="ลบ"
-                  icon="i-lucide-trash-2"
-                  color="error"
-                  variant="ghost"
-                  size="xs"
-                  @click="openDelete(row.original)"
-                />
-              </div>
-            </template>
+                  v-else
+                  size="xl"
+                  icon="i-lucide-plus"
+                  @click="openCreateModal"
+                >
+                  เพิ่มนักศึกษา
+                </UButton>
+              </template>
+            </UEmpty>
+          </div>
 
-            <template #empty>
-              <div class="py-12 text-center text-muted">
-                <UIcon name="i-lucide-users" class="size-10 mx-auto mb-2 text-dimmed" />
-                <p>ไม่พบข้อมูลนักศึกษา</p>
-                <p class="text-xs text-muted mt-1">กดปุ่ม "เพิ่มนักศึกษา" เพื่อบันทึกข้อมูลนักศึกษาเข้าสู่ระบบ</p>
-              </div>
-            </template>
-          </UTable>
-        </div>
+          <!-- Data Table -->
+          <template v-else>
+            <div class="w-full overflow-x-auto">
+              <UTable
+                v-model:row-selection="rowSelection"
+                :data="paginatedStudents"
+                :columns="columns"
+                :get-row-id="student => String(student.id)"
+                class="min-w-full"
+                :ui="{ base: 'w-full min-w-200' }"
+              >
+                <template #fullName-cell="{ row }">
+                  <p class="font-semibold text-ink">{{ row.original.prefix }}{{ row.original.firstName }} {{ row.original.lastName }}</p>
+                  <p class="mt-1 text-xs text-muted">{{ row.original.studentId }}</p>
+                </template>
 
-        <!-- Pagination & Range Counter -->
-        <div class="flex flex-wrap items-center justify-between gap-3 text-sm text-muted">
-          <span>
-            <template v-if="filteredStudents.length">
-              แสดง {{ pageStart }}–{{ pageEnd }} จาก {{ filteredStudents.length }} รายการ
-              <template v-if="selectedCount"> · เลือก {{ selectedCount }} รายการ</template>
-            </template>
-            <template v-else>ไม่พบรายการ</template>
-          </span>
-          <UPagination
-            v-if="filteredStudents.length > pageSize"
-            v-model:page="page"
-            :total="filteredStudents.length"
-            :items-per-page="pageSize"
-          />
-        </div>
+                <template #isActive-cell="{ row }">
+                  <UBadge
+                    :label="row.original.isActive ? 'ใช้งาน' : 'ไม่ใช้งาน'"
+                    :color="row.original.isActive ? 'success' : 'neutral'"
+                    variant="subtle"
+                  />
+                </template>
+
+                <template #actions-cell="{ row }">
+                  <div class="flex items-center justify-end gap-1 whitespace-nowrap">
+                    <UButton
+                      label="ดู"
+                      icon="i-lucide-eye"
+                      color="neutral"
+                      variant="ghost"
+                      size="xs"
+                      @click="openDetail(row.original)"
+                    />
+                    <UButton
+                      label="แก้ไข"
+                      icon="i-lucide-pencil"
+                      color="neutral"
+                      variant="ghost"
+                      size="xs"
+                      @click="openEditModal(row.original)"
+                    />
+                    <UButton
+                      label="ลบ"
+                      icon="i-lucide-trash-2"
+                      color="error"
+                      variant="ghost"
+                      size="xs"
+                      @click="openDelete(row.original)"
+                    />
+                  </div>
+                </template>
+              </UTable>
+            </div>
+
+            <!-- Footer -->
+            <div class="flex flex-col gap-3 border-t border-divider px-5 py-4 text-sm sm:flex-row sm:items-center sm:justify-between sm:px-6">
+              <div class="flex flex-wrap items-center gap-3">
+                <p class="whitespace-nowrap text-muted">
+                  แสดง {{ pageStart }}–{{ pageEnd }} จาก {{ filteredStudents.length }} รายการ
+                </p>
+                <div class="w-16 shrink-0">
+                  <USelect
+                    v-model="pageSize"
+                    size="md"
+                    class="w-full"
+                    :items="pageSizeOptions"
+                    aria-label="จำนวนรายการต่อหน้า"
+                  />
+                </div>
+              </div>
+              <UPagination
+                v-model:page="page"
+                :total="filteredStudents.length"
+                :items-per-page="pageSize"
+                size="md"
+              />
+            </div>
+          </template>
+        </UCard>
       </div>
     </template>
   </UDashboardPanel>
@@ -628,7 +743,7 @@ const columns: TableColumn<Student>[] = [
         <UFormField label="ไฟล์ข้อมูล" required :error="importError">
           <input
             accept=".csv,.xlsx"
-            class="block w-full text-sm text-muted file:mr-3 file:rounded-md file:border-0 file:bg-elevated file:px-3 file:py-2 file:text-sm file:font-medium file:text-default hover:file:bg-accented"
+            class="block w-full text-sm text-muted file:mr-3 file:rounded-control file:border-0 file:bg-surface file:px-3 file:py-2 file:text-sm file:font-medium file:text-ink hover:file:bg-surface/80"
             type="file"
             @change="selectImportFile"
           >
@@ -639,8 +754,8 @@ const columns: TableColumn<Student>[] = [
 
     <template #footer>
       <div class="flex w-full justify-end gap-2">
-        <UButton label="ยกเลิก" color="neutral" variant="outline" :disabled="isImporting" @click="isImportOpen = false" />
-        <UButton label="นำเข้าข้อมูล" icon="i-lucide-upload" color="primary" :loading="isImporting" @click="submitImport" />
+        <UButton size="xl" label="ยกเลิก" color="neutral" variant="outline" :disabled="isImporting" @click="isImportOpen = false" />
+        <UButton size="xl" label="นำเข้าข้อมูล" icon="i-lucide-upload" color="primary" :loading="isImporting" @click="submitImport" />
       </div>
     </template>
   </UModal>
@@ -657,7 +772,8 @@ const columns: TableColumn<Student>[] = [
           <UInput
             v-model="formState.studentId"
             placeholder="เช่น 66010001"
-            class="w-full "
+            class="w-full"
+            size="xl"
           />
         </UFormField>
 
@@ -668,6 +784,7 @@ const columns: TableColumn<Student>[] = [
               :items="prefixOptions"
               value-key="value"
               class="w-full"
+              size="xl"
             />
           </UFormField>
 
@@ -676,6 +793,7 @@ const columns: TableColumn<Student>[] = [
               v-model="formState.firstName"
               placeholder="ชื่อจริง"
               class="w-full"
+              size="xl"
             />
           </UFormField>
 
@@ -684,6 +802,7 @@ const columns: TableColumn<Student>[] = [
               v-model="formState.lastName"
               placeholder="นามสกุล"
               class="w-full"
+              size="xl"
             />
           </UFormField>
         </div>
@@ -695,6 +814,7 @@ const columns: TableColumn<Student>[] = [
               type="number"
               placeholder="2566"
               class="w-full"
+              size="xl"
             />
           </UFormField>
 
@@ -705,29 +825,31 @@ const columns: TableColumn<Student>[] = [
               min="1"
               placeholder="1, 2"
               class="w-full"
+              size="xl"
             />
           </UFormField>
         </div>
 
-        <div v-if="isEditing" class="border-t border-default pt-3">
+        <div v-if="isEditing" class="border-t border-divider pt-3">
           <UFormField label="สถานะการใช้งาน">
             <div class="flex items-center gap-2 pt-1">
               <USwitch
                 v-model="formState.isActive"
+                size="sm"
               />
-              <span class="text-sm font-medium">
+              <span class="text-sm font-medium text-ink">
                 {{ formState.isActive ? 'เปิดใช้งาน (Active)' : 'ปิดใช้งาน (Inactive)' }}
               </span>
             </div>
           </UFormField>
         </div>
 
-        <div v-if="isEditing" class="grid grid-cols-1 gap-3 border-t border-default pt-3 sm:grid-cols-2">
+        <div v-if="isEditing" class="grid grid-cols-1 gap-3 border-t border-divider pt-3 sm:grid-cols-2">
           <UFormField label="ตั้งรหัสผ่านใหม่" hint="เว้นว่างหากไม่เปลี่ยน" :error="formErrors.newPassword">
-            <UInput v-model="formState.newPassword" type="password" autocomplete="new-password" class="w-full" />
+            <UInput v-model="formState.newPassword" type="password" autocomplete="new-password" class="w-full" size="xl" />
           </UFormField>
           <UFormField label="ยืนยันรหัสผ่านใหม่" :error="formErrors.confirmPassword">
-            <UInput v-model="formState.confirmPassword" type="password" autocomplete="new-password" class="w-full" />
+            <UInput v-model="formState.confirmPassword" type="password" autocomplete="new-password" class="w-full" size="xl" />
           </UFormField>
         </div>
       </form>
@@ -736,6 +858,7 @@ const columns: TableColumn<Student>[] = [
     <template #footer>
       <div class="flex justify-end gap-2 w-full">
         <UButton
+          size="xl"
           label="ยกเลิก"
           color="neutral"
           variant="outline"
@@ -743,6 +866,7 @@ const columns: TableColumn<Student>[] = [
           @click="isFormOpen = false"
         />
         <UButton
+          size="xl"
           :label="isEditing ? 'บันทึกการแก้ไข' : 'บันทึกนักศึกษา'"
           color="primary"
           :loading="isSubmitting"
@@ -774,10 +898,10 @@ const columns: TableColumn<Student>[] = [
   >
     <template #body>
       <div v-if="selectedStudent" class="space-y-4">
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 rounded-lg border border-default p-4 bg-muted/10 text-sm">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 rounded-panel border border-divider p-4 bg-surface text-sm">
           <div>
             <span class="text-xs text-muted block">รหัสนักศึกษา</span>
-            <span class=" font-semibold text-highlighted text-base">{{ selectedStudent.studentId }}</span>
+            <span class="font-semibold text-ink text-base">{{ selectedStudent.studentId }}</span>
           </div>
 
           <div>
@@ -792,17 +916,17 @@ const columns: TableColumn<Student>[] = [
 
           <div>
             <span class="text-xs text-muted block">ชื่อ-นามสกุล</span>
-            <span class="font-medium text-highlighted">{{ selectedStudent.prefix }}{{ selectedStudent.firstName }} {{ selectedStudent.lastName }}</span>
+            <span class="font-medium text-ink">{{ selectedStudent.prefix }}{{ selectedStudent.firstName }} {{ selectedStudent.lastName }}</span>
           </div>
 
           <div>
             <span class="text-xs text-muted block">รุ่น (ปีที่เข้าศึกษา)</span>
-            <span>รุ่น {{ selectedStudent.cohortYear }}</span>
+            <span class="text-ink">รุ่น {{ selectedStudent.cohortYear }}</span>
           </div>
 
           <div>
             <span class="text-xs text-muted block">หมู่เรียน</span>
-            <span>หมู่ {{ selectedStudent.classGroup }}</span>
+            <span class="text-ink">หมู่ {{ selectedStudent.classGroup }}</span>
           </div>
         </div>
       </div>
@@ -812,6 +936,7 @@ const columns: TableColumn<Student>[] = [
       <div class="flex w-full justify-between items-center">
         <UButton
           v-if="selectedStudent"
+          size="xl"
           label="แก้ไขข้อมูล"
           icon="i-lucide-pencil"
           color="neutral"
@@ -820,6 +945,7 @@ const columns: TableColumn<Student>[] = [
         />
         <div class="ml-auto">
           <UButton
+            size="xl"
             label="ปิด"
             color="neutral"
             variant="subtle"

@@ -48,7 +48,7 @@ const markAllRead = async () => {
       <AppDashboardNavbar title="การแจ้งเตือน">
         <template #leading><UDashboardSidebarCollapse /></template>
         <template #right>
-          <UButton v-if="data?.unreadCount" color="neutral" variant="ghost" label="อ่านทั้งหมด" :loading="isMarkingAllRead" @click="markAllRead" />
+          <UButton v-if="data?.unreadCount" color="neutral" variant="ghost" label="อ่านทั้งหมด" size="xl" :loading="isMarkingAllRead" @click="markAllRead" />
           <UIButtonRefresh :loading="status === 'pending'" @refresh="refresh" />
           <AppNotificationBell />
         </template>
@@ -57,25 +57,25 @@ const markAllRead = async () => {
 
     <template #body>
       <UAlert v-if="error" color="error" icon="i-lucide-circle-alert" title="ไม่สามารถโหลดการแจ้งเตือนได้" :description="error.message" />
-      <div v-else class="mx-auto max-w-3xl divide-y divide-default rounded-xl border border-default bg-default">
+      <div v-else class="mx-auto max-w-3xl divide-y divide-divider rounded-panel border border-divider bg-canvas shadow-panel overflow-hidden">
         <button
           v-for="item in data?.items || []"
           :key="item.id"
           type="button"
-          class="block w-full px-5 py-4 text-left transition-colors hover:bg-elevated"
+          class="block w-full px-5 py-4 text-left transition-colors hover:bg-surface"
           :class="{ 'bg-primary/5': !item.isRead }"
           @click="openNotification(item)"
         >
           <div class="flex gap-3">
             <span class="mt-1 size-2 shrink-0 rounded-full" :class="item.isRead ? 'bg-transparent' : 'bg-primary'" />
             <div class="min-w-0 flex-1">
-              <p class="text-sm font-medium text-highlighted">{{ item.title }}</p>
+              <p class="text-sm font-medium text-ink">{{ item.title }}</p>
               <p class="mt-1 text-sm text-muted">{{ item.message }}</p>
               <p class="mt-2 text-xs text-muted">{{ formatThaiDate(item.createdAt) }}</p>
             </div>
           </div>
         </button>
-        <UEmpty v-if="!data?.items?.length && status !== 'pending'" icon="i-lucide-bell" title="ยังไม่มีการแจ้งเตือน" />
+        <UEmpty v-if="!data?.items?.length && status !== 'pending'" icon="i-lucide-bell" title="ยังไม่มีการแจ้งเตือน" class="py-12" />
       </div>
     </template>
   </UDashboardPanel>

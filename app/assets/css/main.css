@@ -65,19 +65,7 @@
     --ui-text-highlighted: var(--color-ink);
   }
 
-.sidebar-menu :is([data-slot="link"], [data-slot="childLink"]):not([aria-current="page"]):hover {
-  color: white;
-}
-
-.sidebar-menu :is([data-slot="link"], [data-slot="childLink"]):not([aria-current="page"]):hover::before {
-  background-color: rgb(255 255 255 / 10%);
-}
-
-.sidebar-menu :is([data-slot="link"], [data-slot="childLink"]):not([aria-current="page"]):hover :is([data-slot="linkLeadingIcon"], [data-slot="childLinkIcon"]) {
-  color: white;
-}
-
-  :is(.student-ui-theme, .staff-ui-theme, body:has(.student-ui-theme), body:has(.staff-ui-theme)) {
+  :is(.app-ui-theme, .student-ui-theme, .staff-ui-theme, .teacher-ui-theme, body:has(.app-ui-theme)) {
     --ui-primary: #f5b32b;
     --ui-bg: #ffffff;
     --ui-bg-muted: #f7f7f7;
@@ -96,37 +84,21 @@
     font-weight: 300;
   }
 
-  :is(.student-ui-theme, .staff-ui-theme) :is(.rounded-xl.border.bg-default, .rounded-xl.border.bg-elevated) {
+  :is(.app-ui-theme, .student-ui-theme, .staff-ui-theme, .teacher-ui-theme) :is(.rounded-xl.border.bg-default, .rounded-xl.border.bg-elevated) {
     border-radius: var(--radius-panel);
     box-shadow: var(--shadow-panel);
   }
 
-  :is(.student-ui-theme, .staff-ui-theme) :is(button, input, textarea, select, [role="button"], [role="combobox"]) {
+  :is(.app-ui-theme, .student-ui-theme, .staff-ui-theme, .teacher-ui-theme) :is(button, input, textarea, select, [role="button"], [role="combobox"]) {
     font-family: inherit;
   }
 
-  :is(.student-ui-theme, .staff-ui-theme) .bg-primary {
-    color: var(--color-ink);
-  }
-
-  .staff-ui-theme [data-slot="body"] {
+  :is(.app-ui-theme, .student-ui-theme, .staff-ui-theme, .teacher-ui-theme) [data-slot="body"] {
     scrollbar-gutter: stable;
   }
 
-  .staff-ui-theme :is(.rounded-lg.border.border-default.bg-default, .rounded-lg.border.border-default.bg-elevated) {
+  :is(.app-ui-theme, .student-ui-theme, .staff-ui-theme, .teacher-ui-theme) :is(.rounded-lg.border.border-default.bg-default, .rounded-lg.border.border-default.bg-elevated) {
     border-radius: var(--radius-panel);
     box-shadow: var(--shadow-panel);
-  }
-
-  .staff-ui-theme :is(table, [role="table"]) thead {
-    background-color: var(--color-surface);
-  }
-
-  .staff-ui-theme :is(table, [role="table"]) tbody tr {
-    transition: background-color 150ms ease;
-  }
-
-  .staff-ui-theme :is(table, [role="table"]) tbody tr:hover {
-    background-color: color-mix(in srgb, var(--color-surface) 70%, transparent);
   }
 }

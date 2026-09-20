@@ -64,10 +64,10 @@ const submit = async () => {
     <template #body>
       <form class="space-y-4" @submit.prevent="submit">
         <UFormField label="รหัสผ่านใหม่" hint="อย่างน้อย 8 ตัวอักษร" required>
-          <UInput v-model="form.newPassword" type="password" autocomplete="new-password" class="w-full" />
+          <UInput v-model="form.newPassword" type="password" autocomplete="new-password" class="w-full" size="xl" />
         </UFormField>
         <UFormField label="ยืนยันรหัสผ่านใหม่" required>
-          <UInput v-model="form.confirmPassword" type="password" autocomplete="new-password" class="w-full" />
+          <UInput v-model="form.confirmPassword" type="password" autocomplete="new-password" class="w-full" size="xl" />
         </UFormField>
         <UAlert v-if="error" color="error" :description="error" />
       </form>
@@ -75,8 +75,8 @@ const submit = async () => {
 
     <template #footer>
       <div class="flex w-full justify-end gap-2">
-        <UButton label="ยกเลิก" color="neutral" variant="outline" :disabled="loading" @click="isOpen = false" />
-        <UButton label="บันทึกรหัสผ่านใหม่" icon="i-lucide-key-round" color="primary" :loading="loading" @click="submit" />
+        <UButton size="xl" label="ยกเลิก" color="neutral" variant="outline" :disabled="loading" @click="isOpen = false" />
+        <UButton size="xl" label="บันทึกรหัสผ่านใหม่" icon="i-lucide-key-round" color="primary" :loading="loading" @click="submit" />
       </div>
     </template>
   </UModal>

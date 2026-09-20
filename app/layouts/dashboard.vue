@@ -30,8 +30,18 @@ interface MenuGroup {
   items: NavigationMenuItem[]
 }
 
-const { data: cycles } = await useFetch<CycleReference[]>('/api/cooperative-cycles', {
-  immediate: currentRole.value === 'staff'
+const isStaffUser = computed(() => user.value?.role === 'STAFF')
+const isStaffSection = computed(() => route.path.startsWith('/staff'))
+const shouldFetchCycles = computed(() => isStaffUser.value && isStaffSection.value)
+
+const { data: cycles, execute: fetchCycles } = await useFetch<CycleReference[]>('/api/cooperative-cycles', {
+  immediate: shouldFetchCycles.value
+})
+
+watch(shouldFetchCycles, (shouldFetch) => {
+  if (shouldFetch && !cycles.value) {
+    fetchCycles()
+  }
 })
 
 const hasCycle = (cycleId: number | string | null | undefined) =>
@@ -263,9 +273,11 @@ const currentMenuGroups = computed<MenuGroup[]>(() => {
 <template>
   <UDashboardGroup
     unit="rem"
+    class="app-ui-theme"
     :class="{
       'student-ui-theme': route.path.startsWith('/student'),
-      'staff-ui-theme': route.path.startsWith('/staff')
+      'staff-ui-theme': route.path.startsWith('/staff'),
+      'teacher-ui-theme': route.path.startsWith('/teacher')
     }"
   >
     <UDashboardSidebar
@@ -321,11 +333,11 @@ const currentMenuGroups = computed<MenuGroup[]>(() => {
               :ui="{
                 root: 'gap-2',
                 list: 'space-y-1',
-                link: 'min-h-11 gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors duration-150 focus-visible:before:outline-primary/50',
-                linkLeadingIcon: 'size-5 transition-colors duration-150',
+                link: 'min-h-11 gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors duration-150 hover:before:!bg-sidebar-hover hover:!text-white focus-visible:before:outline-primary/50',
+                linkLeadingIcon: 'size-5 transition-colors duration-150 group-hover:!text-white',
                 childList: 'mt-1 space-y-1 border-sidebar-border',
-                childLink: 'min-h-10 gap-2.5 rounded-xl px-3 py-2.5 transition-colors duration-150',
-                childLinkIcon: 'size-4.5 transition-colors duration-150'
+                childLink: 'min-h-10 gap-2.5 rounded-xl px-3 py-2.5 transition-colors duration-150 hover:before:!bg-sidebar-hover hover:!text-white',
+                childLinkIcon: 'size-4.5 transition-colors duration-150 group-hover:!text-white'
               }"
             />
           </section>
@@ -340,7 +352,7 @@ const currentMenuGroups = computed<MenuGroup[]>(() => {
             :variant="route.path === '/dev/ui' ? 'solid' : 'ghost'"
             :square="collapsed"
             class="min-h-11 w-full justify-start gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors duration-150"
-            :class="route.path === '/dev/ui' ? 'hover:bg-primary' : 'hover:bg-white/10 hover:text-white'"
+            :class="route.path === '/dev/ui' ? 'hover:bg-primary' : 'hover:bg-sidebar-hover hover:text-white'"
             aria-label="Design System"
             title="Design System"
             @click="handleSelect"

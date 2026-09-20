@@ -202,7 +202,7 @@ const handleSubmit = () => {
       <template #header>
         <div class="flex items-center gap-2">
           <UIcon name="i-lucide-building-2" class="size-5 text-primary" />
-          <h2 class="font-semibold text-highlighted">ข้อมูลสถานประกอบการและผู้ติดต่อหลัก</h2>
+          <h2 class="font-semibold text-ink">ข้อมูลสถานประกอบการและผู้ติดต่อหลัก</h2>
         </div>
       </template>
 
@@ -213,6 +213,7 @@ const handleSubmit = () => {
               v-model="form.name"
               placeholder="เช่น บริษัท สยามพัฒนา ซอฟต์แวร์ จำกัด"
               class="w-full"
+              size="xl"
             />
           </UFormField>
 
@@ -221,6 +222,7 @@ const handleSubmit = () => {
               v-model="form.contactPerson"
               placeholder="เช่น คุณสมชาย บุญมี (ผู้จัดการแผนกบุคคล)"
               class="w-full"
+              size="xl"
             />
           </UFormField>
         </div>
@@ -231,6 +233,7 @@ const handleSubmit = () => {
               v-model="form.phone"
               placeholder="เช่น 02-123-4567 หรือ 081-234-5678"
               class="w-full"
+              size="xl"
             />
           </UFormField>
 
@@ -240,6 +243,7 @@ const handleSubmit = () => {
               type="email"
               placeholder="เช่น hr@company.co.th"
               class="w-full"
+              size="xl"
             />
           </UFormField>
         </div>
@@ -251,7 +255,7 @@ const handleSubmit = () => {
       <template #header>
         <div class="flex items-center gap-2">
           <UIcon name="i-lucide-map-pin" class="size-5 text-primary" />
-          <h2 class="font-semibold text-highlighted">ที่อยู่สถานประกอบการ</h2>
+          <h2 class="font-semibold text-ink">ที่อยู่สถานประกอบการ</h2>
         </div>
       </template>
 
@@ -262,6 +266,7 @@ const handleSubmit = () => {
               v-model="form.addressNo"
               placeholder="เช่น 123/45 อาคารเอ ชั้น 3"
               class="w-full"
+              size="xl"
             />
           </UFormField>
 
@@ -270,6 +275,7 @@ const handleSubmit = () => {
               v-model="form.moo"
               placeholder="เช่น 4"
               class="w-full"
+              size="xl"
             />
           </UFormField>
 
@@ -278,6 +284,7 @@ const handleSubmit = () => {
               v-model="form.soi"
               placeholder="เช่น สุขุมวิท 21"
               class="w-full"
+              size="xl"
             />
           </UFormField>
 
@@ -286,6 +293,7 @@ const handleSubmit = () => {
               v-model="form.street"
               placeholder="เช่น นิมมานเหมินท์"
               class="w-full"
+              size="xl"
             />
           </UFormField>
         </div>
@@ -296,6 +304,7 @@ const handleSubmit = () => {
               v-model="form.subdistrict"
               placeholder="เช่น สุเทพ"
               class="w-full"
+              size="xl"
             />
           </UFormField>
 
@@ -304,6 +313,7 @@ const handleSubmit = () => {
               v-model="form.district"
               placeholder="เช่น เมืองเชียงใหม่"
               class="w-full"
+              size="xl"
             />
           </UFormField>
 
@@ -313,11 +323,12 @@ const handleSubmit = () => {
               :items="provinceOptions"
               value-key="value"
               class="w-full"
+              size="xl"
             />
           </UFormField>
 
           <UFormField label="ภูมิภาค (คำนวณอัตโนมัติ)">
-            <div class="flex items-center h-9 px-3 rounded-md border border-default bg-muted/20 text-sm font-medium text-highlighted">
+            <div class="flex items-center h-10 px-3 rounded-control border border-divider bg-surface text-sm font-medium text-ink">
               {{ calculatedRegion }}
             </div>
           </UFormField>
@@ -328,7 +339,8 @@ const handleSubmit = () => {
             <UInput
               v-model="form.postalCode"
               placeholder="เช่น 50200"
-              class="w-full "
+              class="w-full"
+              size="xl"
             />
           </UFormField>
         </div>
@@ -340,7 +352,7 @@ const handleSubmit = () => {
       <template #header>
         <div class="flex items-center gap-2">
           <UIcon name="i-lucide-map" class="size-5 text-primary" />
-          <h2 class="font-semibold text-highlighted">แผนที่และพิกัดที่ตั้ง</h2>
+          <h2 class="font-semibold text-ink">แผนที่และพิกัดที่ตั้ง</h2>
         </div>
       </template>
 
@@ -350,7 +362,7 @@ const handleSubmit = () => {
           <ClientOnly>
             <UIMapPicker v-model="mapCoords" />
             <template #fallback>
-              <div class="w-full h-80 rounded-lg border border-default bg-muted/20 flex flex-col items-center justify-center gap-2 text-muted animate-pulse">
+              <div class="w-full h-80 rounded-panel border border-divider bg-surface flex flex-col items-center justify-center gap-2 text-muted animate-pulse">
                 <UIcon name="i-lucide-map" class="size-8 text-muted" />
                 <span class="text-sm">กำลังโหลดแผนที่...</span>
               </div>
@@ -365,7 +377,8 @@ const handleSubmit = () => {
               type="number"
               step="any"
               placeholder="เช่น 18.7953"
-              class="w-full "
+              class="w-full"
+              size="xl"
             />
           </UFormField>
 
@@ -375,7 +388,8 @@ const handleSubmit = () => {
               type="number"
               step="any"
               placeholder="เช่น 98.9620"
-              class="w-full "
+              class="w-full"
+              size="xl"
             />
           </UFormField>
         </div>
@@ -386,6 +400,7 @@ const handleSubmit = () => {
             :rows="2"
             placeholder="เช่น ใกล้สถานีรถไฟฟ้านานา, มีที่จอดรถด้านหลังอาคาร, รถเมล์สาย 29 ผ่าน"
             class="w-full"
+            size="xl"
           />
         </UFormField>
       </div>
@@ -396,13 +411,13 @@ const handleSubmit = () => {
       <template #header>
         <div class="flex items-center gap-2">
           <UIcon name="i-lucide-toggle-left" class="size-5 text-primary" />
-          <h2 class="font-semibold text-highlighted">สถานะการใช้งาน</h2>
+          <h2 class="font-semibold text-ink">สถานะการใช้งาน</h2>
         </div>
       </template>
 
       <div class="flex items-center gap-3">
-        <USwitch v-model="form.isActive" />
-        <span class="text-sm font-medium">
+        <USwitch v-model="form.isActive" size="sm" />
+        <span class="text-sm font-medium text-ink">
           {{ form.isActive ? 'เปิดใช้งาน (Active) - รับนักศึกษาฝึกงานได้' : 'ปิดใช้งาน (Inactive) - ระงับการฝึกงานชั่วคราว' }}
         </span>
       </div>
@@ -414,6 +429,7 @@ const handleSubmit = () => {
         label="ยกเลิก"
         color="neutral"
         variant="outline"
+        size="xl"
         :disabled="loading"
         @click="emit('cancel')"
       />
@@ -421,6 +437,7 @@ const handleSubmit = () => {
         :label="isEditing ? 'บันทึกการแก้ไข' : 'บันทึกสถานประกอบการ'"
         icon="i-lucide-save"
         color="primary"
+        size="xl"
         :loading="loading"
         type="submit"
       />

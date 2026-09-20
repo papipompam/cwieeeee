@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { TableColumn } from '@nuxt/ui'
-import type { Ref } from 'vue'
+import { h, type Ref } from 'vue'
 
 interface TravelTraveller {
   id?: number
@@ -67,6 +67,9 @@ const notify = useNotify()
 const searchQuery = ref('')
 const selectedRoundId = ref<number | undefined>(undefined)
 const selectedGroupId = ref<string>('ALL')
+const page = ref(1)
+const pageSize = ref(10)
+const pageSizeOptions = [10, 20, 50, 100]
 
 // Fetch Rounds
 const { data: roundsData } = await useFetch<{ rounds: SupervisionRound[] }>(
@@ -129,6 +132,31 @@ const travelPlans = computed(() => {
   return list
 })
 
+const hasFilters = computed(() => Boolean(searchQuery.value.trim()) || selectedGroupId.value !== 'ALL')
+const clearFilters = () => {
+  searchQuery.value = ''
+  selectedGroupId.value = 'ALL'
+  page.value = 1
+}
+
+watch([searchQuery, selectedGroupId, selectedRoundId, pageSize], () => {
+  page.value = 1
+})
+
+const paginatedTravelPlans = computed(() => {
+  const start = (page.value - 1) * pageSize.value
+  return travelPlans.value.slice(start, start + pageSize.value)
+})
+
+const pageStart = computed(() => {
+  if (travelPlans.value.length === 0) return 0
+  return (page.value - 1) * pageSize.value + 1
+})
+
+const pageEnd = computed(() => {
+  return Math.min(page.value * pageSize.value, travelPlans.value.length)
+})
+
 // Summary of all travel plans
 const overallBudget = computed(() => {
   const plans = travelPlans.value
@@ -167,28 +195,28 @@ const columns: TableColumn<TravelPlanRow>[] = [
   },
   {
     id: 'fuel',
-    header: 'ค่าน้ำมัน (฿)',
+    header: () => h('span', { class: 'block text-right' }, 'ค่าน้ำมัน (฿)'),
     meta: { class: { th: 'w-28 text-end', td: 'w-28 text-end' } }
   },
   {
     id: 'perDiem',
-    header: 'เบี้ยเลี้ยง (฿)',
+    header: () => h('span', { class: 'block text-right' }, 'เบี้ยเลี้ยง (฿)'),
     meta: { class: { th: 'w-28 text-end', td: 'w-28 text-end' } }
   },
   {
     id: 'lodging',
-    header: 'ที่พัก (฿)',
+    header: () => h('span', { class: 'block text-right' }, 'ที่พัก (฿)'),
     meta: { class: { th: 'w-28 text-end', td: 'w-28 text-end' } }
   },
   {
     id: 'total',
-    header: 'รวมประมาณการ (฿)',
+    header: () => h('span', { class: 'block text-right' }, 'รวมประมาณการ (฿)'),
     meta: { class: { th: 'w-36 text-end font-semibold', td: 'w-36 text-end font-semibold' } }
   },
   {
     id: 'actions',
-    header: 'จัดการ',
-    meta: { class: { th: 'w-24 text-end', td: 'w-24 text-end' } }
+    header: () => h('span', { class: 'block text-right' }, 'จัดการ'),
+    meta: { class: { th: 'w-36 text-end', td: 'w-36 text-end' } }
   }
 ]
 
@@ -425,209 +453,285 @@ const handleDeletePlan = async () => {
 </script>
 
 <template>
-  <div class="space-y-4">
-    <!-- Header & Controls -->
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-      <div>
-        <h2 class="text-base font-semibold text-highlighted flex items-center gap-2">
-          <UIcon name="i-lucide-wallet-cards" class="size-5 text-primary" />
-          งบประมาณและแผนการเดินทาง
-        </h2>
-        <p class="text-xs text-muted mt-0.5">
-          ติดตามและจัดการงบประมาณการเดินทางของแต่ละกลุ่มนิเทศ
-        </p>
-      </div>
-
-      <div class="flex flex-wrap items-center gap-2">
-        <div class="flex items-center gap-2">
-          <span class="text-xs font-medium text-muted">รอบนิเทศ:</span>
-          <USelect
-            v-model="selectedRoundId"
-            :items="roundOptions"
-            class="w-52"
-            size="md"
-            :disabled="rounds.length === 0"
-          />
-        </div>
-
-        <UButton
-          label="สร้างแผนเดินทาง"
-          icon="i-lucide-plus"
-          color="primary"
-          size="md"
-          :disabled="rounds.length === 0"
-          @click="openCreatePlanModal"
-        />
-
-        <UIButtonRefresh
-          :loading="fetchStatus === 'pending'"
-          @refresh="refresh"
-        />
-      </div>
-    </div>
-
+  <div class="w-full space-y-6">
     <!-- No rounds alert -->
-    <div v-if="rounds.length === 0" class="p-4 rounded-lg bg-info/10 border border-info/30 text-info flex items-center gap-3">
-      <UIcon name="i-lucide-info" class="size-5 shrink-0" />
-      <div class="text-xs">
-        <span class="font-semibold">ยังไม่มีรอบการนิเทศในรอบสหกิจนี้:</span>
-        กรุณาสร้างรอบการนิเทศในแท็บ "รอบและกลุ่มนิเทศ" ก่อนเริ่มสร้างแผนเดินทาง
-      </div>
-    </div>
+    <UAlert
+      v-if="rounds.length === 0"
+      color="info"
+      variant="subtle"
+      icon="i-lucide-info"
+      title="ยังไม่มีรอบการนิเทศในรอบสหกิจนี้"
+      description="กรุณาสร้างรอบการนิเทศในแท็บ &quot;รอบและกลุ่มนิเทศ&quot; ก่อนเริ่มสร้างแผนเดินทาง"
+    />
 
-    <!-- Summary Statistics Grid -->
-    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-      <div class="p-3.5 rounded-lg border border-default bg-default shadow-xs">
-        <div class="text-xs text-muted">แผนเดินทางทั้งหมด</div>
-        <div class="text-xl font-bold text-highlighted mt-1">
-          {{ overallBudget.plansCount }} รายการ
+    <template v-else>
+      <!-- Summary Statistics Grid -->
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div class="p-5 rounded-panel border border-divider bg-canvas shadow-panel">
+          <div class="text-xs text-muted">แผนเดินทางทั้งหมด</div>
+          <div class="text-2xl font-bold text-ink mt-1">
+            {{ overallBudget.plansCount }} รายการ
+          </div>
+          <div class="text-xs text-muted mt-1">แยกตามวันและกลุ่มนิเทศ</div>
         </div>
-        <div class="text-[11px] text-muted mt-0.5">แยกตามวันและกลุ่มนิเทศ</div>
-      </div>
 
-      <div class="p-3.5 rounded-lg border border-default bg-default shadow-xs">
-        <div class="text-xs text-muted">ค่าเบี้ยเลี้ยง + ที่พัก</div>
-        <div class="text-xl font-bold text-highlighted mt-1">
-          ฿{{ formatCurrency(overallBudget.totalPerDiem + overallBudget.totalLodging) }}
+        <div class="p-5 rounded-panel border border-divider bg-canvas shadow-panel">
+          <div class="text-xs text-muted">ค่าเบี้ยเลี้ยง + ที่พัก</div>
+          <div class="text-2xl font-bold text-ink mt-1">
+            ฿{{ formatCurrency(overallBudget.totalPerDiem + overallBudget.totalLodging) }}
+          </div>
+          <div class="text-xs text-muted mt-1">
+            เบี้ยเลี้ยง ฿{{ formatCurrency(overallBudget.totalPerDiem) }} · ที่พัก ฿{{ formatCurrency(overallBudget.totalLodging) }}
+          </div>
         </div>
-        <div class="text-[11px] text-muted mt-0.5">
-          เบี้ยเลี้ยง ฿{{ formatCurrency(overallBudget.totalPerDiem) }} · ที่พัก ฿{{ formatCurrency(overallBudget.totalLodging) }}
+
+        <div class="p-5 rounded-panel border border-primary/30 bg-primary/5 shadow-panel">
+          <div class="text-xs text-primary font-medium">รวมงบประมาณประมาณการ</div>
+          <div class="text-2xl font-extrabold text-primary mt-1">
+            ฿{{ formatCurrency(overallBudget.grandTotal) }}
+          </div>
+          <div class="text-xs text-muted mt-1">คำนวณจากทุกแผนในรอบนี้</div>
         </div>
       </div>
 
-      <div class="p-3.5 rounded-lg border border-primary/30 bg-primary/5 shadow-xs">
-        <div class="text-xs text-primary font-medium">รวมงบประมาณประมาณการ</div>
-        <div class="text-xl font-extrabold text-primary mt-1">
-          ฿{{ formatCurrency(overallBudget.grandTotal) }}
-        </div>
-        <div class="text-[11px] text-muted mt-0.5">คำนวณจากทุกแผนในรอบนี้</div>
-      </div>
-    </div>
-
-    <!-- Toolbar: Search & Group Filter -->
-    <div class="flex flex-wrap items-center justify-between gap-3 bg-muted/5 p-3 rounded-lg border border-default">
-      <div class="flex flex-wrap items-center gap-2 flex-1">
-        <UInput
-          v-model="searchQuery"
-          icon="i-lucide-search"
-          placeholder="ค้นหากลุ่มหรืออาจารย์ผู้เดินทาง..."
-          class="w-72"
-          size="md"
-        />
-
-        <USelect
-          v-model="selectedGroupId"
-          :items="groupFilterOptions"
-          class="w-48"
-          size="md"
-        />
-
-        <UButton
-          v-if="searchQuery || selectedGroupId !== 'ALL'"
-          label="ล้างตัวกรอง"
-          icon="i-lucide-x"
-          color="neutral"
-          variant="ghost"
-          size="md"
-          @click="searchQuery = ''; selectedGroupId = 'ALL'"
-        />
-      </div>
-    </div>
-
-    <!-- Data Table Container -->
-    <div class="overflow-hidden rounded-lg border border-default bg-default shadow-xs">
-      <div class="overflow-x-auto">
-        <UTable
-          :data="travelPlans"
-          :columns="columns"
-          :loading="fetchStatus === 'pending'"
-          class="min-w-full"
-        >
-          <!-- Travel Date -->
-          <template #travelDate-cell="{ row }">
+      <!-- Data Table Card Container -->
+      <UCard :ui="{ body: 'p-0' }">
+        <!-- Card Header -->
+        <div class="border-b border-divider p-5 sm:p-6">
+          <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <div class="font-medium text-highlighted text-xs flex items-center gap-1.5">
-                <UIcon name="i-lucide-calendar" class="size-3.5 text-muted" />
-                {{ formatDate(row.original.travelDate) }}
-              </div>
-            </div>
-          </template>
-
-          <!-- Group & Details -->
-          <template #group-cell="{ row }">
-            <div>
-              <div class="font-semibold text-xs text-highlighted">
-                แผนเดินทาง {{ row.original.group?.name }}
-              </div>
-              <div class="flex flex-wrap items-center gap-1.5 text-[11px] text-muted mt-0.5">
-                <span>จุดเริ่มต้น: {{ row.original.startLocation || 'มหาวิทยาลัย' }}</span>
-                <span>· ผู้เดินทาง {{ row.original.travellers.length }} คน</span>
-                <span v-if="row.original.note" class="text-primary/90">· {{ row.original.note }}</span>
-              </div>
-            </div>
-          </template>
-
-          <!-- Fuel -->
-          <template #fuel-cell="{ row }">
-            <div class="text-right font-mono text-xs">
-              {{ formatCurrency(row.original.calculation.fuelCost) }}
-            </div>
-          </template>
-
-          <!-- Per Diem -->
-          <template #perDiem-cell="{ row }">
-            <div class="text-right font-mono text-xs">
-              {{ formatCurrency(row.original.calculation.perDiemTotal) }}
-            </div>
-          </template>
-
-          <!-- Lodging -->
-          <template #lodging-cell="{ row }">
-            <div class="text-right font-mono text-xs">
-              {{ formatCurrency(row.original.calculation.lodgingTotal) }}
-            </div>
-          </template>
-
-          <!-- Total -->
-          <template #total-cell="{ row }">
-            <div class="text-right font-mono text-xs font-bold text-primary">
-              ฿{{ formatCurrency(row.original.calculation.totalEstimate) }}
-            </div>
-          </template>
-
-          <!-- Actions -->
-          <template #actions-cell="{ row }">
-            <div class="flex items-center justify-end gap-1">
-              <UButton
-                icon="i-lucide-edit-2"
-                color="neutral"
-                variant="ghost"
-                size="xs"
-                @click="openEditPlanModal(row.original)"
-              />
-              <UButton
-                icon="i-lucide-trash-2"
-                color="error"
-                variant="ghost"
-                size="xs"
-                @click="confirmDeletePlan(row.original)"
-              />
-            </div>
-          </template>
-
-          <!-- Empty State -->
-          <template #empty>
-            <div class="py-12 text-center text-muted">
-              <UIcon name="i-lucide-wallet-cards" class="size-8 mx-auto mb-2 text-dimmed" />
-              <p class="font-medium text-highlighted">ยังไม่มีแผนการเดินทางในเงื่อนไขที่เลือก</p>
-              <p class="text-xs text-muted mt-1">
-                คลิก "สร้างแผนเดินทาง" เพื่อคำนวณงบประมาณการออกนิเทศ
+              <h3 class="text-lg font-bold text-ink flex items-center gap-2">
+                <UIcon name="i-lucide-wallet-cards" class="size-5 text-primary" />
+                งบประมาณและแผนการเดินทาง
+              </h3>
+              <p class="mt-1 text-sm leading-6 text-muted">
+                ติดตามและจัดการงบประมาณการเดินทางของแต่ละกลุ่มนิเทศ
               </p>
             </div>
-          </template>
-        </UTable>
-      </div>
-    </div>
+
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="text-xs font-medium text-muted">รอบนิเทศ:</span>
+              <USelect
+                v-model="selectedRoundId"
+                :items="roundOptions"
+                class="w-56"
+                size="xl"
+                :disabled="rounds.length === 0"
+              />
+
+              <UButton
+                label="สร้างแผนเดินทาง"
+                icon="i-lucide-plus"
+                color="primary"
+                size="xl"
+                :disabled="rounds.length === 0"
+                @click="openCreatePlanModal"
+              />
+
+              <UIButtonRefresh
+                :loading="fetchStatus === 'pending'"
+                @refresh="refresh"
+              />
+            </div>
+          </div>
+
+          <!-- Control Row -->
+          <div class="mt-5 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+            <UFormField label="ค้นหาแผนเดินทาง" class="w-full sm:max-w-sm lg:w-96 lg:flex-none">
+              <UInput
+                v-model="searchQuery"
+                type="search"
+                size="xl"
+                icon="i-lucide-search"
+                class="w-full"
+                placeholder="ค้นหากลุ่มหรืออาจารย์ผู้เดินทาง..."
+                aria-label="ค้นหาแผนเดินทาง"
+              />
+            </UFormField>
+
+            <div class="flex flex-wrap items-center justify-end gap-2 lg:ml-auto lg:flex-nowrap">
+              <div class="w-full sm:w-56">
+                <USelect
+                  v-model="selectedGroupId"
+                  :items="groupFilterOptions"
+                  value-key="value"
+                  class="w-full"
+                  size="xl"
+                  placeholder="กลุ่มนิเทศ"
+                  aria-label="กรองตามกลุ่มนิเทศ"
+                />
+              </div>
+            </div>
+          </div>
+
+          <!-- Active Filter Chips -->
+          <div v-if="hasFilters" class="mt-3 flex flex-wrap items-center gap-2 text-sm">
+            <span class="text-muted">ตัวกรองที่ใช้:</span>
+            <span v-if="searchQuery" class="inline-flex min-h-8 items-center gap-1 rounded-full bg-surface px-3 text-ink">
+              คำค้น “{{ searchQuery }}”
+            </span>
+            <span v-if="selectedGroupId !== 'ALL'" class="inline-flex min-h-8 items-center gap-1 rounded-full bg-surface px-3 text-ink">
+              {{ groupFilterOptions.find(o => o.value === selectedGroupId)?.label }}
+            </span>
+            <UButton
+              color="neutral"
+              variant="ghost"
+              size="xs"
+              icon="i-lucide-x"
+              label="ล้างตัวกรอง"
+              @click="clearFilters"
+            />
+          </div>
+        </div>
+
+        <!-- Loading Skeleton -->
+        <div v-if="fetchStatus === 'pending'" class="space-y-3 p-5 sm:p-6" aria-label="กำลังโหลดข้อมูล">
+          <div v-for="row in 4" :key="row" class="grid grid-cols-[1fr_1.5fr_1fr_1fr_1fr_1fr_1fr] gap-4 max-md:grid-cols-[1fr_7rem]">
+            <USkeleton class="h-10" />
+            <USkeleton class="h-10 max-md:hidden" />
+            <USkeleton class="h-10 max-md:hidden" />
+            <USkeleton class="h-10 max-md:hidden" />
+            <USkeleton class="h-10 max-md:hidden" />
+            <USkeleton class="h-10 max-md:hidden" />
+            <USkeleton class="h-10" />
+          </div>
+        </div>
+
+        <!-- Empty State -->
+        <div v-else-if="!travelPlans.length" class="p-5 sm:p-6">
+          <UEmpty
+            icon="i-lucide-wallet-cards"
+            class="min-h-64"
+            :title="hasFilters ? 'ไม่พบรายการที่ตรงกับตัวกรอง' : 'ยังไม่มีแผนการเดินทางในเงื่อนไขที่เลือก'"
+            :description="hasFilters ? 'ลองเปลี่ยนคำค้นหาหรือตัวกรองกลุ่มนิเทศ' : 'คลิก &quot;สร้างแผนเดินทาง&quot; เพื่อคำนวณงบประมาณการออกนิเทศ'"
+          >
+            <template #actions>
+              <UButton
+                v-if="hasFilters"
+                size="xl"
+                color="neutral"
+                variant="outline"
+                @click="clearFilters"
+              >
+                ล้างตัวกรอง
+              </UButton>
+            </template>
+          </UEmpty>
+        </div>
+
+        <!-- Table -->
+        <template v-else>
+          <div class="w-full overflow-x-auto">
+            <UTable
+              :data="paginatedTravelPlans"
+              :columns="columns"
+              class="min-w-full"
+              :ui="{ base: 'w-full min-w-200' }"
+            >
+              <!-- Travel Date -->
+              <template #travelDate-cell="{ row }">
+                <div>
+                  <div class="font-medium text-ink text-sm flex items-center gap-1.5">
+                    <UIcon name="i-lucide-calendar" class="size-3.5 text-muted" />
+                    {{ formatDate(row.original.travelDate) }}
+                  </div>
+                </div>
+              </template>
+
+              <!-- Group & Details -->
+              <template #group-cell="{ row }">
+                <div>
+                  <div class="font-semibold text-sm text-ink">
+                    แผนเดินทาง {{ row.original.group?.name }}
+                  </div>
+                  <div class="flex flex-wrap items-center gap-1.5 text-xs text-muted mt-0.5">
+                    <span>จุดเริ่มต้น: {{ row.original.startLocation || 'มหาวิทยาลัย' }}</span>
+                    <span>· ผู้เดินทาง {{ row.original.travellers.length }} คน</span>
+                    <span v-if="row.original.note" class="text-primary/90">· {{ row.original.note }}</span>
+                  </div>
+                </div>
+              </template>
+
+              <!-- Fuel -->
+              <template #fuel-cell="{ row }">
+                <div class="text-right font-mono text-sm">
+                  {{ formatCurrency(row.original.calculation.fuelCost) }}
+                </div>
+              </template>
+
+              <!-- Per Diem -->
+              <template #perDiem-cell="{ row }">
+                <div class="text-right font-mono text-sm">
+                  {{ formatCurrency(row.original.calculation.perDiemTotal) }}
+                </div>
+              </template>
+
+              <!-- Lodging -->
+              <template #lodging-cell="{ row }">
+                <div class="text-right font-mono text-sm">
+                  {{ formatCurrency(row.original.calculation.lodgingTotal) }}
+                </div>
+              </template>
+
+              <!-- Total -->
+              <template #total-cell="{ row }">
+                <div class="text-right font-mono text-sm font-bold text-primary">
+                  ฿{{ formatCurrency(row.original.calculation.totalEstimate) }}
+                </div>
+              </template>
+
+              <!-- Actions -->
+              <template #actions-cell="{ row }">
+                <div class="flex items-center justify-end gap-1">
+                  <UButton
+                    label="แก้ไข"
+                    icon="i-lucide-edit-2"
+                    color="neutral"
+                    variant="ghost"
+                    size="xs"
+                    @click="openEditPlanModal(row.original)"
+                  />
+                  <UButton
+                    label="ลบ"
+                    icon="i-lucide-trash-2"
+                    color="error"
+                    variant="ghost"
+                    size="xs"
+                    @click="confirmDeletePlan(row.original)"
+                  />
+                </div>
+              </template>
+            </UTable>
+          </div>
+
+          <!-- Footer -->
+          <div class="flex flex-col gap-3 border-t border-divider px-5 py-4 text-sm sm:flex-row sm:items-center sm:justify-between sm:px-6">
+            <div class="flex flex-wrap items-center gap-3">
+              <p class="whitespace-nowrap text-muted">
+                แสดง {{ pageStart }}–{{ pageEnd }} จากทั้งหมด {{ travelPlans.length }} รายการ
+              </p>
+              <div class="w-16 shrink-0">
+                <USelect
+                  v-model="pageSize"
+                  size="md"
+                  class="w-full"
+                  :items="pageSizeOptions"
+                  aria-label="จำนวนรายการต่อหน้า"
+                />
+              </div>
+            </div>
+
+            <UPagination
+              v-if="travelPlans.length > 0"
+              v-model:page="page"
+              :total="travelPlans.length"
+              :items-per-page="pageSize"
+              size="md"
+            />
+          </div>
+        </template>
+      </UCard>
+    </template>
 
     <!-- Modal: Create / Edit Travel Plan -->
     <UModal
@@ -636,69 +740,64 @@ const handleDeletePlan = async () => {
       size="xl"
     >
       <template #body>
-        <div class="space-y-5 text-xs">
+        <div class="space-y-5">
           <!-- General Details -->
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label class="block font-medium text-highlighted mb-1">กลุ่มนิเทศ *</label>
+            <UFormField label="กลุ่มนิเทศ" required>
               <USelect
                 v-model="planForm.groupId"
                 :items="groupOptions"
                 class="w-full"
-                size="md"
+                size="xl"
                 :disabled="!!editingPlanId"
               />
-            </div>
+            </UFormField>
 
-            <div>
-              <label class="block font-medium text-highlighted mb-1">วันที่เดินทาง *</label>
+            <UFormField label="วันที่เดินทาง" required>
               <UInput
                 v-model="planForm.travelDate"
                 type="date"
                 class="w-full"
-                size="sm"
+                size="xl"
               />
-            </div>
+            </UFormField>
           </div>
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label class="block font-medium text-highlighted mb-1">จุดเริ่มต้นเดินทาง</label>
+            <UFormField label="จุดเริ่มต้นเดินทาง">
               <UInput
                 v-model="planForm.startLocation"
                 placeholder="มหาวิทยาลัย"
                 class="w-full"
-                size="sm"
+                size="xl"
               />
-            </div>
+            </UFormField>
 
-            <div>
-              <label class="block font-medium text-highlighted mb-1">อัตราค่าน้ำมัน (฿/กม.) *</label>
+            <UFormField label="อัตราค่าน้ำมัน (฿/กม.)" required>
               <UInput
                 v-model.number="planForm.fuelRate"
                 type="number"
                 step="0.5"
                 min="0"
                 class="w-full"
-                size="sm"
+                size="xl"
               />
-            </div>
+            </UFormField>
           </div>
 
-          <div>
-            <label class="block font-medium text-highlighted mb-1">หมายเหตุเพิ่มเติม</label>
+          <UFormField label="หมายเหตุเพิ่มเติม">
             <UInput
               v-model="planForm.note"
               placeholder="หมายเหตุหรือรายละเอียดเพิ่มเติมสำหรับแผนการเดินทาง"
               class="w-full"
-              size="sm"
+              size="xl"
             />
-          </div>
+          </UFormField>
 
           <!-- Travellers Section -->
-          <div class="p-3 rounded-lg border border-default bg-muted/5 space-y-3">
+          <div class="p-4 rounded-panel border border-divider bg-surface space-y-3">
             <div class="flex items-center justify-between">
-              <h4 class="font-semibold text-highlighted flex items-center gap-1.5">
+              <h4 class="font-semibold text-ink text-sm flex items-center gap-1.5">
                 <UIcon name="i-lucide-users" class="size-4 text-primary" />
                 อาจารย์ผู้ร่วมเดินทางและอัตราประมาณการ ({{ planForm.travellers.length }} ท่าน)
               </h4>
@@ -713,20 +812,20 @@ const handleDeletePlan = async () => {
               />
             </div>
 
-            <div v-if="!planForm.groupId" class="text-muted italic text-[11px]">
+            <div v-if="!planForm.groupId" class="text-muted italic text-xs">
               กรุณาเลือกกลุ่มนิเทศก่อน
             </div>
-            <div v-else-if="groupTeachersOptions.length === 0" class="text-muted italic text-[11px]">
+            <div v-else-if="groupTeachersOptions.length === 0" class="text-muted italic text-xs">
               ไม่พบอาจารย์ในกลุ่มนี้ กรุณามอบหมายอาจารย์ประจำกลุ่มก่อน
             </div>
-            <div v-else-if="planForm.travellers.length === 0" class="text-muted italic text-[11px]">
+            <div v-else-if="planForm.travellers.length === 0" class="text-muted italic text-xs">
               ยังไม่มีอาจารย์ผู้ร่วมเดินทาง คลิก "เพิ่มอาจารย์"
             </div>
-            <div v-else class="space-y-2 max-h-56 overflow-y-auto">
+            <div v-else class="space-y-2.5 max-h-64 overflow-y-auto">
               <div
                 v-for="(tr, idx) in planForm.travellers"
                 :key="idx"
-                class="bg-default p-2.5 rounded border border-default space-y-2"
+                class="bg-canvas p-3 rounded-control border border-divider space-y-2.5"
               >
                 <div class="flex items-center justify-between gap-2">
                   <div class="flex items-center gap-2 flex-1">
@@ -748,7 +847,8 @@ const handleDeletePlan = async () => {
                   />
                 </div>
 
-                <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 text-[11px]">
+                <!-- Compact numeric inputs as instructed in docs/fix-ui/01-staff.md -->
+                <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs">
                   <div>
                     <span class="text-muted block mb-0.5">เบี้ยเลี้ยง (฿/วัน)</span>
                     <UInput v-model.number="tr.perDiemRate" type="number" class="w-full font-mono" size="xs" />
@@ -775,16 +875,16 @@ const handleDeletePlan = async () => {
           </div>
 
           <!-- Calculation Preview Card -->
-          <div class="p-3.5 rounded-lg border border-primary/30 bg-primary/5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div class="p-4 rounded-panel border border-primary/30 bg-primary/5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div class="space-y-0.5">
-              <div class="text-xs font-semibold text-highlighted">ประมาณการงบประมาณแผนนี้</div>
-              <div class="text-[11px] text-muted">
+              <div class="text-sm font-semibold text-ink">ประมาณการงบประมาณแผนนี้</div>
+              <div class="text-xs text-muted">
                 เบี้ยเลี้ยง ฿{{ formatCurrency(modalCalculations.perDiem) }} · ที่พัก ฿{{ formatCurrency(modalCalculations.lodging) }}
               </div>
             </div>
             <div class="text-right font-mono">
-              <div class="text-[11px] text-muted">ยอดรวมทั้งสิ้น</div>
-              <div class="text-xl font-bold text-primary">฿{{ formatCurrency(modalCalculations.total) }}</div>
+              <div class="text-xs text-muted">ยอดรวมทั้งสิ้น</div>
+              <div class="text-2xl font-bold text-primary">฿{{ formatCurrency(modalCalculations.total) }}</div>
             </div>
           </div>
         </div>
@@ -796,11 +896,13 @@ const handleDeletePlan = async () => {
             label="ยกเลิก"
             color="neutral"
             variant="outline"
+            size="xl"
             @click="isModalOpen = false"
           />
           <UButton
             :label="editingPlanId ? 'บันทึกการแก้ไข' : 'สร้างแผนเดินทาง'"
             color="primary"
+            size="xl"
             :loading="isSaving"
             @click="handleSavePlan"
           />

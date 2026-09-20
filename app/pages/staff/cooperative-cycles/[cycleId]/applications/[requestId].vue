@@ -257,7 +257,7 @@ const handleConfirmPlacement = async () => {
           aria-label="กลับไปคิวคำร้อง"
         />
         <div>
-          <h2 class="text-base font-bold text-highlighted flex items-center gap-2">
+          <h2 class="text-base font-bold text-ink flex items-center gap-2">
             รายละเอียดคำร้อง #{{ requestId }}
             <UBadge
               v-if="request"
@@ -282,7 +282,7 @@ const handleConfirmPlacement = async () => {
           icon="i-lucide-x-circle"
           color="error"
           variant="ghost"
-          size="sm"
+          size="xl"
           @click="openRejectModal"
         />
 
@@ -293,7 +293,7 @@ const handleConfirmPlacement = async () => {
           icon="i-lucide-undo-2"
           color="warning"
           variant="outline"
-          size="sm"
+          size="xl"
           @click="openReturnModal"
         />
 
@@ -303,7 +303,7 @@ const handleConfirmPlacement = async () => {
           label="ยืนยันสถานที่ฝึกงาน"
           icon="i-lucide-check-circle"
           color="success"
-          size="sm"
+          size="xl"
           @click="isConfirmPlacementOpen = true"
         />
       </div>
@@ -316,15 +316,17 @@ const handleConfirmPlacement = async () => {
     </div>
 
     <div v-else-if="error || !request" class="p-6">
-      <UAlert
-        color="error"
+      <UEmpty
         icon="i-lucide-alert-circle"
         title="ไม่พบข้อมูลคำร้อง"
         :description="error?.message || 'คำร้องนี้อาจไม่ได้อยู่ในรอบสหกิจที่เลือก'"
-      />
-      <div class="mt-4">
-        <UButton label="กลับไปคิวคำร้อง" :to="`/staff/cooperative-cycles/${cycleId}/applications`" />
-      </div>
+        variant="subtle"
+        class="min-h-64"
+      >
+        <template #actions>
+          <UButton label="กลับไปคิวคำร้อง" color="neutral" variant="outline" :to="`/staff/cooperative-cycles/${cycleId}/applications`" />
+        </template>
+      </UEmpty>
     </div>
 
     <div v-else class="space-y-6">
@@ -358,8 +360,8 @@ const handleConfirmPlacement = async () => {
         <!-- Left 2 Cols: Main details -->
         <div class="lg:col-span-2 space-y-6">
           <!-- Card: Snapshot Information -->
-          <div class="rounded-lg border border-default bg-default p-5 shadow-xs space-y-4">
-            <h3 class="text-sm font-semibold text-highlighted flex items-center gap-2">
+          <div class="rounded-panel border border-divider bg-canvas p-5 shadow-panel space-y-4">
+            <h3 class="text-sm font-bold text-ink flex items-center gap-2">
               <UIcon name="i-lucide-building-2" class="size-4 text-primary" />
               ข้อมูลสถานประกอบการและตำแหน่ง (Snapshot จากคำร้อง)
             </h3>
@@ -367,12 +369,12 @@ const handleConfirmPlacement = async () => {
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
               <div>
                 <span class="text-xs text-muted block">ชื่อสถานประกอบการ</span>
-                <span class="font-medium text-highlighted">{{ request.companyName }}</span>
+                <span class="font-medium text-ink">{{ request.companyName }}</span>
               </div>
 
               <div>
                 <span class="text-xs text-muted block">ตำแหน่งที่สมัคร</span>
-                <span class="font-medium text-highlighted">{{ request.position || '—' }}</span>
+                <span class="font-medium text-ink">{{ request.position || '—' }}</span>
               </div>
 
               <div>
@@ -391,10 +393,10 @@ const handleConfirmPlacement = async () => {
               </div>
             </div>
 
-            <div class="border-t border-default pt-4 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+            <div class="border-t border-divider pt-4 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
               <div>
                 <span class="text-xs text-muted block">ผู้รับหนังสือขอความอนุเคราะห์</span>
-                <span class="font-medium text-highlighted">
+                <span class="font-medium text-ink">
                   {{ request.recipientName || 'ผู้จัดการฝ่ายบุคคล' }}
                   <span v-if="request.recipientPosition" class="text-muted text-xs">({{ request.recipientPosition }})</span>
                 </span>
@@ -405,17 +407,17 @@ const handleConfirmPlacement = async () => {
                 <span>{{ request.letterAddress || request.address || '—' }}</span>
               </div>
 
-              <div v-if="request.studentNote" class="sm:col-span-2 bg-muted/15 p-3 rounded-md">
+              <div v-if="request.studentNote" class="sm:col-span-2 bg-surface p-3 rounded-control border border-divider">
                 <span class="text-xs text-muted block font-medium mb-1">หมายเหตุเพิ่มเติมจากนักศึกษา:</span>
-                <p class="text-xs text-highlighted">{{ request.studentNote }}</p>
+                <p class="text-xs text-ink">{{ request.studentNote }}</p>
               </div>
             </div>
           </div>
 
           <!-- Card: Student Acceptance Document (เอกสารตอบรับ) -->
-          <div class="rounded-lg border border-default bg-default p-5 shadow-xs space-y-4">
+          <div class="rounded-panel border border-divider bg-canvas p-5 shadow-panel space-y-4">
             <div class="flex items-center justify-between">
-              <h3 class="text-sm font-semibold text-highlighted flex items-center gap-2">
+              <h3 class="text-sm font-bold text-ink flex items-center gap-2">
                 <UIcon name="i-lucide-file-badge" class="size-4 text-primary" />
                 หนังสือตอบรับจากสถานประกอบการ
               </h3>
@@ -440,15 +442,15 @@ const handleConfirmPlacement = async () => {
               <div
                 v-for="doc in request.documents"
                 :key="doc.id"
-                class="flex items-center justify-between p-3 rounded-lg border border-default bg-muted/10"
+                class="flex items-center justify-between p-3 rounded-control border border-divider bg-surface"
               >
                 <div class="flex items-center gap-3 min-w-0">
-                  <div class="size-9 rounded bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                  <div class="size-9 rounded-control bg-primary/10 text-primary flex items-center justify-center shrink-0">
                     <UIcon name="i-lucide-file-text" class="size-5" />
                   </div>
                   <div class="min-w-0">
                     <div class="flex items-center gap-2">
-                      <span class="text-sm font-medium text-highlighted truncate">{{ doc.fileName }}</span>
+                      <span class="text-sm font-medium text-ink truncate">{{ doc.fileName }}</span>
                       <UBadge
                         :label="`ฉบับที่ ${doc.version}`"
                         color="neutral"
@@ -502,8 +504,8 @@ const handleConfirmPlacement = async () => {
         <!-- Right 1 Col: Official Letter & Timeline -->
         <div class="space-y-6">
           <!-- Card: Official Letter from Staff -->
-          <div class="rounded-lg border border-default bg-default p-5 shadow-xs space-y-4">
-            <h3 class="text-sm font-semibold text-highlighted flex items-center gap-2">
+          <div class="rounded-panel border border-divider bg-canvas p-5 shadow-panel space-y-4">
+            <h3 class="text-sm font-bold text-ink flex items-center gap-2">
               <UIcon name="i-lucide-stamp" class="size-4 text-primary" />
               หนังสือขอความอนุเคราะห์
             </h3>
@@ -520,10 +522,10 @@ const handleConfirmPlacement = async () => {
 
             <!-- Case: Has letter -->
             <div v-if="request.letterFilePath" class="space-y-3">
-              <div class="p-3 rounded-lg border border-default bg-muted/10 flex items-start gap-3">
+              <div class="p-3 rounded-control border border-divider bg-surface flex items-start gap-3">
                 <UIcon name="i-lucide-file-check" class="size-6 text-success shrink-0 mt-0.5" />
                 <div class="min-w-0 flex-1">
-                  <div class="text-sm font-medium text-highlighted truncate">
+                  <div class="text-sm font-medium text-ink truncate">
                     {{ request.letterOriginalName || 'official-letter.pdf' }}
                   </div>
                   <div class="text-xs text-muted mt-0.5">
@@ -538,7 +540,7 @@ const handleConfirmPlacement = async () => {
                   icon="i-lucide-download"
                   color="primary"
                   variant="outline"
-                  size="sm"
+                  size="xl"
                   class="flex-1 justify-center"
                   :to="`/api/staff/cooperative-cycles/${cycleId}/requests/${requestId}/letter`"
                   target="_blank"
@@ -549,7 +551,7 @@ const handleConfirmPlacement = async () => {
                   icon="i-lucide-refresh-cw"
                   color="neutral"
                   variant="ghost"
-                  size="sm"
+                  size="xl"
                   :loading="isLetterUploading"
                   @click="triggerLetterUpload"
                 />
@@ -558,7 +560,7 @@ const handleConfirmPlacement = async () => {
 
             <!-- Case: No letter -->
             <div v-else class="space-y-3">
-              <div class="p-4 text-center rounded-lg border border-dashed border-default bg-muted/5 text-muted">
+              <div class="p-4 text-center rounded-control border border-dashed border-divider bg-surface text-muted">
                 <UIcon name="i-lucide-file-up" class="size-6 mx-auto mb-1 text-muted" />
                 <p class="text-xs">ยังไม่มีการแนบหนังสือขอความอนุเคราะห์</p>
               </div>
@@ -568,7 +570,7 @@ const handleConfirmPlacement = async () => {
                 label="แนบหนังสือขอความอนุเคราะห์ (PDF)"
                 icon="i-lucide-upload"
                 color="primary"
-                size="sm"
+                size="xl"
                 class="w-full justify-center"
                 :loading="isLetterUploading"
                 @click="triggerLetterUpload"
@@ -577,8 +579,8 @@ const handleConfirmPlacement = async () => {
           </div>
 
           <!-- Card: Student Profile Summary -->
-          <div class="rounded-lg border border-default bg-default p-5 shadow-xs space-y-3">
-            <h3 class="text-sm font-semibold text-highlighted flex items-center gap-2">
+          <div class="rounded-panel border border-divider bg-canvas p-5 shadow-panel space-y-3">
+            <h3 class="text-sm font-bold text-ink flex items-center gap-2">
               <UIcon name="i-lucide-user" class="size-4 text-primary" />
               ข้อมูลนักศึกษา
             </h3>
@@ -586,14 +588,14 @@ const handleConfirmPlacement = async () => {
             <div class="space-y-2 text-xs">
               <div class="flex justify-between">
                 <span class="text-muted">ชื่อ-นามสกุล:</span>
-                <span class="font-medium text-highlighted">
+                <span class="font-medium text-ink">
                   {{ request.companyApplication.studentUser.prefix }}{{ request.companyApplication.studentUser.firstName }}
                   {{ request.companyApplication.studentUser.lastName }}
                 </span>
               </div>
               <div class="flex justify-between">
                 <span class="text-muted">รหัสนักศึกษา:</span>
-                <span class=" font-medium text-highlighted">{{ request.companyApplication.studentUser.loginId }}</span>
+                <span class="font-medium text-ink">{{ request.companyApplication.studentUser.loginId }}</span>
               </div>
               <div class="flex justify-between">
                 <span class="text-muted">รุ่น / หมู่เรียน:</span>
@@ -607,8 +609,8 @@ const handleConfirmPlacement = async () => {
           </div>
 
           <!-- Card: Timestamps Timeline -->
-          <div class="rounded-lg border border-default bg-default p-5 shadow-xs space-y-3">
-            <h3 class="text-sm font-semibold text-highlighted flex items-center gap-2">
+          <div class="rounded-panel border border-divider bg-canvas p-5 shadow-panel space-y-3">
+            <h3 class="text-sm font-bold text-ink flex items-center gap-2">
               <UIcon name="i-lucide-clock" class="size-4 text-primary" />
               ลำดับเวลาในระบบ
             </h3>
@@ -641,7 +643,7 @@ const handleConfirmPlacement = async () => {
       <template #body>
         <div class="space-y-3">
           <div>
-            <label class="block text-xs font-medium text-highlighted mb-1.5">
+            <label class="block text-xs font-medium text-ink mb-1.5">
               ข้อความแจ้งให้นักศึกษาแก้ไข <span class="text-error">*</span>
             </label>
             <UTextarea
@@ -649,6 +651,7 @@ const handleConfirmPlacement = async () => {
               placeholder="เช่น เอกสารยังไม่มีตราประทับบริษัท หรือเอกสารไม่สมบูรณ์..."
               :rows="4"
               class="w-full"
+              size="xl"
             />
             <p v-if="returnReasonError" class="text-xs text-error mt-1">
               {{ returnReasonError }}
@@ -663,11 +666,13 @@ const handleConfirmPlacement = async () => {
             label="ยกเลิก"
             color="neutral"
             variant="outline"
+            size="xl"
             @click="isReturnOpen = false"
           />
           <UButton
             label="ยืนยันส่งกลับแก้ไข"
             color="warning"
+            size="xl"
             :loading="isReturning"
             @click="handleReturn"
           />
@@ -680,11 +685,12 @@ const handleConfirmPlacement = async () => {
       v-model:open="isRejectOpen"
       title="ปฏิเสธคำร้อง"
       description="คำร้องนี้จะไม่สามารถดำเนินการต่อได้ และจะแจ้งให้นักศึกษาทราบ"
+      size="xl"
     >
       <template #body>
         <div class="space-y-3">
           <div>
-            <label class="block text-xs font-medium text-highlighted mb-1.5">
+            <label class="block text-xs font-medium text-ink mb-1.5">
               เหตุผลในการปฏิเสธ <span class="text-error">*</span>
             </label>
             <UTextarea
@@ -692,6 +698,7 @@ const handleConfirmPlacement = async () => {
               placeholder="ระบุเหตุผลในการปฏิเสธคำร้อง..."
               :rows="4"
               class="w-full"
+              size="xl"
             />
             <p v-if="rejectReasonError" class="text-xs text-error mt-1">
               {{ rejectReasonError }}
@@ -706,11 +713,13 @@ const handleConfirmPlacement = async () => {
             label="ยกเลิก"
             color="neutral"
             variant="outline"
+            size="xl"
             @click="isRejectOpen = false"
           />
           <UButton
             label="ยืนยันปฏิเสธคำร้อง"
             color="error"
+            size="xl"
             :loading="isRejecting"
             @click="handleReject"
           />

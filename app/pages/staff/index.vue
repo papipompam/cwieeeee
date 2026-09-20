@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { TableColumn } from '@nuxt/ui'
+import { h } from 'vue'
 
 definePageMeta({ layout: 'dashboard' })
 
@@ -120,7 +121,7 @@ const cycleColumns: TableColumn<RecentCycle>[] = [
   { id: 'internshipPeriod', header: 'ช่วงฝึกงาน' },
   { accessorKey: 'enrolledStudentsCount', header: 'นักศึกษาในรอบ', meta: { class: { th: 'text-end', td: 'text-end tabular-nums' } } },
   { id: 'status', header: 'สถานะ' },
-  { id: 'actions', header: 'จัดการ', meta: { class: { th: 'text-end', td: 'text-end' } } }
+  { id: 'actions', header: () => h('span', { class: 'block text-right' }, 'จัดการ'), meta: { class: { th: 'text-end', td: 'text-end' } } }
 ]
 
 const formatDate = (value: string) => new Date(value).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })
@@ -132,7 +133,7 @@ const formatDate = (value: string) => new Date(value).toLocaleDateString('th-TH'
       <AppDashboardNavbar title="ภาพรวมระบบ">
         <template #leading><UDashboardSidebarCollapse /></template>
         <template #right>
-          <UButton label="จัดการรอบสหกิจ" icon="i-lucide-calendar-range" to="/staff/cooperative-cycles?select=1" />
+          <UButton label="จัดการรอบสหกิจ" icon="i-lucide-calendar-range" size="xl" to="/staff/cooperative-cycles?select=1" />
           <AppNotificationBell />
         </template>
       </AppDashboardNavbar>
@@ -143,19 +144,28 @@ const formatDate = (value: string) => new Date(value).toLocaleDateString('th-TH'
         <USkeleton v-for="index in 8" :key="index" class="h-28" />
       </div>
 
-      <UAlert v-else-if="error" color="error" variant="subtle" icon="i-lucide-alert-circle" title="ไม่สามารถโหลดข้อมูลภาพรวมได้" :description="error.message">
-        <template #actions><UIButtonRefresh @refresh="refresh" /></template>
-      </UAlert>
+      <div v-else-if="error" class="p-4 sm:p-6">
+        <UEmpty
+          icon="i-lucide-triangle-alert"
+          title="ไม่สามารถโหลดข้อมูลภาพรวมได้"
+          :description="error.message"
+          variant="subtle"
+          class="min-h-64"
+        >
+          <template #actions>
+            <UButton icon="i-lucide-refresh-cw" color="neutral" variant="outline" label="ลองอีกครั้ง" @click="refreshDashboard" />
+          </template>
+        </UEmpty>
+      </div>
 
       <div v-else class="space-y-7">
         <div class="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-end">
           <div>
-            <h2 class="text-base font-bold text-highlighted">สถานะการดำเนินงาน</h2>
+            <h2 class="text-base font-bold text-ink">สถานะการดำเนินงาน</h2>
             <p class="mt-0.5 text-sm font-normal text-muted">ติดตามรอบสหกิจและงานที่รอดำเนินการจากทุกภาคเรียน</p>
           </div>
           <div class="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-end sm:gap-3">
-            <label class="block w-full sm:w-72">
-              <span class="mb-1.5 block text-sm font-semibold text-highlighted">รอบสหกิจศึกษา</span>
+            <UFormField label="รอบสหกิจศึกษา" class="w-full sm:w-72">
               <USelectMenu
                 v-model="selectedCycleId"
                 :items="cycleOptions"
@@ -165,11 +175,13 @@ const formatDate = (value: string) => new Date(value).toLocaleDateString('th-TH'
                 trailing-icon="i-lucide-chevron-down"
                 placeholder="เลือกรอบสหกิจศึกษา"
                 class="w-full"
-                :ui="{ base: 'min-h-11 rounded-xl bg-default px-3', content: 'min-w-(--reka-combobox-trigger-width)' }"
+                size="xl"
                 aria-label="เลือกรอบสหกิจศึกษา"
               />
-            </label>
-            <UIButtonRefresh @refresh="refreshDashboard" />
+            </UFormField>
+            <div class="flex items-end">
+              <UIButtonRefresh size="xl" @refresh="refreshDashboard" />
+            </div>
           </div>
         </div>
 
@@ -179,20 +191,20 @@ const formatDate = (value: string) => new Date(value).toLocaleDateString('th-TH'
               v-for="metric in workMetrics"
               :key="metric.label"
               to="/staff/cooperative-cycles?select=1"
-              class="group flex min-h-30 flex-col justify-between rounded-xl border border-default bg-default p-5 shadow-xs transition-colors hover:border-primary/50 hover:bg-primary/5 sm:p-6"
+              class="group flex min-h-30 flex-col justify-between rounded-panel border border-divider bg-canvas p-5 shadow-panel transition-colors hover:border-primary/50 hover:bg-primary/5 sm:p-6"
             >
               <div class="flex items-start justify-between gap-4">
-                <span class="text-sm font-medium leading-6 text-muted group-hover:text-highlighted">{{ metric.label }}</span>
-                <span class="grid size-10 shrink-0 place-items-center rounded-lg bg-muted/40 text-muted transition-colors group-hover:bg-primary/10 group-hover:text-primary">
+                <span class="text-sm font-medium leading-6 text-muted group-hover:text-ink">{{ metric.label }}</span>
+                <span class="grid size-10 shrink-0 place-items-center rounded-lg bg-surface text-muted transition-colors group-hover:bg-primary/10 group-hover:text-primary">
                   <UIcon :name="metric.icon" class="size-5" />
                 </span>
               </div>
-              <p class="mt-4 text-3xl font-extrabold tabular-nums leading-none text-highlighted">{{ metric.value }}</p>
+              <p class="mt-4 text-3xl font-extrabold tabular-nums leading-none text-ink">{{ metric.value }}</p>
             </NuxtLink>
           </div>
 
-          <UCard variant="outline" class="h-full" :ui="{ body: 'h-full p-5 sm:p-6' }">
-            <h3 class="text-base font-bold text-highlighted">สถานะการยืนยันสถานประกอบการ</h3>
+          <UCard class="h-full" :ui="{ body: 'h-full p-5 sm:p-6' }">
+            <h3 class="text-base font-bold text-ink">สถานะการยืนยันสถานประกอบการ</h3>
             <div class="mt-5 grid min-h-55 items-center gap-6 sm:grid-cols-[12rem_minmax(0,1fr)]">
               <div
                 class="relative mx-auto size-44 shrink-0"
@@ -217,17 +229,17 @@ const formatDate = (value: string) => new Date(value).toLocaleDateString('th-TH'
                   />
                 </svg>
                 <div class="absolute inset-0 grid place-content-center text-center">
-                  <strong class="text-3xl font-extrabold tabular-nums text-highlighted">{{ cycleSummary?.cohortStudentsCount ?? 0 }}</strong>
+                  <strong class="text-3xl font-extrabold tabular-nums text-ink">{{ cycleSummary?.cohortStudentsCount ?? 0 }}</strong>
                   <span class="mt-1 text-xs font-medium text-muted">นักศึกษา</span>
                 </div>
               </div>
 
-              <dl class="divide-y divide-default">
+              <dl class="divide-y divide-divider">
                 <div v-for="item in placementItems" :key="item.key" class="flex items-center gap-3 py-3.5 first:pt-0 last:pb-0">
                   <span class="size-2.5 shrink-0 rounded-full" :class="item.dotClass" aria-hidden="true" />
                   <dt class="min-w-0 flex-1 text-sm font-medium text-muted">{{ item.label }}</dt>
                   <dd class="flex items-baseline gap-3 text-right">
-                    <strong class="min-w-6 text-base font-bold tabular-nums text-highlighted">{{ item.count }}</strong>
+                    <strong class="min-w-6 text-base font-bold tabular-nums text-ink">{{ item.count }}</strong>
                     <span class="w-10 text-xs font-medium tabular-nums text-muted">{{ item.percent }}%</span>
                   </dd>
                 </div>
@@ -237,21 +249,32 @@ const formatDate = (value: string) => new Date(value).toLocaleDateString('th-TH'
         </div>
 
         <section>
-          <div class="mb-3 flex items-center justify-between gap-3">
-            <div><h2 class="text-base font-semibold text-highlighted">รอบสหกิจล่าสุด</h2><p class="mt-0.5 text-sm text-muted">เลือกเข้าสู่รอบเพื่อจัดการคำร้อง นักศึกษา และการนิเทศ</p></div>
-            <UButton label="ดูทุกรอบ" icon="i-lucide-arrow-right" color="neutral" variant="outline" to="/staff/cooperative-cycles?select=1" />
-          </div>
-          <div class="overflow-hidden rounded-lg border border-default bg-default shadow-xs">
-            <UTable :data="data?.recentCycles ?? []" :columns="cycleColumns" class="min-w-full">
-              <template #cycle-cell="{ row }"><span class="font-medium text-highlighted">ภาคเรียนที่ {{ row.original.term }}/{{ row.original.academicYear }}</span></template>
-              <template #applicationPeriod-cell="{ row }"><span class="text-muted">{{ formatDate(row.original.applicationStartDate) }} – {{ formatDate(row.original.applicationEndDate) }}</span></template>
-              <template #internshipPeriod-cell="{ row }"><span class="text-muted">{{ formatDate(row.original.internshipStartDate) }} – {{ formatDate(row.original.internshipEndDate) }}</span></template>
-              <template #enrolledStudentsCount-cell="{ row }">{{ row.original.enrolledStudentsCount }} คน</template>
-              <template #status-cell="{ row }"><UBadge :label="statusDisplay[row.original.status].label" :color="statusDisplay[row.original.status].color" variant="subtle" /></template>
-              <template #actions-cell="{ row }"><UButton label="เข้าสู่รอบ" icon="i-lucide-arrow-right" color="primary" variant="ghost" size="xs" :to="`/staff/cooperative-cycles/${row.original.id}`" /></template>
-              <template #empty><div class="py-12 text-center text-muted"><UIcon name="i-lucide-calendar-x" class="mx-auto mb-2 size-8" /><p>ยังไม่มีรอบสหกิจ</p></div></template>
-            </UTable>
-          </div>
+          <UCard :ui="{ body: 'p-0' }">
+            <div class="border-b border-divider p-5 sm:p-6">
+              <div class="flex items-center justify-between gap-3">
+                <div>
+                  <h2 class="text-base font-bold text-ink">รอบสหกิจล่าสุด</h2>
+                  <p class="mt-0.5 text-sm text-muted">เลือกเข้าสู่รอบเพื่อจัดการคำร้อง นักศึกษา และการนิเทศ</p>
+                </div>
+                <UButton label="ดูทุกรอบ" icon="i-lucide-arrow-right" color="neutral" variant="outline" size="xl" to="/staff/cooperative-cycles?select=1" />
+              </div>
+            </div>
+            <div class="w-full overflow-x-auto">
+              <UTable :data="data?.recentCycles ?? []" :columns="cycleColumns" class="min-w-full">
+                <template #cycle-cell="{ row }"><span class="font-medium text-ink">ภาคเรียนที่ {{ row.original.term }}/{{ row.original.academicYear }}</span></template>
+                <template #applicationPeriod-cell="{ row }"><span class="text-muted">{{ formatDate(row.original.applicationStartDate) }} – {{ formatDate(row.original.applicationEndDate) }}</span></template>
+                <template #internshipPeriod-cell="{ row }"><span class="text-muted">{{ formatDate(row.original.internshipStartDate) }} – {{ formatDate(row.original.internshipEndDate) }}</span></template>
+                <template #enrolledStudentsCount-cell="{ row }"><span class="tabular-nums">{{ row.original.enrolledStudentsCount }} คน</span></template>
+                <template #status-cell="{ row }"><UBadge :label="statusDisplay[row.original.status].label" :color="statusDisplay[row.original.status].color" variant="subtle" /></template>
+                <template #actions-cell="{ row }"><UButton label="เข้าสู่รอบ" icon="i-lucide-arrow-right" color="primary" variant="ghost" size="xs" :to="`/staff/cooperative-cycles/${row.original.id}`" /></template>
+                <template #empty>
+                  <div class="p-6">
+                    <UEmpty icon="i-lucide-calendar-x" title="ยังไม่มีรอบสหกิจ" description="เริ่มต้นสร้างรอบสหกิจเพื่อเริ่มรับคำร้อง" class="min-h-48" />
+                  </div>
+                </template>
+              </UTable>
+            </div>
+          </UCard>
         </section>
       </div>
     </template>

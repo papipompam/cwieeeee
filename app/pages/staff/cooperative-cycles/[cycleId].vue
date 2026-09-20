@@ -88,14 +88,14 @@ const currentModuleTitle = computed(() => {
               title="กลับไปหน้ารายการรอบสหกิจ"
             />
             <div class="flex items-center gap-1.5 text-sm">
-              <NuxtLink to="/staff/cooperative-cycles?select=1" class="text-muted hover:text-highlighted transition-colors">
+              <NuxtLink to="/staff/cooperative-cycles?select=1" class="text-muted hover:text-ink transition-colors">
                 รอบสหกิจ
               </NuxtLink>
               <span class="text-xs text-muted">/</span>
               <NuxtLink
                 v-if="cycle"
                 :to="`/staff/cooperative-cycles/${cycle.id}`"
-                class="font-medium text-highlighted hover:text-primary transition-colors truncate"
+                class="font-medium text-ink hover:text-primary transition-colors truncate"
               >
                 ภาคเรียนที่ {{ cycle.term }}/{{ cycle.academicYear }}
               </NuxtLink>
@@ -117,15 +117,17 @@ const currentModuleTitle = computed(() => {
     <template #body>
       <!-- Error state -->
       <div v-if="fetchError" class="p-6">
-        <UAlert
-          color="error"
-          icon="i-lucide-alert-circle"
+        <UEmpty
+          icon="i-lucide-triangle-alert"
           title="ไม่พบข้อมูลรอบสหกิจ"
           :description="fetchError.message"
-        />
-        <div class="mt-4">
-          <UButton label="กลับไปหน้ารายการรอบสหกิจ" to="/staff/cooperative-cycles?select=1" />
-        </div>
+          variant="subtle"
+          class="min-h-64"
+        >
+          <template #actions>
+            <UButton label="กลับไปหน้ารายการรอบสหกิจ" color="neutral" variant="outline" to="/staff/cooperative-cycles?select=1" />
+          </template>
+        </UEmpty>
       </div>
 
       <div v-else-if="fetchStatus === 'pending'" class="py-16 text-center text-muted">
@@ -135,15 +137,15 @@ const currentModuleTitle = computed(() => {
 
       <div v-else-if="cycle" class="flex flex-col flex-1">
         <!-- Context Header Banner -->
-        <div class="border-b border-default bg-muted/10 px-4 py-3 sm:px-6">
+        <div class="border-b border-divider bg-surface px-4 py-4 sm:px-6">
           <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <div class="flex items-center gap-3">
-              <div class="size-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
+              <div class="size-10 rounded-control bg-primary/10 text-primary flex items-center justify-center shrink-0">
                 <UIcon name="i-lucide-calendar-range" class="size-5" />
               </div>
               <div>
                 <div class="flex items-center gap-2">
-                  <h1 class="text-lg font-bold text-highlighted">
+                  <h1 class="text-lg font-bold text-ink">
                     ภาคเรียนที่ {{ cycle.term }}/{{ cycle.academicYear }}
                   </h1>
                   <UBadge

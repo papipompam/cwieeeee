@@ -44,7 +44,7 @@ const submit = async () => {
           <p class="mt-2 text-sm leading-6 text-[#6B7280]">กรอกชื่อผู้ใช้และรหัสผ่านเพื่อเข้าใช้งานตามสิทธิ์ของคุณ</p>
         </header>
 
-        <UAlert v-if="error" class="mb-5" color="error" :description="error" />
+        <UAlert v-if="error" class="mb-5" color="error" variant="solid" :description="error" />
 
         <form class="space-y-5" :aria-busy="loading" @submit.prevent="submit">
           <UFormField label="ชื่อผู้ใช้" required :ui="{ container: 'mt-2', label: '!font-bold !text-[#111827]' }">

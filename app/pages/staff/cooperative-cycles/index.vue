@@ -52,7 +52,8 @@ const searchQuery = ref('')
 const statusFilter = ref<CooperativeCycleStatus | 'all'>('all')
 const rowSelection = ref<Record<string, boolean>>({})
 const page = ref(1)
-const pageSize = 8
+const pageSize = ref(10)
+const pageSizeOptions = [10, 20, 50, 100]
 
 // Delete modal state
 const isDeleteOpen = ref(false)
@@ -138,8 +139,8 @@ const filteredCycles = computed(() => {
 })
 
 const paginatedCycles = computed(() => {
-  const start = (page.value - 1) * pageSize
-  return filteredCycles.value.slice(start, start + pageSize)
+  const start = (page.value - 1) * pageSize.value
+  return filteredCycles.value.slice(start, start + pageSize.value)
 })
 
 const selectedIds = computed(() => Object.entries(rowSelection.value)
@@ -148,12 +149,12 @@ const selectedIds = computed(() => Object.entries(rowSelection.value)
 
 const selectedCount = computed(() => selectedIds.value.length)
 const deleteCount = computed(() => pendingDeleteIds.value.length)
-const totalPages = computed(() => Math.max(1, Math.ceil(filteredCycles.value.length / pageSize)))
+const totalPages = computed(() => Math.max(1, Math.ceil(filteredCycles.value.length / pageSize.value)))
 const hasFilters = computed(() => Boolean(searchQuery.value) || statusFilter.value !== 'all')
-const pageStart = computed(() => filteredCycles.value.length ? (page.value - 1) * pageSize + 1 : 0)
-const pageEnd = computed(() => Math.min(page.value * pageSize, filteredCycles.value.length))
+const pageStart = computed(() => filteredCycles.value.length ? (page.value - 1) * pageSize.value + 1 : 0)
+const pageEnd = computed(() => Math.min(page.value * pageSize.value, filteredCycles.value.length))
 
-watch([searchQuery, statusFilter], () => {
+watch([searchQuery, statusFilter, pageSize], () => {
   page.value = 1
   rowSelection.value = {}
 })
@@ -351,6 +352,7 @@ const columns: TableColumn<CooperativeCycle>[] = [
     id: 'select',
     meta: { class: { th: 'w-12', td: 'w-12' } },
     header: ({ table }) => h(UCheckbox, {
+      size: 'lg',
       modelValue: table.getIsSomePageRowsSelected() ? 'indeterminate' : table.getIsAllPageRowsSelected(),
       'onUpdate:modelValue': (value: boolean | 'indeterminate') => table.toggleAllPageRowsSelected(!!value),
       'aria-label': 'เลือกทุกรายการในหน้านี้'
@@ -358,6 +360,7 @@ const columns: TableColumn<CooperativeCycle>[] = [
     cell: ({ row }) => row.original.status === 'CLOSED'
       ? null
       : h(UCheckbox, {
+          size: 'lg',
           modelValue: row.getIsSelected(),
           'onUpdate:modelValue': (value: boolean | 'indeterminate') => row.toggleSelected(!!value),
           'aria-label': `เลือกรอบสหกิจ ภาคเรียนที่ ${row.original.term}/${row.original.academicYear}`
@@ -389,7 +392,7 @@ const columns: TableColumn<CooperativeCycle>[] = [
   },
   {
     id: 'actions',
-    header: 'จัดการ',
+    header: () => h('span', { class: 'block text-right' }, 'จัดการ'),
     meta: { class: { th: 'w-36 text-end', td: 'w-36 text-end' } }
   }
 ]
@@ -416,136 +419,245 @@ const columns: TableColumn<CooperativeCycle>[] = [
     </template>
 
     <template #body>
-      <div class="flex flex-col gap-6">
-        <!-- Control Row -->
-        <div class="flex flex-col gap-3 rounded-lg sm:flex-row sm:items-center sm:justify-between">
-          <div class="flex min-w-0 flex-1 items-center gap-2 sm:max-w-md">
-            <UInput
-              v-model="searchQuery"
-              class="min-w-0 flex-1"
-              icon="i-lucide-search"
-              placeholder="ค้นหาภาคเรียน ปีการศึกษา หรือรุ่น"
-              aria-label="ค้นหารอบสหกิจ"
-            />
-            <UButton
-              v-if="hasFilters"
-              color="neutral"
-              variant="ghost"
-              label="ล้าง"
-              @click="clearFilters"
-            />
-          </div>
+      <div class="w-full space-y-6 pb-12">
+        <UCard :ui="{ body: 'p-0' }">
+          <div class="border-b border-divider p-5 sm:p-6">
+            <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+              <div>
+                <h3 class="text-lg font-bold text-ink">รอบสหกิจศึกษา</h3>
+                <p class="mt-1 text-sm leading-6 text-muted">จัดการรอบสหกิจศึกษา กำหนดช่วงเวลา และติดตามสถานะการดำเนินงาน</p>
+              </div>
 
-          <div class="flex flex-wrap items-center gap-2">
-            <USelect
-              v-model="statusFilter"
-              :items="statusOptions"
-              value-key="value"
-              class="w-44"
-              aria-label="กรองตามสถานะรอบสหกิจ"
-            />
-            <UButton
-              v-if="selectedCount"
-              color="error"
-              variant="subtle"
-              icon="i-lucide-trash-2"
-              :label="`ลบ ${selectedCount}`"
-              @click="openBulkDelete"
-            />
-            <UIButtonRefresh
-              :loading="fetchStatus === 'pending'"
-              @refresh="handleRefresh"
-            />
-          </div>
-        </div>
-
-        <!-- Error State -->
-        <UAlert
-          v-if="fetchError"
-          color="error"
-          icon="i-lucide-alert-circle"
-          title="ไม่สามารถเชื่อมต่อข้อมูลรอบสหกิจได้"
-          :description="fetchError.message"
-        />
-
-        <!-- Data Table -->
-        <div v-else class="overflow-hidden rounded-lg border border-default bg-default">
-          <UTable
-            v-model:row-selection="rowSelection"
-            :data="paginatedCycles"
-            :columns="columns"
-            :loading="fetchStatus === 'pending'"
-            :get-row-id="cycle => String(cycle.id)"
-            :ui="{ root: 'overflow-x-auto', base: 'min-w-full' }"
-          >
-            <template #status-cell="{ row }">
-              <UBadge
-                :label="statusDisplayMap[row.original.status]?.label || row.original.status"
-                :color="statusDisplayMap[row.original.status]?.color || 'neutral'"
-                variant="subtle"
-              />
-            </template>
-
-            <template #actions-cell="{ row }">
-              <div class="flex justify-end items-center gap-1.5 min-h-7">
+              <div class="flex flex-wrap items-center justify-end gap-2">
                 <UButton
-                  label="เข้าสู่รอบ"
-                  icon="i-lucide-arrow-right"
+                  size="xl"
+                  label="เพิ่มรอบสหกิจ"
+                  icon="i-lucide-plus"
                   color="primary"
-                  variant="ghost"
-                  size="xs"
-                  @click="enterCycle(row.original)"
+                  @click="openCreateModal"
                 />
-                <template v-if="row.original.status === 'CLOSED'">
-                  <span class="text-xs text-muted">ปิดรอบแล้ว</span>
-                </template>
-                <template v-else>
-                  <UButton
-                    label="แก้ไข"
-                    icon="i-lucide-pencil"
-                    color="neutral"
-                    variant="ghost"
-                    size="xs"
-                    @click="openEditModal(row.original)"
-                  />
-                  <UButton
-                    label="ลบ"
-                    icon="i-lucide-trash-2"
-                    color="error"
-                    variant="ghost"
-                    size="xs"
-                    @click="openDelete(row.original)"
-                  />
-                </template>
               </div>
-            </template>
+            </div>
 
-            <template #empty>
-              <div class="py-12 text-center text-muted">
-                <UIcon name="i-lucide-calendar-range" class="size-10 mx-auto mb-2 text-dimmed" />
-                <p>ไม่พบข้อมูลรอบสหกิจศึกษา</p>
-                <p class="text-xs text-muted mt-1">กดปุ่ม "เพิ่มรอบสหกิจ" เพื่อสร้างรอบการฝึกงานใหม่</p>
+            <div class="mt-5 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+              <UFormField label="ค้นหารอบสหกิจ" class="w-full sm:max-w-sm lg:w-96 lg:flex-none">
+                <UInput
+                  v-model="searchQuery"
+                  type="search"
+                  size="xl"
+                  icon="i-lucide-search"
+                  class="w-full"
+                  placeholder="ค้นหาภาคเรียน ปีการศึกษา หรือรุ่น"
+                  aria-label="ค้นหารอบสหกิจ"
+                />
+              </UFormField>
+
+              <div class="flex flex-wrap items-center justify-end gap-2 lg:ml-auto lg:flex-nowrap">
+                <div class="w-full sm:w-52">
+                  <USelect
+                    v-model="statusFilter"
+                    :items="statusOptions"
+                    value-key="value"
+                    class="w-full"
+                    size="xl"
+                    placeholder="กรองตามสถานะ"
+                    aria-label="กรองตามสถานะรอบสหกิจ"
+                  />
+                </div>
+                <UIButtonRefresh
+                  :loading="fetchStatus === 'pending'"
+                  @refresh="handleRefresh"
+                />
               </div>
-            </template>
-          </UTable>
-        </div>
+            </div>
 
-        <!-- Pagination & Range Counter -->
-        <div class="flex flex-wrap items-center justify-between gap-3 text-sm text-muted">
-          <span>
-            <template v-if="filteredCycles.length">
-              แสดง {{ pageStart }}–{{ pageEnd }} จาก {{ filteredCycles.length }} รายการ
-              <template v-if="selectedCount"> · เลือก {{ selectedCount }} รายการ</template>
-            </template>
-            <template v-else>ไม่พบรายการ</template>
-          </span>
-          <UPagination
-            v-if="filteredCycles.length > pageSize"
-            v-model:page="page"
-            :total="filteredCycles.length"
-            :items-per-page="pageSize"
-          />
-        </div>
+            <div v-if="hasFilters" class="mt-3 flex flex-wrap items-center gap-2 text-sm">
+              <span class="text-muted">ตัวกรองที่ใช้:</span>
+              <span v-if="searchQuery" class="inline-flex min-h-8 items-center gap-1 rounded-full bg-surface px-3 text-ink">
+                คำค้น “{{ searchQuery }}”
+              </span>
+              <span v-if="statusFilter !== 'all'" class="inline-flex min-h-8 items-center gap-1 rounded-full bg-surface px-3 text-ink">
+                {{ statusOptions.find(o => o.value === statusFilter)?.label }}
+              </span>
+              <UButton
+                color="neutral"
+                variant="ghost"
+                size="xs"
+                icon="i-lucide-x"
+                @click="clearFilters"
+              >
+                ล้างทั้งหมด
+              </UButton>
+            </div>
+          </div>
+
+          <!-- Bulk Actions Bar -->
+          <div
+            v-if="selectedCount"
+            class="flex flex-wrap items-center justify-between gap-3 border-b border-divider bg-warning-soft px-5 py-3 sm:px-6"
+            role="status"
+          >
+            <p class="text-sm font-semibold text-ink">เลือกแล้ว {{ selectedCount }} รายการ</p>
+            <div class="flex gap-2">
+              <UButton
+                size="sm"
+                color="error"
+                variant="soft"
+                icon="i-lucide-trash-2"
+                :label="`ลบ ${selectedCount} รายการ`"
+                @click="openBulkDelete"
+              />
+              <UButton
+                size="sm"
+                color="neutral"
+                variant="ghost"
+                label="ยกเลิกการเลือก"
+                @click="rowSelection = {}"
+              />
+            </div>
+          </div>
+
+          <!-- Loading Skeleton -->
+          <div v-if="fetchStatus === 'pending'" class="space-y-3 p-5 sm:p-6" aria-label="กำลังโหลดข้อมูล">
+            <div v-for="row in 4" :key="row" class="grid grid-cols-[2rem_1.2fr_1fr_8rem] gap-4 max-md:grid-cols-[1fr_7rem]">
+              <USkeleton class="h-10 max-md:hidden" />
+              <USkeleton class="h-10" />
+              <USkeleton class="h-10 max-md:hidden" />
+              <USkeleton class="h-10" />
+            </div>
+          </div>
+
+          <!-- Error State -->
+          <div v-else-if="fetchError" class="p-5 sm:p-6">
+            <UEmpty
+              icon="i-lucide-triangle-alert"
+              title="ไม่สามารถเชื่อมต่อข้อมูลรอบสหกิจได้"
+              :description="fetchError.message"
+              variant="subtle"
+              class="min-h-64"
+            >
+              <template #actions>
+                <UButton
+                  size="xl"
+                  icon="i-lucide-refresh-cw"
+                  color="neutral"
+                  variant="outline"
+                  label="ลองอีกครั้ง"
+                  @click="handleRefresh"
+                />
+              </template>
+            </UEmpty>
+          </div>
+
+          <!-- Empty State -->
+          <div v-else-if="!paginatedCycles.length" class="p-5 sm:p-6">
+            <UEmpty
+              icon="i-lucide-calendar-range"
+              class="min-h-64"
+              :title="hasFilters ? 'ไม่พบรอบสหกิจที่ตรงกับเงื่อนไข' : 'ยังไม่มีรอบสหกิจศึกษา'"
+              :description="hasFilters ? 'ลองเปลี่ยนคำค้นหาหรือตัวกรองสถานะ' : 'กดปุ่มเพิ่มรอบสหกิจเพื่อเริ่มต้นสร้างรอบใหม่'"
+            >
+              <template #actions>
+                <UButton
+                  v-if="hasFilters"
+                  size="xl"
+                  label="ล้างตัวกรอง"
+                  color="neutral"
+                  variant="outline"
+                  @click="clearFilters"
+                />
+                <UButton
+                  v-else
+                  size="xl"
+                  label="เพิ่มรอบสหกิจ"
+                  icon="i-lucide-plus"
+                  color="primary"
+                  @click="openCreateModal"
+                />
+              </template>
+            </UEmpty>
+          </div>
+
+          <!-- Data Table -->
+          <template v-else>
+            <div class="w-full overflow-x-auto">
+              <UTable
+                v-model:row-selection="rowSelection"
+                :data="paginatedCycles"
+                :columns="columns"
+                :get-row-id="cycle => String(cycle.id)"
+                class="min-w-full"
+                :ui="{ base: 'w-full min-w-200' }"
+              >
+                <template #status-cell="{ row }">
+                  <UBadge
+                    :label="statusDisplayMap[row.original.status]?.label || row.original.status"
+                    :color="statusDisplayMap[row.original.status]?.color || 'neutral'"
+                    variant="subtle"
+                  />
+                </template>
+
+                <template #actions-cell="{ row }">
+                  <div class="flex items-center justify-end gap-1 whitespace-nowrap">
+                    <UButton
+                      label="เข้าสู่รอบ"
+                      icon="i-lucide-arrow-right"
+                      color="primary"
+                      variant="ghost"
+                      size="xs"
+                      @click="enterCycle(row.original)"
+                    />
+                    <template v-if="row.original.status === 'CLOSED'">
+                      <span class="text-xs text-muted">ปิดรอบแล้ว</span>
+                    </template>
+                    <template v-else>
+                      <UButton
+                        label="แก้ไข"
+                        icon="i-lucide-pencil"
+                        color="neutral"
+                        variant="ghost"
+                        size="xs"
+                        @click="openEditModal(row.original)"
+                      />
+                      <UButton
+                        label="ลบ"
+                        icon="i-lucide-trash-2"
+                        color="error"
+                        variant="ghost"
+                        size="xs"
+                        @click="openDelete(row.original)"
+                      />
+                    </template>
+                  </div>
+                </template>
+              </UTable>
+            </div>
+
+            <!-- Footer -->
+            <div class="flex flex-col gap-3 border-t border-divider px-5 py-4 text-sm sm:flex-row sm:items-center sm:justify-between sm:px-6">
+              <div class="flex flex-wrap items-center gap-3">
+                <p class="whitespace-nowrap text-muted">
+                  แสดง {{ pageStart }}–{{ pageEnd }} จาก {{ filteredCycles.length }} รายการ
+                </p>
+                <div class="w-16 shrink-0">
+                  <USelect
+                    v-model="pageSize"
+                    size="md"
+                    class="w-full"
+                    :items="pageSizeOptions"
+                    aria-label="จำนวนรายการต่อหน้า"
+                  />
+                </div>
+              </div>
+              <UPagination
+                v-model:page="page"
+                :total="filteredCycles.length"
+                :items-per-page="pageSize"
+                size="md"
+              />
+            </div>
+          </template>
+        </UCard>
       </div>
     </template>
   </UDashboardPanel>
@@ -567,6 +679,7 @@ const columns: TableColumn<CooperativeCycle>[] = [
               max="3"
               placeholder="1, 2"
               class="w-full"
+              size="xl"
             />
           </UFormField>
 
@@ -576,6 +689,7 @@ const columns: TableColumn<CooperativeCycle>[] = [
               type="number"
               placeholder="2569"
               class="w-full"
+              size="xl"
             />
           </UFormField>
 
@@ -585,18 +699,20 @@ const columns: TableColumn<CooperativeCycle>[] = [
               type="number"
               placeholder="2566"
               class="w-full"
+              size="xl"
             />
           </UFormField>
         </div>
 
-        <div class="border-t border-default pt-3">
-          <p class="text-xs font-semibold text-highlighted mb-2">กำหนดการรับคำร้อง</p>
+        <div class="border-t border-divider pt-3">
+          <p class="text-xs font-semibold text-ink mb-2">กำหนดการรับคำร้อง</p>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <UFormField label="วันเปิดรับคำร้อง" required :error="formErrors.applicationStartDate">
               <UInput
                 v-model="formState.applicationStartDate"
                 type="date"
                 class="w-full"
+                size="xl"
               />
             </UFormField>
             <UFormField label="วันปิดรับคำร้อง" required :error="formErrors.applicationEndDate">
@@ -604,19 +720,21 @@ const columns: TableColumn<CooperativeCycle>[] = [
                 v-model="formState.applicationEndDate"
                 type="date"
                 class="w-full"
+                size="xl"
               />
             </UFormField>
           </div>
         </div>
 
-        <div class="border-t border-default pt-3">
-          <p class="text-xs font-semibold text-highlighted mb-2">กำหนดการฝึกงาน</p>
+        <div class="border-t border-divider pt-3">
+          <p class="text-xs font-semibold text-ink mb-2">กำหนดการฝึกงาน</p>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <UFormField label="วันเริ่มฝึกงาน" required :error="formErrors.internshipStartDate">
               <UInput
                 v-model="formState.internshipStartDate"
                 type="date"
                 class="w-full"
+                size="xl"
               />
             </UFormField>
             <UFormField label="วันสิ้นสุดฝึกงาน" required :error="formErrors.internshipEndDate">
@@ -624,29 +742,32 @@ const columns: TableColumn<CooperativeCycle>[] = [
                 v-model="formState.internshipEndDate"
                 type="date"
                 class="w-full"
+                size="xl"
               />
             </UFormField>
           </div>
         </div>
 
-        <div v-if="isEditing" class="border-t border-default pt-3">
+        <div v-if="isEditing" class="border-t border-divider pt-3">
           <UFormField label="สถานะรอบสหกิจ" required>
             <USelect
               v-model="formState.status"
               :items="formStatusOptions"
               value-key="value"
               class="w-full"
+              size="xl"
             />
           </UFormField>
         </div>
 
-        <div class="border-t border-default pt-3">
+        <div class="border-t border-divider pt-3">
           <UFormField label="หมายเหตุ (ไม่บังคับ)">
             <UTextarea
               v-model="formState.note"
               :rows="2"
               placeholder="ระบุข้อความหรือคำชี้แจงเพิ่มเติม"
               class="w-full"
+              size="xl"
             />
           </UFormField>
         </div>
@@ -656,6 +777,7 @@ const columns: TableColumn<CooperativeCycle>[] = [
     <template #footer>
       <div class="flex justify-end gap-2 w-full">
         <UButton
+          size="xl"
           label="ยกเลิก"
           color="neutral"
           variant="outline"
@@ -663,6 +785,7 @@ const columns: TableColumn<CooperativeCycle>[] = [
           @click="isFormOpen = false"
         />
         <UButton
+          size="xl"
           :label="isEditing ? 'บันทึกการแก้ไข' : 'บันทึกรอบสหกิจ'"
           color="primary"
           :loading="isSubmitting"
