@@ -3,7 +3,7 @@ import crypto from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 import { PDFDocument } from 'pdf-lib'
-import { toThaiDigits, formatThaiDate, generateRequestLetter, type RequestLetterData } from './generator'
+import { toThaiDigits, formatThaiDate, generateRequestLetter, type RequestLetterData, type RequestLetterAssets } from './generator'
 
 const PROTOTYPE_DIR = path.resolve(process.cwd(), 'scripts/prototype')
 
@@ -66,6 +66,10 @@ async function runCheck() {
   assert.ok(fs.existsSync(path.join(PROTOTYPE_DIR, 'fonts/THSarabunNew.ttf')), 'THSarabunNew.ttf must exist')
   const fontRegularBytes = fs.readFileSync(path.join(PROTOTYPE_DIR, 'fonts/THSarabunNew.ttf'))
   const sigBytes = fs.readFileSync(path.join(PROTOTYPE_DIR, 'dummy_signature.png'))
+  const assets: RequestLetterAssets = {
+    templatePdfBytes: templateBytes,
+    fontRegularBytes
+  }
 
   const baseValidData: RequestLetterData = {
     letterNumber: 'ว ๑/๒๕๖๙',
@@ -85,7 +89,7 @@ async function runCheck() {
   }
 
   // 6. Test generation with valid sample
-  const outBytes = await generateRequestLetter(baseValidData, templateBytes, fontRegularBytes)
+  const outBytes = await generateRequestLetter(baseValidData, assets)
   assert.strictEqual(Buffer.from(outBytes.subarray(0, 5)).toString('ascii'), '%PDF-', 'Output must have PDF magic')
   const outDoc = await PDFDocument.load(outBytes)
   assert.strictEqual(outDoc.getPageCount(), 2, 'Generated PDF must have exactly 2 pages')
@@ -100,8 +104,7 @@ async function runCheck() {
           ...baseValidData,
           letterNumber: 'ว ๙๙๙๙๙๙๙๙๙๙๙๙๙๙๙๙๙๙๙๙/๒๕๖๙/ศธ๐๖๒๔/พิเศษมาก'
         },
-        templateBytes,
-        fontRegularBytes
+        assets
       )
     },
     (err: Error) => {
@@ -121,8 +124,7 @@ async function runCheck() {
           recipientName:
             'ประธานกรรมการบริหารและประธานเจ้าหน้าที่บริหารสูงสุดฝ่ายปฏิบัติการระดับภูมิภาคเอเชียแปซิฟิก และรองกรรมการผู้จัดการใหญ่ฝ่ายพัฒนาทรัพยากรบุคคลและบริหารงานทั่วไป ประจำสำนักงานใหญ่ภูมิภาค บริษัท ข้ามชาติเทคโนโลยีดิจิทัล โซลูชั่นส์ อินเตอร์เนชั่นแนล จำกัด (มหาชน)'
         },
-        templateBytes,
-        fontRegularBytes
+        assets
       )
     },
     (err: Error) => {
@@ -142,8 +144,7 @@ async function runCheck() {
           companyName:
             'บริษัท พัฒนาเทคโนโลยีดิจิทัล คลาวด์คอมพิวติ้ง ซอฟต์แวร์วิศวกรรม ปัญญาประดิษฐ์ หุ่นยนต์อัตโนมัติ นวัตกรรมการสื่อสารโทรคมนาคมความเร็วสูง และระบบบริหารจัดการข้อมูลสารสนเทศขนาดใหญ่เพื่ออุตสาหกรรมยานยนต์แห่งอนาคตและพลังงานหมุนเวียนแบบยั่งยืนครบวงจร จำกัด (มหาชน) สาขาประจำเขตพัฒนาพิเศษภาคตะวันออก ประเทศไทย'
         },
-        templateBytes,
-        fontRegularBytes
+        assets
       )
     },
     (err: Error) => {
@@ -166,8 +167,7 @@ async function runCheck() {
             'นายสมเด็จพระมหาบุรุษรามาธิบดีศรีสุริยพงศ์พิริยะสถาพรชัยโยดมสกลรัตนโกสินทร์ มหาเจษฎาบดินทร์สิริวิลาสโภคินทร์วรวัชรเกียรติกุลวัฒนศักดาภิเษก',
           studentId: '๖๔๐๑๙๙๙๙๙๙๙๙๙๙๙๙๙๙๙๙๙๙'
         },
-        templateBytes,
-        fontRegularBytes
+        assets
       )
     },
     (err: Error) => {
@@ -190,8 +190,7 @@ async function runCheck() {
             'อธิการบดีมหาวิทยาลัยราชภัฏบุรีรัมย์'
           ]
         },
-        templateBytes,
-        fontRegularBytes
+        assets
       )
     },
     (err: Error) => {

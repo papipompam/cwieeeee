@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { execSync } from 'node:child_process'
-import { generateRequestLetter, type RequestLetterData } from './generator'
+import { generateRequestLetter, type RequestLetterData, type RequestLetterAssets } from './generator'
 import { PDFDocument } from 'pdf-lib'
 
 const PROTOTYPE_DIR = path.resolve(process.cwd(), 'scripts/prototype')
@@ -91,6 +91,10 @@ async function main() {
   const templateBytes = fs.readFileSync(path.join(PROTOTYPE_DIR, 'template.pdf'))
   const fontRegularBytes = fs.readFileSync(path.join(PROTOTYPE_DIR, 'fonts/THSarabunNew.ttf'))
   const signatureBytes = fs.readFileSync(path.join(PROTOTYPE_DIR, 'dummy_signature.png'))
+  const assets: RequestLetterAssets = {
+    templatePdfBytes: templateBytes,
+    fontRegularBytes
+  }
 
   const outDir = path.join(PROTOTYPE_DIR, 'output')
   if (!fs.existsSync(outDir)) {
@@ -104,7 +108,7 @@ async function main() {
       ...data,
       signatureImageBytes: signatureBytes
     }
-    const pdfBytes = await generateRequestLetter(letterData, templateBytes, fontRegularBytes)
+    const pdfBytes = await generateRequestLetter(letterData, assets)
     const pdfPath = path.join(outDir, `request_letter_${key}.pdf`)
     fs.writeFileSync(pdfPath, pdfBytes)
 
@@ -138,7 +142,7 @@ async function main() {
     let didReject = false
     let rejectionMessage = ''
     try {
-      await generateRequestLetter(data, templateBytes, fontRegularBytes)
+      await generateRequestLetter(data, assets)
     } catch (err: any) {
       didReject = true
       rejectionMessage = err.message
