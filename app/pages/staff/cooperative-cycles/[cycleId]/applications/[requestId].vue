@@ -56,6 +56,15 @@ interface RequestDetail {
     signerTitle: string | null
     issuedByUser: { prefix: string | null, firstName: string | null, lastName: string | null } | null
   } | null
+  activeSendingLetterVersion: {
+    version: number
+    letterNumber: string
+    issueDate: string
+    referenceLetterNumber: string
+    referenceIssueDate: string
+    templateVersion: string
+    createdAt: string
+  } | null
   letterCycle: {
     term: number
     academicYear: number
@@ -171,6 +180,7 @@ const handleLetterUpload = async (event: Event) => {
 }
 
 const isLetterModalOpen = ref(false)
+const letterKind = ref<'request' | 'sending'>('request')
 const isLetterPreviewing = ref(false)
 const isLetterGenerating = ref(false)
 const letterPreviewError = ref('')
@@ -186,11 +196,23 @@ const revokeLetterPreview = () => {
 }
 
 const openLetterModal = () => {
+  letterKind.value = 'request'
   revokeLetterPreview()
   letterPreviewError.value = ''
   letterNumberError.value = ''
   issueDateError.value = ''
   letterNumber.value = request.value?.activeLetterVersion?.letterNumber || ''
+  issueDate.value = undefined
+  isLetterModalOpen.value = true
+}
+
+const openSendingLetterModal = () => {
+  letterKind.value = 'sending'
+  revokeLetterPreview()
+  letterPreviewError.value = ''
+  letterNumberError.value = ''
+  issueDateError.value = ''
+  letterNumber.value = request.value?.activeSendingLetterVersion?.letterNumber || ''
   issueDate.value = undefined
   isLetterModalOpen.value = true
 }
@@ -230,7 +252,8 @@ const previewLetter = async () => {
   letterPreviewError.value = ''
   revokeLetterPreview()
   try {
-    const pdf = await $fetch<Blob>(`/api/staff/cooperative-cycles/${cycleId.value}/requests/${requestId.value}/letter/preview`, {
+    const endpoint = letterKind.value === 'sending' ? 'sending-letter/preview' : 'letter/preview'
+    const pdf = await $fetch<Blob>(`/api/staff/cooperative-cycles/${cycleId.value}/requests/${requestId.value}/${endpoint}`, {
       method: 'POST',
       body: input,
       responseType: 'blob'
@@ -250,8 +273,8 @@ const openFullPagePreview = () => {
   if (!input) return
 
   const previewRoute = router.resolve({
-    path: `/staff/cooperative-cycles/${cycleId.value}/applications/${requestId.value}/letter-preview`,
-    query: input
+    path: `/staff/cooperative-cycles/${cycleId.value}/applications/${requestId.value}-letter-preview`,
+    query: { ...input, kind: letterKind.value }
   })
   window.open(previewRoute.href, '_blank', 'noopener')
 }
@@ -262,11 +285,12 @@ const generateLetter = async () => {
 
   isLetterGenerating.value = true
   try {
-    await $fetch(`/api/staff/cooperative-cycles/${cycleId.value}/requests/${requestId.value}/letter/generate`, {
+    const endpoint = letterKind.value === 'sending' ? 'sending-letter/generate' : 'letter/generate'
+    await $fetch(`/api/staff/cooperative-cycles/${cycleId.value}/requests/${requestId.value}/${endpoint}`, {
       method: 'POST',
       body: input
     })
-    notify.success('จัดทำหนังสือขอความอนุเคราะห์เรียบร้อยแล้ว')
+    notify.success(letterKind.value === 'sending' ? 'จัดทำหนังสือส่งตัวเรียบร้อยแล้ว' : 'จัดทำหนังสือขอความอนุเคราะห์เรียบร้อยแล้ว')
     closeLetterModal()
     await refresh()
   } catch (err: any) {
@@ -411,6 +435,24 @@ const handleConfirmPlacement = async () => {
           color="primary"
           size="xl"
           @click="openLetterModal"
+        />
+        <UButton
+          v-if="request.status === 'PLACEMENT_CONFIRMED'"
+          :label="request.activeSendingLetterVersion ? 'ออกหนังสือส่งตัวฉบับใหม่' : 'ออกหนังสือส่งตัว'"
+          icon="i-lucide-send"
+          color="primary"
+          size="xl"
+          @click="openSendingLetterModal"
+        />
+        <UButton
+          v-if="request.activeSendingLetterVersion"
+          label="เปิดหนังสือส่งตัว"
+          icon="i-lucide-external-link"
+          color="neutral"
+          variant="outline"
+          size="xl"
+          :to="`/api/staff/cooperative-cycles/${cycleId}/requests/${requestId}/sending-letter`"
+          target="_blank"
         />
         <!-- Reject action: available in pre-confirmed states -->
         <UButton
@@ -774,8 +816,8 @@ const handleConfirmPlacement = async () => {
 
     <UModal
       v-model:open="isLetterModalOpen"
-      title="จัดทำหนังสือขอความอนุเคราะห์"
-      description="ระบุเลขที่และวันที่ออกหนังสือ แล้วดูตัวอย่างก่อนบันทึกฉบับจริง"
+      :title="letterKind === 'sending' ? 'จัดทำหนังสือส่งตัว' : 'จัดทำหนังสือขอความอนุเคราะห์'"
+      :description="letterKind === 'sending' ? 'ระบุเลขที่และวันที่ออกหนังสือส่งตัว แล้วตรวจตัวอย่างก่อนบันทึกฉบับจริง' : 'ระบุเลขที่และวันที่ออกหนังสือ แล้วดูตัวอย่างก่อนบันทึกฉบับจริง'"
       :ui="{ content: 'max-w-5xl' }"
       @update:open="open => { if (!open) revokeLetterPreview() }"
     >
@@ -783,7 +825,7 @@ const handleConfirmPlacement = async () => {
         <div class="grid gap-6 lg:grid-cols-2">
           <UForm class="grid content-start gap-5" @submit.prevent="previewLetter">
             <UFormField label="เลขที่หนังสือ" required :error="letterNumberError">
-              <UInput v-model="letterNumber" class="w-full" size="xl" placeholder="เช่น อว ๐๖๒๔.๖/๑๒๓" autocomplete="off" />
+              <UInput v-model="letterNumber" class="w-full" size="xl" placeholder="เช่น ๑๒๓/๒๕๖๙" autocomplete="off" />
             </UFormField>
             <UFormField label="วันที่ออกหนังสือ" required :error="issueDateError">
               <UPopover>
@@ -813,7 +855,7 @@ const handleConfirmPlacement = async () => {
           <section class="min-w-0 rounded-panel border border-divider bg-surface p-3">
             <div v-if="letterPreviewUrl" class="space-y-2">
               <p class="px-1 text-sm font-semibold text-ink">ตัวอย่างเอกสาร</p>
-              <iframe :src="letterPreviewUrl" title="ตัวอย่างหนังสือขอความอนุเคราะห์" class="h-[60vh] w-full rounded-control border border-divider bg-canvas" />
+              <iframe :src="letterPreviewUrl" :title="letterKind === 'sending' ? 'ตัวอย่างหนังสือส่งตัว' : 'ตัวอย่างหนังสือขอความอนุเคราะห์'" class="h-[60vh] w-full rounded-control border border-divider bg-canvas" />
             </div>
             <div v-else class="grid min-h-64 place-items-center p-6 text-center text-muted">
               <div><UIcon name="i-lucide-file-search" class="mx-auto size-8" /><p class="mt-2 text-sm">กรอกข้อมูลแล้วกด “ดูตัวอย่าง”</p></div>
@@ -826,7 +868,7 @@ const handleConfirmPlacement = async () => {
           <UButton label="ยกเลิก" color="neutral" variant="outline" size="xl" :disabled="isLetterPreviewing || isLetterGenerating" @click="closeLetterModal" />
           <UButton label="ดูตัวอย่างในหน้าต่างนี้" icon="i-lucide-eye" color="neutral" variant="outline" size="xl" :loading="isLetterPreviewing" :disabled="isLetterGenerating" @click="previewLetter" />
           <UButton label="ดูตัวอย่างเต็มหน้า" icon="i-lucide-expand" color="neutral" variant="outline" size="xl" :disabled="isLetterPreviewing || isLetterGenerating" @click="openFullPagePreview" />
-          <UButton label="ยืนยันจัดทำหนังสือ" icon="i-lucide-file-check-2" color="primary" size="xl" :loading="isLetterGenerating" :disabled="isLetterPreviewing" @click="generateLetter" />
+          <UButton :label="letterKind === 'sending' ? 'ยืนยันจัดทำหนังสือส่งตัว' : 'ยืนยันจัดทำหนังสือ'" icon="i-lucide-file-check-2" color="primary" size="xl" :loading="isLetterGenerating" :disabled="isLetterPreviewing" @click="generateLetter" />
         </div>
       </template>
     </UModal>

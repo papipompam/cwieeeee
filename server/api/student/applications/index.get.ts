@@ -37,7 +37,15 @@ export default defineEventHandler(async (event) => {
     where,
     include: {
       company: true,
-      cooperativeRequest: true,
+      cooperativeRequest: {
+        include: {
+          sendingLetterParticipations: {
+            where: { sendingLetterVersion: { isActive: true } },
+            take: 1,
+            select: { id: true }
+          }
+        }
+      },
       cooperativeCycle: {
         select: {
           id: true,

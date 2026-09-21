@@ -54,6 +54,11 @@ export default defineEventHandler(async (event) => {
         documents: {
           orderBy: { version: 'desc' },
           take: 1
+        },
+        sendingLetterParticipations: {
+          where: { sendingLetterVersion: { isActive: true } },
+          take: 1,
+          select: { id: true }
         }
       }
     })
@@ -68,6 +73,7 @@ export default defineEventHandler(async (event) => {
       province: r.province,
       confirmedAt: r.confirmedAt,
       letterFilePath: r.letterFilePath,
+      sendingLetterAvailable: r.sendingLetterParticipations.length > 0,
       student: r.companyApplication.studentUser,
       latestDocument: r.documents[0] || null
     })),

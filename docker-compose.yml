@@ -41,7 +41,7 @@ services:
       PERSISTENT_STORAGE_DIR: /app/uploads
       DOCUMENT_SIGNER_NAME: ${DOCUMENT_SIGNER_NAME:-}
       DOCUMENT_SIGNER_TITLE: ${DOCUMENT_SIGNER_TITLE:-}
-      DOCUMENT_SIGNER_SIGNATURE_PATH: ${DOCUMENT_SIGNER_SIGNATURE_PATH:-}
+      DOCUMENT_SIGNER_SIGNATURE_PATH: /run/signatures/authorized-dean.png
     depends_on:
       migrate:
         condition: service_completed_successfully

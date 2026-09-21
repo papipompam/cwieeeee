@@ -36,7 +36,8 @@ const loadPreview = async () => {
   if (previewUrl.value) URL.revokeObjectURL(previewUrl.value)
 
   try {
-    const pdf = await $fetch<Blob>(`/api/staff/cooperative-cycles/${cycleId.value}/requests/${requestId.value}/letter/preview`, {
+    const endpoint = route.query.kind === 'sending' ? 'sending-letter/preview' : 'letter/preview'
+    const pdf = await $fetch<Blob>(`/api/staff/cooperative-cycles/${cycleId.value}/requests/${requestId.value}/${endpoint}`, {
       method: 'POST',
       body: { letterNumber, issueDate },
       responseType: 'blob'
@@ -68,7 +69,7 @@ onBeforeUnmount(() => {
           aria-label="กลับไปรายละเอียดคำร้อง"
         />
         <div>
-          <h1 class="text-lg font-bold text-ink">ตัวอย่างหนังสือขอความอนุเคราะห์</h1>
+          <h1 class="text-lg font-bold text-ink">ตัวอย่าง{{ route.query.kind === 'sending' ? 'หนังสือส่งตัว' : 'หนังสือขอความอนุเคราะห์' }}</h1>
           <p class="mt-1 text-sm text-muted">ตรวจรายละเอียดเอกสารแบบเต็มหน้าก่อนยืนยันจัดทำฉบับจริง</p>
         </div>
       </div>

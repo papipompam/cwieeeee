@@ -22,10 +22,27 @@ export default defineEventHandler(async (event) => {
       }
     }
   })
+  const activeSendingLetterVersion = await prisma.sendingLetterVersion.findFirst({
+    where: {
+      isActive: true,
+      participants: { some: { cooperativeRequestId: request.id } }
+    },
+    orderBy: { version: 'desc' },
+    select: {
+      version: true,
+      letterNumber: true,
+      issueDate: true,
+      referenceLetterNumber: true,
+      referenceIssueDate: true,
+      templateVersion: true,
+      createdAt: true
+    }
+  })
 
   return {
     ...request,
     activeLetterVersion,
+    activeSendingLetterVersion,
     letterCycle: {
       term: cycle.term,
       academicYear: cycle.academicYear,

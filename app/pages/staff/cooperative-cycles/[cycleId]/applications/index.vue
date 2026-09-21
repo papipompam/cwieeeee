@@ -28,6 +28,7 @@ interface RequestRow {
   province: string | null
   confirmedAt: string
   letterFilePath: string | null
+  sendingLetterAvailable: boolean
   student: StudentUser
   latestDocument: LatestDocument | null
 }
@@ -62,6 +63,7 @@ const statusFilter = ref<string>('all')
 const classGroupFilter = ref<string>('all')
 
 const selectedRequestForLetter = ref<RequestRow | null>(null)
+const letterKind = ref<'request' | 'sending'>('request')
 const isLetterModalOpen = ref(false)
 const isLetterGenerating = ref(false)
 const letterNumber = ref('')
@@ -148,6 +150,18 @@ const canGenerateLetter = (request: RequestRow) => (
 )
 
 const openLetterModal = (request: RequestRow) => {
+  letterKind.value = 'request'
+  selectedRequestForLetter.value = request
+  letterNumber.value = ''
+  issueDate.value = undefined
+  letterNumberError.value = ''
+  issueDateError.value = ''
+  letterActionError.value = ''
+  isLetterModalOpen.value = true
+}
+
+const openSendingLetterModal = (request: RequestRow) => {
+  letterKind.value = 'sending'
   selectedRequestForLetter.value = request
   letterNumber.value = ''
   issueDate.value = undefined
@@ -173,8 +187,8 @@ const openFullPagePreview = () => {
   if (!input || !request) return
 
   const previewRoute = router.resolve({
-    path: `/staff/cooperative-cycles/${cycleId.value}/applications/${request.id}/letter-preview`,
-    query: input
+    path: `/staff/cooperative-cycles/${cycleId.value}/applications/${request.id}-letter-preview`,
+    query: { ...input, kind: letterKind.value }
   })
   window.open(previewRoute.href, '_blank', 'noopener')
 }
@@ -187,11 +201,12 @@ const generateLetter = async () => {
   isLetterGenerating.value = true
   letterActionError.value = ''
   try {
-    await $fetch(`/api/staff/cooperative-cycles/${cycleId.value}/requests/${request.id}/letter/generate`, {
+    const endpoint = letterKind.value === 'sending' ? 'sending-letter/generate' : 'letter/generate'
+    await $fetch(`/api/staff/cooperative-cycles/${cycleId.value}/requests/${request.id}/${endpoint}`, {
       method: 'POST',
       body: input
     })
-    notify.success(`ออกหนังสือสำหรับ ${request.companyName} เรียบร้อยแล้ว`)
+    notify.success(`${letterKind.value === 'sending' ? 'ออกหนังสือส่งตัว' : 'ออกหนังสือขอความอนุเคราะห์'}สำหรับ ${request.companyName} เรียบร้อยแล้ว`)
     isLetterModalOpen.value = false
     await refresh()
   } catch (err: any) {
@@ -463,6 +478,24 @@ const pageEnd = computed(() => {
                   @click="openLetterModal(row.original)"
                 />
                 <UButton
+                  v-if="row.original.status === 'PLACEMENT_CONFIRMED' && cycle?.status !== 'CLOSED'"
+                  :label="row.original.sendingLetterAvailable ? 'ออกส่งตัวฉบับใหม่' : 'ออกหนังสือส่งตัว'"
+                  icon="i-lucide-send"
+                  color="primary"
+                  size="xs"
+                  @click="openSendingLetterModal(row.original)"
+                />
+                <UButton
+                  v-if="row.original.sendingLetterAvailable"
+                  label="เปิดหนังสือส่งตัว"
+                  icon="i-lucide-external-link"
+                  color="neutral"
+                  variant="outline"
+                  size="xs"
+                  :to="`/api/staff/cooperative-cycles/${cycleId}/requests/${row.original.id}/sending-letter`"
+                  target="_blank"
+                />
+                <UButton
                   v-if="row.original.letterFilePath"
                   label="เปิดหนังสือ"
                   icon="i-lucide-external-link"
@@ -514,14 +547,14 @@ const pageEnd = computed(() => {
 
     <UModal
       v-model:open="isLetterModalOpen"
-      title="ออกหนังสือขอความอนุเคราะห์"
+      :title="letterKind === 'sending' ? 'ออกหนังสือส่งตัว' : 'ออกหนังสือขอความอนุเคราะห์'"
       :description="selectedRequestForLetter ? `สำหรับ ${selectedRequestForLetter.student.prefix}${selectedRequestForLetter.student.firstName} ${selectedRequestForLetter.student.lastName} · ${selectedRequestForLetter.companyName}` : undefined"
       :ui="{ content: 'max-w-2xl' }"
     >
       <template #body>
         <UForm class="grid gap-5" @submit.prevent="generateLetter">
           <UFormField label="เลขที่หนังสือ" required :error="letterNumberError">
-            <UInput v-model="letterNumber" class="w-full" size="xl" placeholder="เช่น อว ๐๖๒๔.๖/๑๒๓" autocomplete="off" />
+            <UInput v-model="letterNumber" class="w-full" size="xl" placeholder="เช่น ๑๒๓/๒๕๖๙" autocomplete="off" />
           </UFormField>
           <UFormField label="วันที่ออกหนังสือ" required :error="issueDateError">
             <UPopover>
@@ -538,7 +571,7 @@ const pageEnd = computed(() => {
         <div class="flex w-full flex-wrap justify-end gap-2">
           <UButton label="ยกเลิก" color="neutral" variant="outline" size="xl" :disabled="isLetterGenerating" @click="isLetterModalOpen = false" />
           <UButton label="ดูตัวอย่างเต็มหน้า" icon="i-lucide-expand" color="neutral" variant="outline" size="xl" :disabled="isLetterGenerating" @click="openFullPagePreview" />
-          <UButton label="ยืนยันออกเอกสาร" icon="i-lucide-file-check-2" color="primary" size="xl" :loading="isLetterGenerating" @click="generateLetter" />
+          <UButton :label="letterKind === 'sending' ? 'ยืนยันออกหนังสือส่งตัว' : 'ยืนยันออกเอกสาร'" icon="i-lucide-file-check-2" color="primary" size="xl" :loading="isLetterGenerating" @click="generateLetter" />
         </div>
       </template>
     </UModal>

@@ -83,6 +83,7 @@ model User {
   studentEvaluationsReceived     StudentEvaluation[]             @relation("student_evaluation_student")
   companyEvaluations             CompanyEvaluation[]
   issuedRequestLetters           RequestLetterVersion[]          @relation("request_letter_issued_by")
+  issuedSendingLetters           SendingLetterVersion[]          @relation("sending_letter_issued_by")
   createdAt                      DateTime                        @default(now()) @map("created_at")
   updatedAt                      DateTime                        @updatedAt @map("updated_at")
 
@@ -223,6 +224,8 @@ model CooperativeRequest {
   signedDocumentSubmittedAt      DateTime?                       @map("signed_document_submitted_at")
   documents                      RequestDocument[]
   letterVersions                 RequestLetterVersion[]
+  primarySendingLetterVersions   SendingLetterVersion[]          @relation("sending_letter_primary_request")
+  sendingLetterParticipations    SendingLetterParticipant[]
   supervisionAppointmentStudents SupervisionAppointmentStudent[]
   createdAt                      DateTime                        @default(now()) @map("created_at")
   updatedAt                      DateTime                        @updatedAt @map("updated_at")
@@ -277,6 +280,49 @@ model RequestLetterVersion {
   @@index([cooperativeRequestId, isActive])
   @@index([issuedByUserId])
   @@map("request_letter_versions")
+}
+
+model SendingLetterVersion {
+  id                          Int                        @id @default(autoincrement())
+  primaryCooperativeRequestId Int                        @map("primary_cooperative_request_id")
+  primaryCooperativeRequest   CooperativeRequest         @relation("sending_letter_primary_request", fields: [primaryCooperativeRequestId], references: [id], onDelete: Cascade)
+  participants                SendingLetterParticipant[]
+  version                     Int                        @default(1)
+  fileName                    String                     @map("file_name")
+  filePath                    String                     @map("file_path")
+  fileSize                    Int                        @map("file_size")
+  sha256                      String
+  letterNumber                String                     @map("letter_number")
+  issueDate                   DateTime                   @map("issue_date") @db.Date
+  referenceLetterNumber       String                     @map("reference_letter_number")
+  referenceIssueDate          DateTime                   @map("reference_issue_date") @db.Date
+  templateVersion             String                     @default("v1") @map("template_version")
+  signerName                  String                     @map("signer_name")
+  signerTitle                 String                     @map("signer_title")
+  issuedByUserId              Int?                       @map("issued_by_user_id")
+  issuedByUser                User?                      @relation("sending_letter_issued_by", fields: [issuedByUserId], references: [id], onDelete: SetNull)
+  isActive                    Boolean                    @default(true) @map("is_active")
+  supersededAt                DateTime?                  @map("superseded_at")
+  createdAt                   DateTime                   @default(now()) @map("created_at")
+  updatedAt                   DateTime                   @updatedAt @map("updated_at")
+
+  @@unique([primaryCooperativeRequestId, version], name: "sending_letter_version")
+  @@index([primaryCooperativeRequestId, isActive])
+  @@index([issuedByUserId])
+  @@map("sending_letter_versions")
+}
+
+model SendingLetterParticipant {
+  id                     Int                  @id @default(autoincrement())
+  sendingLetterVersionId Int                  @map("sending_letter_version_id")
+  sendingLetterVersion   SendingLetterVersion @relation(fields: [sendingLetterVersionId], references: [id], onDelete: Cascade)
+  cooperativeRequestId   Int                  @map("cooperative_request_id")
+  cooperativeRequest     CooperativeRequest   @relation(fields: [cooperativeRequestId], references: [id], onDelete: Cascade)
+  createdAt              DateTime             @default(now()) @map("created_at")
+
+  @@unique([sendingLetterVersionId, cooperativeRequestId], name: "sending_letter_participant")
+  @@index([cooperativeRequestId])
+  @@map("sending_letter_participants")
 }
 
 model Notification {

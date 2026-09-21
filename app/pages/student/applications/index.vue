@@ -30,6 +30,7 @@ interface Application {
     id: number
     status: string
     letterFilePath?: string | null
+    sendingLetterParticipations?: Array<{ id: number }>
     signedDocumentPath?: string | null
     companyName?: string
     recipientName?: string | null
@@ -112,6 +113,19 @@ const clearFilters = () => {
   statusFilter.value = 'ALL'
   provinceFilter.value = 'ALL'
   page.value = 1
+}
+
+const downloadSendingLetter = () => {
+  const application = featuredApplication.value
+  const request = featuredRequest.value
+  if (!application || !request?.sendingLetterParticipations?.length) {
+    const message = request?.status === 'PLACEMENT_CONFIRMED'
+      ? 'เจ้าหน้าที่ยังไม่ได้จัดทำหนังสือส่งตัว กรุณารอตรวจสอบอีกครั้งภายหลัง'
+      : 'หนังสือส่งตัวจะพร้อมหลังเจ้าหน้าที่ยืนยันสถานที่ฝึกงานเรียบร้อยแล้ว'
+    notify.info(message)
+    return
+  }
+  window.open(`/api/student/applications/${application.id}/sending-letter`, '_blank', 'noopener')
 }
 
 watch([search, statusFilter, provinceFilter, pageSize], () => {
@@ -434,6 +448,13 @@ const confirmFeaturedApplication = async () => {
                       label="ดาวน์โหลดหนังสือ"
                     />
                     <UButton
+                      color="success"
+                      size="xl"
+                      icon="i-lucide-download"
+                      label="ดาวน์โหลดหนังสือส่งตัว"
+                      @click="downloadSendingLetter"
+                    />
+                    <UButton
                       v-if="['SUBMITTED', 'AWAITING_RESPONSE', 'INTERVIEW'].includes(featuredApplication.status)"
                       color="primary"
                       size="xl"
@@ -518,13 +539,13 @@ const confirmFeaturedApplication = async () => {
                   <UIcon name="i-lucide-files" class="size-5" />
                 </span>
                 <div>
-                  <h2 class="font-semibold text-ink">หนังสือขอความอนุเคราะห์และหนังสือตอบรับ</h2>
+                  <h2 class="font-semibold text-ink">เอกสารการฝึกประสบการณ์วิชาชีพ</h2>
                   <p class="mt-1 text-sm leading-6 text-muted">ตรวจสอบสถานะและดาวน์โหลดเอกสารที่เกี่ยวข้องกับสถานที่ฝึกงาน</p>
                 </div>
               </div>
             </template>
 
-            <div class="grid gap-4 lg:grid-cols-2">
+            <div class="grid gap-4 lg:grid-cols-3">
               <article class="flex min-w-0 flex-col rounded-panel border border-divider p-4 sm:p-5">
                 <div class="flex items-start justify-between gap-3">
                   <span class="grid size-9 shrink-0 place-items-center rounded-control bg-surface text-muted"><UIcon name="i-lucide-file-text" class="size-5" /></span>
@@ -542,6 +563,24 @@ const confirmFeaturedApplication = async () => {
                   icon="i-lucide-download"
                   label="ดาวน์โหลดหนังสือ"
                   class="mt-4 justify-center sm:self-start"
+                />
+              </article>
+
+              <article class="flex min-w-0 flex-col rounded-panel border border-divider p-4 sm:p-5">
+                <div class="flex items-start justify-between gap-3">
+                  <span class="grid size-9 shrink-0 place-items-center rounded-control bg-surface text-muted"><UIcon name="i-lucide-send" class="size-5" /></span>
+                  <UBadge :color="featuredRequest?.sendingLetterParticipations?.length ? 'success' : 'neutral'" variant="subtle">{{ featuredRequest?.sendingLetterParticipations?.length ? 'พร้อมดาวน์โหลด' : 'ยังไม่พร้อม' }}</UBadge>
+                </div>
+                <h3 class="mt-4 text-sm font-semibold text-ink">หนังสือส่งตัว</h3>
+                <p class="mt-1 flex-1 text-sm leading-6 text-muted">หนังสือสำหรับรายงานตัวเข้ารับการฝึกประสบการณ์วิชาชีพ</p>
+                <UButton
+                  color="neutral"
+                  variant="outline"
+                  size="sm"
+                  icon="i-lucide-download"
+                  label="ดาวน์โหลดหนังสือส่งตัว"
+                  class="mt-4 justify-center sm:self-start"
+                  @click="downloadSendingLetter"
                 />
               </article>
 
