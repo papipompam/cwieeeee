@@ -16,3 +16,4 @@ outputs
 docs
 *.log
 .DS_Store
+signatures/

@@ -26,3 +26,6 @@ docs/~$*
 
 # Prisma
 prisma/generated
+
+# Signatures
+signatures/

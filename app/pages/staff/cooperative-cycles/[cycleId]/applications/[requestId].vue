@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { InputDateProps } from '@nuxt/ui'
 import type { Ref } from 'vue'
 
 interface StudentUser {
@@ -45,6 +46,23 @@ interface RequestDetail {
   signedDocumentPath: string | null
   signedDocumentOriginalName: string | null
   signedDocumentSubmittedAt: string | null
+  activeLetterVersion: {
+    version: number
+    source: 'GENERATED' | 'UPLOADED'
+    letterNumber: string | null
+    issueDate: string | null
+    templateVersion: string | null
+    signerName: string | null
+    signerTitle: string | null
+    issuedByUser: { prefix: string | null, firstName: string | null, lastName: string | null } | null
+  } | null
+  letterCycle: {
+    term: number
+    academicYear: number
+    internshipHours: number | null
+    internshipStartDate: string
+    internshipEndDate: string
+  }
   companyApplication: {
     studentUser: StudentUser
   }
@@ -71,6 +89,7 @@ const { data: request, status: fetchStatus, refresh, error } = await useFetch<Re
 )
 
 const isClosed = computed(() => cycle?.value?.status === 'CLOSED')
+const canManageLetter = computed(() => request.value && !isClosed.value && !['PLACEMENT_CONFIRMED', 'REJECTED', 'CANCELLED'].includes(request.value.status))
 
 const formatDate = (dStr?: string | null) => {
   if (!dStr) return '—'
@@ -150,6 +169,105 @@ const handleLetterUpload = async (event: Event) => {
     target.value = ''
   }
 }
+
+const isLetterModalOpen = ref(false)
+const isLetterPreviewing = ref(false)
+const isLetterGenerating = ref(false)
+const letterPreviewError = ref('')
+const letterNumberError = ref('')
+const issueDateError = ref('')
+const letterPreviewUrl = ref<string | null>(null)
+const letterNumber = ref('')
+const issueDate = shallowRef<InputDateProps<false>['modelValue']>()
+
+const revokeLetterPreview = () => {
+  if (letterPreviewUrl.value) URL.revokeObjectURL(letterPreviewUrl.value)
+  letterPreviewUrl.value = null
+}
+
+const openLetterModal = () => {
+  revokeLetterPreview()
+  letterPreviewError.value = ''
+  letterNumberError.value = ''
+  issueDateError.value = ''
+  letterNumber.value = request.value?.activeLetterVersion?.letterNumber || ''
+  issueDate.value = undefined
+  isLetterModalOpen.value = true
+}
+
+const closeLetterModal = () => {
+  isLetterModalOpen.value = false
+  revokeLetterPreview()
+}
+
+const getLetterInput = () => {
+  const normalizedLetterNumber = letterNumber.value.trim()
+  const normalizedIssueDate = issueDate.value?.toString()
+  letterNumberError.value = normalizedLetterNumber ? '' : 'กรุณาระบุเลขที่หนังสือ'
+  issueDateError.value = normalizedIssueDate ? '' : 'กรุณาเลือกวันที่ออกหนังสือ'
+  return normalizedLetterNumber && normalizedIssueDate
+    ? { letterNumber: normalizedLetterNumber, issueDate: normalizedIssueDate }
+    : null
+}
+
+const getApiErrorMessage = async (err: any, fallback: string) => {
+  if (err?.data instanceof Blob) {
+    try {
+      const body = JSON.parse(await err.data.text())
+      if (typeof body?.message === 'string') return body.message
+    } catch {
+      // Fall through to the safe fallback below.
+    }
+  }
+  return err?.data?.message || fallback
+}
+
+const previewLetter = async () => {
+  const input = getLetterInput()
+  if (!input) return
+
+  isLetterPreviewing.value = true
+  letterPreviewError.value = ''
+  revokeLetterPreview()
+  try {
+    const pdf = await $fetch<Blob>(`/api/staff/cooperative-cycles/${cycleId.value}/requests/${requestId.value}/letter/preview`, {
+      method: 'POST',
+      body: input,
+      responseType: 'blob'
+    })
+    letterPreviewUrl.value = URL.createObjectURL(pdf)
+  } catch (err: any) {
+    const message = await getApiErrorMessage(err, 'ไม่สามารถสร้างตัวอย่างเอกสารได้')
+    letterPreviewError.value = message
+    notify.error(message)
+  } finally {
+    isLetterPreviewing.value = false
+  }
+}
+
+const generateLetter = async () => {
+  const input = getLetterInput()
+  if (!input) return
+
+  isLetterGenerating.value = true
+  try {
+    await $fetch(`/api/staff/cooperative-cycles/${cycleId.value}/requests/${requestId.value}/letter/generate`, {
+      method: 'POST',
+      body: input
+    })
+    notify.success('จัดทำหนังสือขอความอนุเคราะห์เรียบร้อยแล้ว')
+    closeLetterModal()
+    await refresh()
+  } catch (err: any) {
+    const message = await getApiErrorMessage(err, 'ไม่สามารถจัดทำหนังสือได้')
+    letterPreviewError.value = message
+    notify.error(message)
+  } finally {
+    isLetterGenerating.value = false
+  }
+}
+
+onBeforeUnmount(revokeLetterPreview)
 
 // Return for revision modal state
 const isReturnOpen = ref(false)
@@ -536,8 +654,8 @@ const handleConfirmPlacement = async () => {
 
               <div class="flex items-center gap-2">
                 <UButton
-                  label="ดาวน์โหลดหนังสือ"
-                  icon="i-lucide-download"
+                  label="เปิดดู"
+                  icon="i-lucide-external-link"
                   color="primary"
                   variant="outline"
                   size="xl"
@@ -546,16 +664,32 @@ const handleConfirmPlacement = async () => {
                   target="_blank"
                 />
                 <UButton
-                  v-if="!isClosed && !['PLACEMENT_CONFIRMED', 'REJECTED', 'CANCELLED'].includes(request.status)"
-                  label="แทนที่ไฟล์"
-                  icon="i-lucide-refresh-cw"
+                  v-if="canManageLetter"
+                  label="จัดทำฉบับใหม่"
+                  icon="i-lucide-file-pen-line"
                   color="neutral"
                   variant="ghost"
                   size="xl"
-                  :loading="isLetterUploading"
-                  @click="triggerLetterUpload"
+                  @click="openLetterModal"
                 />
               </div>
+              <UButton
+                v-if="canManageLetter"
+                label="อัปโหลดแทน"
+                icon="i-lucide-upload"
+                color="neutral"
+                variant="outline"
+                size="xl"
+                class="w-full justify-center"
+                :loading="isLetterUploading"
+                @click="triggerLetterUpload"
+              />
+              <dl v-if="request.activeLetterVersion" class="grid gap-2 border-t border-divider pt-3 text-xs">
+                <div v-if="request.activeLetterVersion.letterNumber" class="flex justify-between gap-3"><dt class="text-muted">เลขที่หนังสือ</dt><dd class="text-right font-medium text-ink">{{ request.activeLetterVersion.letterNumber }}</dd></div>
+                <div v-if="request.activeLetterVersion.issueDate" class="flex justify-between gap-3"><dt class="text-muted">วันที่ออก</dt><dd class="text-right text-ink">{{ formatDate(request.activeLetterVersion.issueDate) }}</dd></div>
+                <div class="flex justify-between gap-3"><dt class="text-muted">ฉบับเอกสาร</dt><dd class="text-right text-ink">{{ request.activeLetterVersion.version }}</dd></div>
+                <div v-if="request.activeLetterVersion.templateVersion" class="flex justify-between gap-3"><dt class="text-muted">Template</dt><dd class="text-right text-ink">{{ request.activeLetterVersion.templateVersion }}</dd></div>
+              </dl>
             </div>
 
             <!-- Case: No letter -->
@@ -565,16 +699,10 @@ const handleConfirmPlacement = async () => {
                 <p class="text-xs">ยังไม่มีการแนบหนังสือขอความอนุเคราะห์</p>
               </div>
 
-              <UButton
-                v-if="!isClosed && !['PLACEMENT_CONFIRMED', 'REJECTED', 'CANCELLED'].includes(request.status)"
-                label="แนบหนังสือขอความอนุเคราะห์ (PDF)"
-                icon="i-lucide-upload"
-                color="primary"
-                size="xl"
-                class="w-full justify-center"
-                :loading="isLetterUploading"
-                @click="triggerLetterUpload"
-              />
+              <div v-if="canManageLetter" class="grid gap-2">
+                <UButton label="จัดทำหนังสือ" icon="i-lucide-file-pen-line" color="primary" size="xl" class="w-full justify-center" @click="openLetterModal" />
+                <UButton label="อัปโหลด PDF" icon="i-lucide-upload" color="neutral" variant="outline" size="xl" class="w-full justify-center" :loading="isLetterUploading" @click="triggerLetterUpload" />
+              </div>
             </div>
           </div>
 
@@ -633,6 +761,64 @@ const handleConfirmPlacement = async () => {
         </div>
       </div>
     </div>
+
+    <UModal
+      v-model:open="isLetterModalOpen"
+      title="จัดทำหนังสือขอความอนุเคราะห์"
+      description="ระบุเลขที่และวันที่ออกหนังสือ แล้วดูตัวอย่างก่อนบันทึกฉบับจริง"
+      :ui="{ content: 'max-w-5xl' }"
+      @update:open="open => { if (!open) revokeLetterPreview() }"
+    >
+      <template #body>
+        <div class="grid gap-6 lg:grid-cols-2">
+          <UForm class="grid content-start gap-5" @submit.prevent="previewLetter">
+            <UFormField label="เลขที่หนังสือ" required :error="letterNumberError">
+              <UInput v-model="letterNumber" class="w-full" size="xl" placeholder="เช่น อว ๐๖๒๔.๖/๑๒๓" autocomplete="off" />
+            </UFormField>
+            <UFormField label="วันที่ออกหนังสือ" required :error="issueDateError">
+              <UPopover>
+                <UInputDate v-model="issueDate" class="w-full" size="xl" locale="th-TH" aria-label="Select a date" />
+                <template #content>
+                  <UCalendar v-model="issueDate" locale="th-TH" />
+                </template>
+              </UPopover>
+            </UFormField>
+
+            <div class="rounded-panel border border-divider bg-surface p-4 text-sm">
+              <h3 class="font-semibold text-ink">ข้อมูลที่ใช้จัดทำเอกสาร</h3>
+              <dl class="mt-3 grid gap-2 text-muted">
+                <div class="flex justify-between gap-4"><dt>ผู้รับ</dt><dd class="text-right text-ink">{{ request?.recipientName || '—' }}</dd></div>
+                <div class="flex justify-between gap-4"><dt>สถานประกอบการ</dt><dd class="text-right text-ink">{{ request?.companyName || '—' }}</dd></div>
+                <div class="flex justify-between gap-4"><dt>นักศึกษา</dt><dd class="text-right text-ink">{{ request?.companyApplication.studentUser.prefix }}{{ request?.companyApplication.studentUser.firstName }} {{ request?.companyApplication.studentUser.lastName }}</dd></div>
+                <div class="flex justify-between gap-4"><dt>ภาคเรียน / ปีการศึกษา</dt><dd class="text-right text-ink">{{ request?.letterCycle.term }} / {{ request?.letterCycle.academicYear }}</dd></div>
+                <div class="flex justify-between gap-4"><dt>ชั่วโมงฝึก</dt><dd class="text-right text-ink">{{ request?.letterCycle.internshipHours ?? 'ยังไม่กำหนด' }}</dd></div>
+                <div class="flex justify-between gap-4"><dt>ระยะเวลาฝึก</dt><dd class="text-right text-ink">{{ formatDate(request?.letterCycle.internshipStartDate) }} – {{ formatDate(request?.letterCycle.internshipEndDate) }}</dd></div>
+              </dl>
+              <p class="mt-3 text-xs text-muted">ผู้ลงนามและลายเซ็นกำหนดจากการตั้งค่าระบบ และจะตรวจสอบเมื่อสร้างตัวอย่างหรือบันทึกเอกสาร</p>
+            </div>
+
+            <UAlert v-if="letterPreviewError" color="error" icon="i-lucide-circle-alert" title="ไม่สามารถดำเนินการได้" :description="letterPreviewError" />
+          </UForm>
+
+          <section class="min-w-0 rounded-panel border border-divider bg-surface p-3">
+            <div v-if="letterPreviewUrl" class="space-y-2">
+              <p class="px-1 text-sm font-semibold text-ink">ตัวอย่างเอกสาร</p>
+              <iframe :src="letterPreviewUrl" title="ตัวอย่างหนังสือขอความอนุเคราะห์" class="h-[60vh] w-full rounded-control border border-divider bg-canvas" />
+            </div>
+            <div v-else class="grid min-h-64 place-items-center p-6 text-center text-muted">
+              <div><UIcon name="i-lucide-file-search" class="mx-auto size-8" /><p class="mt-2 text-sm">กรอกข้อมูลแล้วกด “ดูตัวอย่าง”</p></div>
+            </div>
+          </section>
+        </div>
+      </template>
+      <template #footer>
+        <div class="flex w-full flex-wrap justify-end gap-2">
+          <UButton label="ยกเลิก" color="neutral" variant="outline" size="xl" :disabled="isLetterPreviewing || isLetterGenerating" @click="closeLetterModal" />
+          <UButton label="ดูตัวอย่าง" icon="i-lucide-eye" color="neutral" variant="outline" size="xl" :loading="isLetterPreviewing" :disabled="isLetterGenerating" @click="previewLetter" />
+          <UButton label="ยืนยันจัดทำหนังสือ" icon="i-lucide-file-check-2" color="primary" size="xl" :loading="isLetterGenerating" :disabled="isLetterPreviewing" @click="generateLetter" />
+        </div>
+      </template>
+    </UModal>
 
     <!-- Modal: Return for revision -->
     <UModal

@@ -8,14 +8,41 @@ export default defineEventHandler(async (event) => {
     include: { cooperativeRequest: true }
   })
 
-  if (!application?.cooperativeRequest?.letterFilePath) {
+  const request = application?.cooperativeRequest
+  if (!request) {
     throw createError({ statusCode: 404, message: 'ยังไม่มีหนังสือจากเจ้าหน้าที่' })
   }
-  if (!fs.existsSync(application.cooperativeRequest.letterFilePath)) {
+
+  const activeVersion = await prisma.requestLetterVersion.findFirst({
+    where: {
+      cooperativeRequestId: request.id,
+      isActive: true
+    },
+    orderBy: { version: 'desc' }
+  })
+
+  const filePathToRead = activeVersion?.filePath || request.letterFilePath
+  const fileNameToUse = activeVersion?.fileName || request.letterOriginalName || 'official-letter.pdf'
+
+  if (!filePathToRead) {
+    throw createError({ statusCode: 404, message: 'ยังไม่มีหนังสือจากเจ้าหน้าที่' })
+  }
+
+  let canonicalPath: string
+  try {
+    const resolved = await resolveStoredLetterFile(filePathToRead)
+    canonicalPath = resolved.canonicalPath
+  } catch {
     throw createError({ statusCode: 404, message: 'ไม่พบไฟล์หนังสือในระบบจัดเก็บ' })
   }
 
   setHeader(event, 'Content-Type', 'application/pdf')
-  setHeader(event, 'Content-Disposition', `attachment; filename="${encodeURIComponent(application.cooperativeRequest.letterOriginalName || 'official-letter.pdf')}"`)
-  return sendStream(event, fs.createReadStream(application.cooperativeRequest.letterFilePath))
+  setHeader(
+    event,
+    'Content-Disposition',
+    `attachment; filename="${encodeURIComponent(fileNameToUse)}"`
+  )
+  setHeader(event, 'Cache-Control', 'private, no-store')
+  setHeader(event, 'X-Content-Type-Options', 'nosniff')
+  return sendStream(event, fs.createReadStream(canonicalPath))
 })

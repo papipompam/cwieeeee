@@ -1,5 +1,4 @@
 import fs from 'node:fs'
-import path from 'node:path'
 
 export default defineEventHandler(async (event) => {
   const { cycleId } = await getStaffCycle(event)
@@ -7,19 +6,32 @@ export default defineEventHandler(async (event) => {
 
   const request = await getStaffCycleRequest(event, cycleId, requestId)
 
-  if (!request.letterFilePath) {
+  const activeVersion = await prisma.requestLetterVersion.findFirst({
+    where: {
+      cooperativeRequestId: request.id,
+      isActive: true
+    },
+    orderBy: { version: 'desc' }
+  })
+
+  const filePathToRead = activeVersion?.filePath || request.letterFilePath
+  const fileNameToUse = activeVersion?.fileName || request.letterOriginalName || 'official-letter.pdf'
+
+  if (!filePathToRead) {
     throw createError({ statusCode: 404, message: 'ยังไม่มีการแนบหนังสือขอความอนุเคราะห์' })
   }
 
-  const storageBase = path.resolve(process.env.PERSISTENT_STORAGE_DIR || path.join(process.cwd(), 'uploads'))
-  const resolvedPath = path.resolve(request.letterFilePath)
-
-  if (!resolvedPath.startsWith(storageBase) || !fs.existsSync(resolvedPath)) {
+  let canonicalPath: string
+  try {
+    const resolved = await resolveStoredLetterFile(filePathToRead)
+    canonicalPath = resolved.canonicalPath
+  } catch {
     throw createError({ statusCode: 404, message: 'ไม่พบไฟล์หนังสือในระบบจัดเก็บ' })
   }
 
-  const stream = fs.createReadStream(resolvedPath)
   setHeader(event, 'Content-Type', 'application/pdf')
-  setHeader(event, 'Content-Disposition', `inline; filename="${encodeURIComponent(request.letterOriginalName || 'official-letter.pdf')}"`)
-  return sendStream(event, stream)
+  setHeader(event, 'Content-Disposition', `inline; filename="${encodeURIComponent(fileNameToUse)}"`)
+  setHeader(event, 'Cache-Control', 'private, no-store')
+  setHeader(event, 'X-Content-Type-Options', 'nosniff')
+  return sendStream(event, fs.createReadStream(canonicalPath))
 })

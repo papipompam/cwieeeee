@@ -39,11 +39,15 @@ services:
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-cwie}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB:-cwie_dev}
       PERSISTENT_STORAGE_DIR: /app/uploads
+      DOCUMENT_SIGNER_NAME: ${DOCUMENT_SIGNER_NAME:-}
+      DOCUMENT_SIGNER_TITLE: ${DOCUMENT_SIGNER_TITLE:-}
+      DOCUMENT_SIGNER_SIGNATURE_PATH: ${DOCUMENT_SIGNER_SIGNATURE_PATH:-}
     depends_on:
       migrate:
         condition: service_completed_successfully
     volumes:
       - uploads-data:/app/uploads
+      - ${DOCUMENT_SIGNER_SIGNATURE_DIR:-./signatures}:/run/signatures:ro
     healthcheck:
       test: ['CMD-SHELL', "node -e \"fetch('http://127.0.0.1:3000/api/health').then(response => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))\""]
       interval: 10s
