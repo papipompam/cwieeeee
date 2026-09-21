@@ -740,6 +740,14 @@ const columns: TableColumn<Student>[] = [
           <UIcon name="i-lucide-download" class="size-4" />
           ดาวน์โหลดไฟล์ตัวอย่าง CSV
         </a>
+        <a
+          href="/student-import-template.xlsx"
+          download
+          class="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+        >
+          <UIcon name="i-lucide-file-spreadsheet" class="size-4" />
+          ดาวน์โหลดไฟล์ตัวอย่าง Excel (.xlsx)
+        </a>
         <UFormField label="ไฟล์ข้อมูล" required :error="importError">
           <input
             accept=".csv,.xlsx"

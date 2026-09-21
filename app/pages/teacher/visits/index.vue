@@ -26,6 +26,7 @@ interface Appointment {
   students: Array<{ studentId: string, name: string, position: string | null }>
   teachers: Array<{ teacherId: string, name: string, phone: string | null }>
   travelPlans: Array<{ travelDate: string, startLocation: string }>
+  photos: Array<{ id: number, originalName: string, mimeType: string, createdAt: string, url: string }>
 }
 
 interface StudentEvaluationItem {
@@ -61,6 +62,8 @@ const selectedEvaluationAppointment = ref<Appointment | null>(null)
 const selectedStudentEvaluation = ref<StudentEvaluationItem | null>(null)
 const studentSaving = ref(false)
 const companySaving = ref(false)
+const statusSaving = ref(false)
+const photoUploading = ref(false)
 const appointmentId = computed(() => {
   const value = route.query.appointmentId
   const id = Number(Array.isArray(value) ? value[0] : value)
@@ -120,6 +123,31 @@ const clearFilters = () => {
 const openDetail = (appointment: Appointment) => {
   selectedAppointment.value = appointment
   detailOpen.value = true
+}
+const setAppointmentStatus = async (value: AppointmentStatus) => {
+  if (!selectedAppointment.value) return
+  statusSaving.value = true
+  try {
+    await $fetch(`/api/teacher/supervision-appointments/${selectedAppointment.value.id}/status`, { method: 'PATCH', body: { status: value } })
+    selectedAppointment.value.status = value
+    const item = appointments.value?.find(appointment => appointment.id === selectedAppointment.value?.id)
+    if (item) item.status = value
+    notify.success('เปลี่ยนสถานะเรียบร้อยแล้ว')
+  } catch (err: any) { notify.error(err?.data?.message || err?.message || 'ไม่สามารถเปลี่ยนสถานะได้') } finally { statusSaving.value = false }
+}
+const uploadPhoto = async (event: Event) => {
+  if (!selectedAppointment.value) return
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+  photoUploading.value = true
+  try {
+    const form = new FormData(); form.append('file', file)
+    await $fetch(`/api/teacher/supervision-appointments/${selectedAppointment.value.id}/photos`, { method: 'POST', body: form })
+    await refresh()
+    selectedAppointment.value = appointments.value?.find(item => item.id === selectedAppointment.value?.id) ?? selectedAppointment.value
+    notify.success('แนบรูปภาพเรียบร้อยแล้ว')
+  } catch (err: any) { notify.error(err?.data?.message || err?.message || 'ไม่สามารถแนบรูปภาพได้') } finally { photoUploading.value = false; input.value = '' }
 }
 
 const studentScoreLabels: Array<{ key: StudentScoreKey, label: string }> = [
@@ -486,6 +514,39 @@ const columns: TableColumn<Appointment>[] = [
             <template v-if="selectedAppointment.companyContact.phone"> · {{ selectedAppointment.companyContact.phone }}</template>
             <template v-if="selectedAppointment.companyContact.email"> · {{ selectedAppointment.companyContact.email }}</template>
           </p>
+        </div>
+        <div class="rounded-panel border border-divider p-4">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h3 class="font-medium text-ink">สถานะการนิเทศ</h3>
+              <p class="mt-1 text-xs text-muted">ครูสามารถปรับสถานะของรายการที่ได้รับมอบหมายได้</p>
+            </div>
+            <USelect
+              :model-value="selectedAppointment.status"
+              :items="statusOptions.filter(option => option.value !== 'ALL')"
+              value-key="value"
+              size="xl"
+              class="w-48"
+              :loading="statusSaving"
+              @update:model-value="setAppointmentStatus($event as AppointmentStatus)"
+            />
+          </div>
+        </div>
+        <div class="rounded-panel border border-divider p-4">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div><h3 class="font-medium text-ink">รูปภาพประกอบการนิเทศ</h3><p class="mt-1 text-xs text-muted">รองรับ JPG หรือ PNG ขนาดไม่เกิน 10MB ต่อรูป</p></div>
+            <label class="inline-flex cursor-pointer items-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-medium text-inverted">
+              <UIcon name="i-lucide-upload" /> แนบรูปภาพ
+              <input type="file" accept="image/jpeg,image/png" class="sr-only" :disabled="photoUploading" @change="uploadPhoto" />
+            </label>
+          </div>
+          <div v-if="selectedAppointment.photos.length" class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <a v-for="photo in selectedAppointment.photos" :key="photo.id" :href="photo.url" target="_blank" class="group overflow-hidden rounded-md border border-divider">
+              <img :src="photo.url" :alt="photo.originalName" class="aspect-square w-full object-cover transition group-hover:scale-105" />
+              <span class="block truncate px-2 py-1 text-xs text-muted">{{ photo.originalName }}</span>
+            </a>
+          </div>
+          <p v-else class="mt-3 text-sm text-muted">ยังไม่มีรูปภาพแนบ</p>
         </div>
       </div>
     </template>

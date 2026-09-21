@@ -335,7 +335,7 @@ const currentMenuGroups = computed<MenuGroup[]>(() => {
                 list: 'space-y-1',
                 link: 'min-h-11 gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors duration-150 hover:before:!bg-sidebar-hover hover:!text-white focus-visible:before:outline-primary/50',
                 linkLeadingIcon: 'size-5 transition-colors duration-150 group-hover:!text-white',
-                childList: 'mt-1 space-y-1 border-sidebar-border',
+                childList: 'mt-1 space-y-0 border-sidebar-border',
                 childLink: 'min-h-10 gap-2.5 rounded-xl px-3 py-2.5 transition-colors duration-150 hover:before:!bg-sidebar-hover hover:!text-white',
                 childLinkIcon: 'size-4.5 transition-colors duration-150 group-hover:!text-white'
               }"

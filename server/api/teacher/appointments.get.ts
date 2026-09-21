@@ -31,7 +31,8 @@ export default defineEventHandler(async (event) => {
         select: {
           travelPlan: { select: { travelDate: true, startLocation: true } }
         }
-      }
+      },
+      photos: { orderBy: { createdAt: 'desc' }, select: { id: true, originalName: true, mimeType: true, createdAt: true } }
     },
     orderBy: [{ scheduledDate: 'asc' }, { createdAt: 'asc' }]
   })
@@ -60,6 +61,7 @@ export default defineEventHandler(async (event) => {
       name: [teacher.teacherUser.prefix, teacher.teacherUser.firstName, teacher.teacherUser.lastName].filter(Boolean).join(' '),
       phone: teacher.teacherUser.phone
     })),
-    travelPlans: appointment.travelStops.map(stop => stop.travelPlan)
+    travelPlans: appointment.travelStops.map(stop => stop.travelPlan),
+    photos: appointment.photos.map(photo => ({ ...photo, url: `/api/teacher/supervision-appointments/${appointment.id}/photos/${photo.id}` }))
   }))
 })

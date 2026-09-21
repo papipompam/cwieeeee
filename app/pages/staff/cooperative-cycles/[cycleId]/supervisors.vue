@@ -256,16 +256,6 @@ const selectedCompanyPlans = ref<Array<{
   timeNote: string
   distanceKmFromPrevious: number
 }>>([])
-const budgetForm = ref({
-  startLocation: 'มหาวิทยาลัย',
-  fuelRate: 4,
-  perDiemRate: 240,
-  perDiemDays: 1,
-  lodgingRate: 1500,
-  nights: 0,
-  rooms: 0,
-  note: ''
-})
 const teacherSearchQuery = ref('')
 const companySearchQuery = ref('')
 const periodOptions = [
@@ -273,11 +263,6 @@ const periodOptions = [
   { label: 'ช่วงบ่าย', value: 'AFTERNOON' },
   { label: 'เต็มวัน', value: 'FULL_DAY' }
 ]
-
-const defaultBudget = () => ({
-  startLocation: 'มหาวิทยาลัย', fuelRate: 4, perDiemRate: 240, perDiemDays: 1,
-  lodgingRate: 1500, nights: 0, rooms: 0, note: ''
-})
 
 const defaultScheduleDate = () => new Date().toISOString().slice(0, 10)
 
@@ -290,7 +275,6 @@ const openCreateGroupModal = () => {
   }
   selectedTeacherIds.value = []
   selectedCompanyPlans.value = []
-  budgetForm.value = defaultBudget()
   teacherSearchQuery.value = ''
   companySearchQuery.value = ''
   isGroupModalOpen.value = true
@@ -313,14 +297,6 @@ const openEditGroupModal = (group: SupervisionGroup) => {
       distanceKmFromPrevious: 0
     }
   })
-  const plan = group.travelPlans?.[0]
-  const traveller = plan?.travellers?.[0]
-  budgetForm.value = {
-    startLocation: plan?.startLocation || 'มหาวิทยาลัย', fuelRate: plan?.fuelRate ?? 4,
-    perDiemRate: traveller?.perDiemRate ?? 240, perDiemDays: traveller?.perDiemDays ?? 1,
-    lodgingRate: plan?.lodgingRate ?? traveller?.lodgingRate ?? 1500, nights: plan?.lodgingNights ?? traveller?.nights ?? 0,
-    rooms: plan?.lodgingRooms ?? 0, note: plan?.note || ''
-  }
   teacherSearchQuery.value = ''
   companySearchQuery.value = ''
   isGroupModalOpen.value = true
@@ -349,8 +325,7 @@ const handleSaveGroup = async () => {
       body: {
         ...groupForm.value,
         teacherUserIds: selectedTeacherIds.value,
-        companyPlans: selectedCompanyPlans.value,
-        budget: budgetForm.value
+        companyPlans: selectedCompanyPlans.value
       }
       })
       notify.success('อัปเดตข้อมูลกลุ่มสำเร็จ')
@@ -361,8 +336,7 @@ const handleSaveGroup = async () => {
           ...groupForm.value,
           teacherUserIds: selectedTeacherIds.value,
           companyIds: selectedCompanyPlans.value.map(plan => plan.companyId),
-          companyPlans: selectedCompanyPlans.value,
-          budget: budgetForm.value
+          companyPlans: selectedCompanyPlans.value
         }
       })
       notify.success('สร้างกลุ่มนิเทศสำเร็จ')
@@ -542,15 +516,6 @@ const selectedCompanyDetails = computed(() => selectedCompanyPlans.value.map((pl
   plan,
   company: selectableCompanies.value.find(company => company.companyId === plan.companyId)
 })))
-
-const groupBudgetSummary = computed(() => {
-  const travelDays = new Set(selectedCompanyPlans.value.map(plan => plan.scheduledDate)).size
-  const perDiem = selectedTeacherIds.value.length * Number(budgetForm.value.perDiemRate || 0) * Number(budgetForm.value.perDiemDays || 0) * travelDays
-  const lodging = Number(budgetForm.value.lodgingRate || 0) * Number(budgetForm.value.nights || 0) * Number(budgetForm.value.rooms || 0) * travelDays
-  return { travelDays, perDiem, lodging, total: perDiem + lodging }
-})
-
-const formatCurrency = (value: number) => value.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
 const handleAssignCompany = async (companyId: number) => {
   if (!activeManageGroup.value || !selectedRoundId.value) return
@@ -931,27 +896,37 @@ const handleRemoveCompany = async (companyId: number) => {
       size="xl"
     >
       <template #body>
-        <div class="max-h-[65vh] space-y-5 overflow-y-auto pr-1">
-          <UFormField label="ชื่อกลุ่ม" required>
-            <UInput
-              v-model="groupForm.name"
-              placeholder="เช่น กลุ่มที่ 1 (โซนกรุงเทพและปริมณฑล)"
-              class="w-full"
-              size="xl"
-            />
-          </UFormField>
-          <UFormField label="หมายเหตุ / ข้อมูลเพิ่มเติม">
-            <UInput
-              v-model="groupForm.note"
-              placeholder="รายละเอียดพื้นที่หรือเป้าหมายกลุ่ม"
-              class="w-full"
-              size="xl"
-            />
-          </UFormField>
+        <div class="max-h-[65vh] space-y-6 overflow-y-auto pr-1">
+          <section class="space-y-3 rounded-panel border border-divider bg-surface p-4">
+            <div>
+              <h4 class="text-sm font-semibold text-ink">ข้อมูลกลุ่มนิเทศ</h4>
+              <p class="mt-0.5 text-xs leading-5 text-muted">ตั้งชื่อกลุ่มและบันทึกรายละเอียดที่ช่วยแยกพื้นที่หรือเป้าหมายของกลุ่ม</p>
+            </div>
+            <UFormField label="ชื่อกลุ่ม" required>
+              <UInput
+                v-model="groupForm.name"
+                placeholder="เช่น กลุ่มที่ 1 (โซนกรุงเทพและปริมณฑล)"
+                class="w-full"
+                size="xl"
+              />
+            </UFormField>
+            <UFormField label="หมายเหตุ / ข้อมูลเพิ่มเติม">
+              <UInput
+                v-model="groupForm.note"
+                placeholder="รายละเอียดพื้นที่หรือเป้าหมายกลุ่ม"
+                class="w-full"
+                size="xl"
+              />
+            </UFormField>
+          </section>
+
           <div class="space-y-2">
             <div class="flex items-center justify-between gap-2">
-              <label class="text-xs font-medium text-ink">อาจารย์ผู้นิเทศ *</label>
-              <span class="text-xs text-muted">เลือกแล้ว {{ selectedTeacherIds.length }} ท่าน</span>
+              <div>
+                <h4 class="text-sm font-semibold text-ink">อาจารย์ผู้นิเทศ <span class="text-error">*</span></h4>
+                <p class="mt-0.5 text-xs leading-5 text-muted">เลือกอาจารย์ที่รับผิดชอบการนิเทศกลุ่มนี้</p>
+              </div>
+              <span class="shrink-0 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">เลือกแล้ว {{ selectedTeacherIds.length }} ท่าน</span>
             </div>
             <UInput v-model="teacherSearchQuery" icon="i-lucide-search" placeholder="ค้นหาชื่อหรือรหัสอาจารย์" class="w-full" size="xl" aria-label="ค้นหาอาจารย์ผู้นิเทศ" />
             <div class="max-h-48 divide-y divide-divider overflow-y-auto rounded-control border border-divider">
@@ -964,7 +939,13 @@ const handleRemoveCompany = async (companyId: number) => {
           </div>
 
           <div class="space-y-2">
-            <div class="flex items-center justify-between gap-2"><label class="text-xs font-medium text-ink">สถานประกอบการ *</label><span class="text-xs text-muted">เลือกแล้ว {{ selectedCompanyPlans.length }} แห่ง</span></div>
+            <div class="flex items-center justify-between gap-2">
+              <div>
+                <h4 class="text-sm font-semibold text-ink">สถานประกอบการ <span class="text-error">*</span></h4>
+                <p class="mt-0.5 text-xs leading-5 text-muted">เลือกสถานประกอบการที่อยู่ในเส้นทางการนิเทศของกลุ่ม</p>
+              </div>
+              <span class="shrink-0 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">เลือกแล้ว {{ selectedCompanyPlans.length }} แห่ง</span>
+            </div>
             <UInput v-model="companySearchQuery" icon="i-lucide-search" placeholder="ค้นหาชื่อสถานประกอบการ จังหวัด หรือที่อยู่" class="w-full" size="xl" aria-label="ค้นหาสถานประกอบการ" />
             <div class="max-h-56 divide-y divide-divider overflow-y-auto rounded-control border border-divider">
               <button v-for="company in filteredCompanies" :key="company.companyId" type="button" class="flex w-full items-center gap-3 p-3 text-left hover:bg-surface focus-visible:outline-2 focus-visible:outline-primary" :class="selectedCompanyPlans.some(plan => plan.companyId === company.companyId) ? 'bg-primary/10' : 'bg-canvas'" :aria-pressed="selectedCompanyPlans.some(plan => plan.companyId === company.companyId)" @click="toggleCompany(company.companyId)">
@@ -976,7 +957,10 @@ const handleRemoveCompany = async (companyId: number) => {
           </div>
 
           <div class="space-y-2">
-            <div><label class="text-xs font-medium text-ink">กำหนดการนิเทศรายสถานประกอบการ *</label><p class="mt-0.5 text-xs text-muted">ระบุวันและช่วงเวลา โดยหลายสถานประกอบการสามารถใช้วันและช่วงเวลาเดียวกันได้</p></div>
+            <div>
+              <h4 class="text-sm font-semibold text-ink">กำหนดการนิเทศรายสถานประกอบการ <span class="text-error">*</span></h4>
+              <p class="mt-0.5 text-xs leading-5 text-muted">ระบุวันและช่วงเวลา โดยหลายสถานประกอบการสามารถใช้วันและช่วงเวลาเดียวกันได้</p>
+            </div>
             <div v-if="selectedCompanyDetails.length" class="space-y-2">
               <div v-for="item in selectedCompanyDetails" :key="item.plan.companyId" class="rounded-control border border-divider bg-surface p-3">
                 <div class="mb-2 text-sm font-medium text-ink">{{ item.company?.companyName || 'สถานประกอบการ' }}</div>
@@ -989,24 +973,6 @@ const handleRemoveCompany = async (companyId: number) => {
             <div v-else class="rounded-control border border-dashed border-divider p-3 text-center text-xs text-muted">เลือกสถานประกอบการเพื่อกำหนดตารางนิเทศ</div>
           </div>
 
-          <div class="space-y-3 rounded-panel border border-primary/30 bg-primary/5 p-3">
-            <div><label class="text-xs font-semibold text-ink">ประมาณการค่าใช้จ่ายของกลุ่ม</label><p class="mt-0.5 text-xs text-muted">ระบบจะสร้างแผนเดินทางแยกตามวันที่นิเทศ และคำนวณจากข้อมูลนี้</p></div>
-            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <UFormField label="จุดเริ่มต้นเดินทาง"><UInput v-model="budgetForm.startLocation" class="w-full" size="xl" aria-label="จุดเริ่มต้นเดินทาง" /></UFormField>
-              <UFormField label="อัตราค่าน้ำมัน (บาท/กม.)"><UInput v-model.number="budgetForm.fuelRate" type="number" min="0" step="0.5" class="w-full" size="xl" aria-label="ค่าน้ำมันต่อกิโลเมตร" /></UFormField>
-              <UFormField label="เบี้ยเลี้ยง (บาท/วัน/คน)"><UInput v-model.number="budgetForm.perDiemRate" type="number" min="0" class="w-full" size="xl" aria-label="เบี้ยเลี้ยงต่อวัน" /></UFormField>
-              <UFormField label="จำนวนวันเบี้ยเลี้ยง"><UInput v-model.number="budgetForm.perDiemDays" type="number" min="0" step="0.5" class="w-full" size="xl" aria-label="จำนวนวันเบี้ยเลี้ยง" /></UFormField>
-              <UFormField label="ค่าที่พัก (บาท/ห้อง/คืน)"><UInput v-model.number="budgetForm.lodgingRate" type="number" min="0" class="w-full" size="xl" aria-label="ค่าที่พักต่อห้อง" /></UFormField>
-              <UFormField label="จำนวนคืน"><UInput v-model.number="budgetForm.nights" type="number" min="0" class="w-full" size="xl" aria-label="จำนวนคืน" /></UFormField>
-              <UFormField label="จำนวนห้องพัก"><UInput v-model.number="budgetForm.rooms" type="number" min="0" class="w-full" size="xl" aria-label="จำนวนห้องพัก" /></UFormField>
-              <UFormField label="หมายเหตุงบประมาณ"><UInput v-model="budgetForm.note" class="w-full" size="xl" aria-label="หมายเหตุงบประมาณ" /></UFormField>
-            </div>
-            <div class="rounded-control border border-primary/30 bg-canvas p-3 text-sm">
-              <div class="font-semibold text-ink">สรุปค่าใช้จ่ายประมาณการทั้งหมด</div>
-              <div class="mt-1 text-xs text-muted">เดินทาง {{ groupBudgetSummary.travelDays }} วัน · เบี้ยเลี้ยง ฿{{ formatCurrency(groupBudgetSummary.perDiem) }} · ที่พัก ฿{{ formatCurrency(groupBudgetSummary.lodging) }}</div>
-              <div class="mt-1 text-lg font-bold text-primary">รวม ฿{{ formatCurrency(groupBudgetSummary.total) }}</div>
-            </div>
-          </div>
         </div>
       </template>
       <template #footer>

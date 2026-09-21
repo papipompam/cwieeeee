@@ -338,10 +338,10 @@ const confirmFeaturedApplication = async () => {
   if (!featuredApplication.value) return
 
   isConfirming.value = true
+  isConfirmModalOpen.value = false
   try {
     await $fetch(`/api/student/applications/${featuredApplication.value.id}/confirm`, { method: 'POST' })
     notify.success('ยืนยันสถานประกอบการและส่งคำร้องเรียบร้อยแล้ว')
-    isConfirmModalOpen.value = false
     await Promise.all([refresh(), refreshNuxtData('/api/student/context')])
   } catch (err: any) {
     notify.error(err.data?.message || 'ไม่สามารถยืนยันสถานประกอบการได้')

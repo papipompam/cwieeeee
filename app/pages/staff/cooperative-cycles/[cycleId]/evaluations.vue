@@ -55,6 +55,10 @@ const page = ref(1)
 const pageSize = ref(10)
 const pageSizeOptions = [10, 20, 50, 100]
 
+const exportEvaluations = (type: 'student' | 'company') => {
+  window.location.assign(`/api/staff/cooperative-cycles/${cycleId.value}/evaluations/export?type=${type}`)
+}
+
 // Fetch Rounds
 const { data: roundsData } = await useFetch<{ rounds: SupervisionRound[] }>(
   () => `/api/staff/cooperative-cycles/${cycleId.value}/supervision/rounds`
@@ -257,6 +261,26 @@ const columns: TableColumn<SupervisionAppointmentRow>[] = [
                 @refresh="refresh"
               />
             </div>
+          </div>
+
+          <div class="mt-4 flex flex-wrap items-center gap-2 border-t border-divider pt-4">
+            <span class="mr-1 text-xs font-medium text-muted">การจัดการแบบประเมิน:</span>
+            <UButton
+              label="ส่งออกประเมินนักศึกษา"
+              icon="i-lucide-file-spreadsheet"
+              color="neutral"
+              variant="outline"
+              size="md"
+              @click="exportEvaluations('student')"
+            />
+            <UButton
+              label="ส่งออกประเมินสถานประกอบการ"
+              icon="i-lucide-file-spreadsheet"
+              color="neutral"
+              variant="outline"
+              size="md"
+              @click="exportEvaluations('company')"
+            />
           </div>
 
           <!-- Control Row -->

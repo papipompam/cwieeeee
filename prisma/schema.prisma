@@ -383,6 +383,7 @@ model SupervisionAppointment {
   travelStops        SupervisionTravelStop[]
   studentEvaluations StudentEvaluation[]
   companyEvaluations CompanyEvaluation[]
+  photos             SupervisionAppointmentPhoto[]
   createdAt          DateTime                     @default(now()) @map("created_at")
   updatedAt          DateTime                     @updatedAt @map("updated_at")
 
@@ -391,6 +392,20 @@ model SupervisionAppointment {
   @@index([scheduledDate])
   @@index([status])
   @@map("supervision_appointments")
+}
+
+model SupervisionAppointmentPhoto {
+  id            Int                    @id @default(autoincrement())
+  appointmentId Int                    @map("appointment_id")
+  appointment   SupervisionAppointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  originalName  String                 @map("original_name")
+  storageName   String                 @map("storage_name")
+  mimeType      String                 @map("mime_type")
+  fileSize      Int                    @map("file_size")
+  createdAt     DateTime               @default(now()) @map("created_at")
+
+  @@index([appointmentId])
+  @@map("supervision_appointment_photos")
 }
 
 model SupervisionAppointmentStudent {
