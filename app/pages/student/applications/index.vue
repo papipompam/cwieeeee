@@ -441,34 +441,6 @@ const confirmFeaturedApplication = async () => {
                       @click="isConfirmModalOpen = true"
                     />
                     <UButton
-                      v-if="featuredRequest?.letterFilePath"
-                      :to="`/api/student/applications/${featuredApplication.id}/letter`"
-                      target="_blank"
-                      color="neutral"
-                      variant="outline"
-                      size="xl"
-                      icon="i-lucide-download"
-                      label="ดาวน์โหลดหนังสือ"
-                    />
-                    <UButton
-                      v-if="latestResponseDocument"
-                      :to="`/api/student/documents/${latestResponseDocument.id}/download`"
-                      target="_blank"
-                      color="neutral"
-                      variant="outline"
-                      size="xl"
-                      icon="i-lucide-download"
-                      label="ดาวน์โหลดหนังสือตอบรับ"
-                    />
-                    <UButton
-                      v-if="featuredRequest && ['LETTER_READY', 'RETURNED_FOR_REVISION'].includes(featuredRequest.status)"
-                      color="primary"
-                      size="xl"
-                      icon="i-lucide-upload"
-                      :label="featuredRequest.status === 'RETURNED_FOR_REVISION' ? 'อัปโหลดฉบับแก้ไข' : 'ส่งหนังสือตอบรับ'"
-                      @click="isUploadModalOpen = true"
-                    />
-                    <UButton
                       v-if="['REJECTED', 'WITHDRAWN'].includes(featuredApplication.status) && contextData?.canApply"
                       color="primary"
                       size="xl"
@@ -551,15 +523,46 @@ const confirmFeaturedApplication = async () => {
                 </div>
                 <h3 class="mt-4 text-sm font-semibold text-ink">หนังสือขอความอนุเคราะห์</h3>
                 <p class="mt-1 flex-1 text-sm leading-6 text-muted">หนังสือจากมหาวิทยาลัยสำหรับยื่นต่อสถานประกอบการ</p>
+                <UButton
+                  :disabled="!featuredRequest?.letterFilePath"
+                  :to="featuredRequest?.letterFilePath ? `/api/student/applications/${featuredApplication.id}/letter` : undefined"
+                  target="_blank"
+                  color="neutral"
+                  variant="outline"
+                  size="sm"
+                  icon="i-lucide-download"
+                  label="ดาวน์โหลดหนังสือ"
+                  class="mt-4 justify-center sm:self-start"
+                />
               </article>
 
               <article class="flex min-w-0 flex-col rounded-panel border border-divider p-4 sm:p-5">
                 <div class="flex items-start justify-between gap-3">
                   <span class="grid size-9 shrink-0 place-items-center rounded-control bg-surface text-muted"><UIcon name="i-lucide-mail" class="size-5" /></span>
-                  <UBadge :color="latestResponseDocument ? 'success' : 'neutral'" variant="subtle">{{ latestResponseDocument ? 'มีเอกสารแล้ว' : 'ยังไม่มีเอกสาร' }}</UBadge>
+                  <UBadge :color="latestResponseDocument ? 'success' : 'neutral'" variant="subtle">{{ latestResponseDocument ? 'แนบเอกสารเรียบร้อย' : 'ยังไม่มีเอกสาร' }}</UBadge>
                 </div>
                 <h3 class="mt-4 text-sm font-semibold text-ink">หนังสือตอบรับ</h3>
-                <p class="mt-1 flex-1 text-sm leading-6 text-muted">หนังสือตอบรับฉบับล่าสุดที่ส่งกลับจากสถานประกอบการ</p>
+                <p class="mt-1 flex-1 text-sm leading-6 text-muted">แนบหนังสือตอบรับจากสถานประกอบการเพื่อส่งให้เจ้าหน้าที่ตรวจสอบ</p>
+                <div class="mt-4 flex flex-wrap gap-2">
+                  <UButton
+                    v-if="featuredRequest && ['LETTER_READY', 'RETURNED_FOR_REVISION'].includes(featuredRequest.status)"
+                    color="primary"
+                    size="sm"
+                    icon="i-lucide-upload"
+                    :label="featuredRequest.status === 'RETURNED_FOR_REVISION' ? 'อัปโหลดฉบับแก้ไข' : 'แนบหนังสือตอบรับ'"
+                    @click="isUploadModalOpen = true"
+                  />
+                  <UButton
+                    v-if="latestResponseDocument"
+                    :to="`/api/student/documents/${latestResponseDocument.id}/download`"
+                    target="_blank"
+                    color="neutral"
+                    variant="outline"
+                    size="sm"
+                    icon="i-lucide-download"
+                    label="ดาวน์โหลดฉบับล่าสุด"
+                  />
+                </div>
               </article>
             </div>
           </UCard>
