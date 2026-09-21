@@ -245,6 +245,17 @@ const previewLetter = async () => {
   }
 }
 
+const openFullPagePreview = () => {
+  const input = getLetterInput()
+  if (!input) return
+
+  const previewRoute = router.resolve({
+    path: `/staff/cooperative-cycles/${cycleId.value}/applications/${requestId.value}/letter-preview`,
+    query: input
+  })
+  window.open(previewRoute.href, '_blank', 'noopener')
+}
+
 const generateLetter = async () => {
   const input = getLetterInput()
   if (!input) return
@@ -392,7 +403,15 @@ const handleConfirmPlacement = async () => {
       </div>
 
       <!-- Action buttons -->
-      <div v-if="request && !isClosed" class="flex items-center gap-2">
+      <div v-if="request && !isClosed" class="flex flex-wrap items-center justify-end gap-2">
+        <UButton
+          v-if="canManageLetter"
+          :label="request.letterFilePath ? 'ออกเอกสารฉบับใหม่' : 'ออกเอกสาร'"
+          icon="i-lucide-file-pen-line"
+          color="primary"
+          size="xl"
+          @click="openLetterModal"
+        />
         <!-- Reject action: available in pre-confirmed states -->
         <UButton
           v-if="['SUBMITTED', 'STAFF_PROCESSING', 'DOCUMENT_UNDER_REVIEW'].includes(request.status)"
@@ -663,15 +682,6 @@ const handleConfirmPlacement = async () => {
                   :to="`/api/staff/cooperative-cycles/${cycleId}/requests/${requestId}/letter`"
                   target="_blank"
                 />
-                <UButton
-                  v-if="canManageLetter"
-                  label="จัดทำฉบับใหม่"
-                  icon="i-lucide-file-pen-line"
-                  color="neutral"
-                  variant="ghost"
-                  size="xl"
-                  @click="openLetterModal"
-                />
               </div>
               <UButton
                 v-if="canManageLetter"
@@ -700,7 +710,7 @@ const handleConfirmPlacement = async () => {
               </div>
 
               <div v-if="canManageLetter" class="grid gap-2">
-                <UButton label="จัดทำหนังสือ" icon="i-lucide-file-pen-line" color="primary" size="xl" class="w-full justify-center" @click="openLetterModal" />
+                <p class="text-center text-xs leading-5 text-muted">กดปุ่ม “ออกเอกสาร” ด้านบนเพื่อระบุเลขที่และวันที่ออกหนังสือ</p>
                 <UButton label="อัปโหลด PDF" icon="i-lucide-upload" color="neutral" variant="outline" size="xl" class="w-full justify-center" :loading="isLetterUploading" @click="triggerLetterUpload" />
               </div>
             </div>
@@ -814,7 +824,8 @@ const handleConfirmPlacement = async () => {
       <template #footer>
         <div class="flex w-full flex-wrap justify-end gap-2">
           <UButton label="ยกเลิก" color="neutral" variant="outline" size="xl" :disabled="isLetterPreviewing || isLetterGenerating" @click="closeLetterModal" />
-          <UButton label="ดูตัวอย่าง" icon="i-lucide-eye" color="neutral" variant="outline" size="xl" :loading="isLetterPreviewing" :disabled="isLetterGenerating" @click="previewLetter" />
+          <UButton label="ดูตัวอย่างในหน้าต่างนี้" icon="i-lucide-eye" color="neutral" variant="outline" size="xl" :loading="isLetterPreviewing" :disabled="isLetterGenerating" @click="previewLetter" />
+          <UButton label="ดูตัวอย่างเต็มหน้า" icon="i-lucide-expand" color="neutral" variant="outline" size="xl" :disabled="isLetterPreviewing || isLetterGenerating" @click="openFullPagePreview" />
           <UButton label="ยืนยันจัดทำหนังสือ" icon="i-lucide-file-check-2" color="primary" size="xl" :loading="isLetterGenerating" :disabled="isLetterPreviewing" @click="generateLetter" />
         </div>
       </template>

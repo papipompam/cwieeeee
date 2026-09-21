@@ -425,6 +425,15 @@ const confirmFeaturedApplication = async () => {
                   </UBadge>
                   <div class="flex flex-wrap gap-2 sm:justify-end">
                     <UButton
+                      v-if="featuredRequest?.letterFilePath"
+                      :to="`/api/student/applications/${featuredApplication.id}/letter`"
+                      target="_blank"
+                      color="primary"
+                      size="xl"
+                      icon="i-lucide-download"
+                      label="ดาวน์โหลดหนังสือ"
+                    />
+                    <UButton
                       v-if="['SUBMITTED', 'AWAITING_RESPONSE', 'INTERVIEW'].includes(featuredApplication.status)"
                       color="primary"
                       size="xl"

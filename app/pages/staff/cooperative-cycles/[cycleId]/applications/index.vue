@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { TableColumn } from '@nuxt/ui'
+import type { InputDateProps, TableColumn } from '@nuxt/ui'
 import type { Ref } from 'vue'
 
 interface StudentUser {
@@ -22,15 +22,12 @@ interface LatestDocument {
 
 interface RequestRow {
   id: number
-  companyApplicationId: number
   status: string
   companyName: string
   position: string | null
   province: string | null
   confirmedAt: string
   letterFilePath: string | null
-  letterOriginalName: string | null
-  letterIssuedAt: string | null
   student: StudentUser
   latestDocument: LatestDocument | null
 }
@@ -52,6 +49,7 @@ interface CooperativeCycle {
 }
 
 const route = useRoute()
+const router = useRouter()
 const cycleId = computed(() => Number(route.params.cycleId))
 const cycle = inject<Ref<CooperativeCycle | null>>('currentCycle')
 const notify = useNotify()
@@ -63,8 +61,14 @@ const searchQuery = ref('')
 const statusFilter = ref<string>('all')
 const classGroupFilter = ref<string>('all')
 
-const uploadingRowId = ref<number | null>(null)
-const fileInputRefs = ref<Record<number, HTMLInputElement | null>>({})
+const selectedRequestForLetter = ref<RequestRow | null>(null)
+const isLetterModalOpen = ref(false)
+const isLetterGenerating = ref(false)
+const letterNumber = ref('')
+const issueDate = shallowRef<InputDateProps<false>['modelValue']>()
+const letterNumberError = ref('')
+const issueDateError = ref('')
+const letterActionError = ref('')
 
 // Fetch class groups for filter dropdown
 const { data: studentsData } = await useFetch<{ students: Array<{ classGroup: number }> }>(
@@ -138,54 +142,64 @@ const formatDate = (dStr?: string | null) => {
   return d.toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' })
 }
 
-const triggerFileInput = (requestId: number) => {
-  if (cycle?.value?.status === 'CLOSED') {
-    notify.warning('รอบสหกิจนี้ปิดแล้ว ไม่สามารถแนบเอกสารได้')
-    return
-  }
-  const input = fileInputRefs.value[requestId]
-  if (input) {
-    input.click()
-  }
+const canGenerateLetter = (request: RequestRow) => (
+  cycle?.value?.status !== 'CLOSED'
+  && ['SUBMITTED', 'STAFF_PROCESSING', 'LETTER_READY', 'DOCUMENT_UNDER_REVIEW', 'RETURNED_FOR_REVISION'].includes(request.status)
+)
+
+const openLetterModal = (request: RequestRow) => {
+  selectedRequestForLetter.value = request
+  letterNumber.value = ''
+  issueDate.value = undefined
+  letterNumberError.value = ''
+  issueDateError.value = ''
+  letterActionError.value = ''
+  isLetterModalOpen.value = true
 }
 
-const setFileInputRef = (id: number) => (el: unknown) => {
-  fileInputRefs.value[id] = el as HTMLInputElement | null
+const getLetterInput = () => {
+  const normalizedLetterNumber = letterNumber.value.trim()
+  const normalizedIssueDate = issueDate.value?.toString()
+  letterNumberError.value = normalizedLetterNumber ? '' : 'กรุณาระบุเลขที่หนังสือ'
+  issueDateError.value = normalizedIssueDate ? '' : 'กรุณาเลือกวันที่ออกหนังสือ'
+  return normalizedLetterNumber && normalizedIssueDate
+    ? { letterNumber: normalizedLetterNumber, issueDate: normalizedIssueDate }
+    : null
 }
 
-const handleFileUpload = async (event: Event, request: RequestRow) => {
-  const target = event.target as HTMLInputElement
-  const file = target.files?.[0]
-  if (!file) return
+const openFullPagePreview = () => {
+  const input = getLetterInput()
+  const request = selectedRequestForLetter.value
+  if (!input || !request) return
 
-  if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
-    notify.error('อนุญาตเฉพาะไฟล์ PDF เท่านั้น')
-    target.value = ''
-    return
-  }
+  const previewRoute = router.resolve({
+    path: `/staff/cooperative-cycles/${cycleId.value}/applications/${request.id}/letter-preview`,
+    query: input
+  })
+  window.open(previewRoute.href, '_blank', 'noopener')
+}
 
-  if (file.size > 10 * 1024 * 1024) {
-    notify.error('ขนาดไฟล์ต้องไม่เกิน 10MB')
-    target.value = ''
-    return
-  }
+const generateLetter = async () => {
+  const input = getLetterInput()
+  const request = selectedRequestForLetter.value
+  if (!input || !request) return
 
-  uploadingRowId.value = request.id
-  const formData = new FormData()
-  formData.append('file', file)
-
+  isLetterGenerating.value = true
+  letterActionError.value = ''
   try {
-    await $fetch(`/api/staff/cooperative-cycles/${cycleId.value}/requests/${request.id}/letter`, {
+    await $fetch(`/api/staff/cooperative-cycles/${cycleId.value}/requests/${request.id}/letter/generate`, {
       method: 'POST',
-      body: formData
+      body: input
     })
-    notify.success(`แนบหนังสือสำหรับ ${request.companyName} สำเร็จ`)
+    notify.success(`ออกหนังสือสำหรับ ${request.companyName} เรียบร้อยแล้ว`)
+    isLetterModalOpen.value = false
     await refresh()
   } catch (err: any) {
-    notify.error(err?.data?.message || err?.message || 'ไม่สามารถแนบไฟล์หนังสือได้')
+    const message = err?.data?.message || 'ไม่สามารถออกหนังสือได้'
+    letterActionError.value = message
+    notify.error(message)
   } finally {
-    uploadingRowId.value = null
-    target.value = ''
+    isLetterGenerating.value = false
   }
 }
 
@@ -220,14 +234,9 @@ const columns: TableColumn<RequestRow>[] = [
     meta: { class: { th: 'w-36 text-center', td: 'w-36 text-center' } }
   },
   {
-    id: 'letter',
-    header: 'หนังสือ',
-    meta: { class: { th: 'w-36 text-center', td: 'w-36 text-center' } }
-  },
-  {
     id: 'actions',
     header: () => h('span', { class: 'block text-right' }, 'จัดการ'),
-    meta: { class: { th: 'w-24 text-end', td: 'w-24 text-end' } }
+    meta: { class: { th: 'w-80 text-end', td: 'w-80 text-end' } }
   }
 ]
 
@@ -442,53 +451,27 @@ const pageEnd = computed(() => {
               <span v-else class="text-muted text-xs">—</span>
             </template>
 
-            <!-- Official Letter Column -->
-            <template #letter-cell="{ row }">
-              <div class="flex items-center justify-center">
-                <!-- Hidden accessible file input -->
-                <input
-                  :ref="setFileInputRef(row.original.id)"
-                  type="file"
-                  accept="application/pdf"
-                  class="sr-only"
-                  :aria-label="`แนบหนังสือขอความอนุเคราะห์สำหรับคำร้องเลขที่ ${row.original.id}`"
-                  @change="handleFileUpload($event, row.original)"
+            <!-- Actions: document actions and detail navigation live together. -->
+            <template #actions-cell="{ row }">
+              <div class="flex items-center justify-end gap-1 whitespace-nowrap">
+                <UButton
+                  v-if="canGenerateLetter(row.original)"
+                  :label="row.original.letterFilePath ? 'ออกฉบับใหม่' : 'ออกเอกสาร'"
+                  icon="i-lucide-file-pen-line"
+                  color="primary"
+                  size="xs"
+                  @click="openLetterModal(row.original)"
                 />
-
-                <!-- Case 1: Has attached letter -->
                 <UButton
                   v-if="row.original.letterFilePath"
-                  label="ดาวน์โหลด"
-                  icon="i-lucide-download"
+                  label="เปิดหนังสือ"
+                  icon="i-lucide-external-link"
                   color="neutral"
                   variant="outline"
                   size="xs"
                   :to="`/api/staff/cooperative-cycles/${cycleId}/requests/${row.original.id}/letter`"
                   target="_blank"
-                  :title="row.original.letterOriginalName || 'ดาวน์โหลดหนังสือ'"
                 />
-
-                <!-- Case 2: No letter & can upload -->
-                <UButton
-                  v-else-if="['SUBMITTED', 'STAFF_PROCESSING'].includes(row.original.status) && cycle?.status !== 'CLOSED'"
-                  label="แนบหนังสือ"
-                  icon="i-lucide-file-up"
-                  color="primary"
-                  variant="subtle"
-                  size="xs"
-                  :loading="uploadingRowId === row.original.id"
-                  :disabled="uploadingRowId !== null"
-                  @click="triggerFileInput(row.original.id)"
-                />
-
-                <!-- Case 3: Other states with no file -->
-                <span v-else class="text-muted text-xs">—</span>
-              </div>
-            </template>
-
-            <!-- Action Button: ดูคำร้อง -->
-            <template #actions-cell="{ row }">
-              <div class="flex items-center justify-end gap-1 whitespace-nowrap">
                 <UButton
                   label="ดูคำร้อง"
                   icon="i-lucide-arrow-right"
@@ -528,5 +511,36 @@ const pageEnd = computed(() => {
         </div>
       </template>
     </UCard>
+
+    <UModal
+      v-model:open="isLetterModalOpen"
+      title="ออกหนังสือขอความอนุเคราะห์"
+      :description="selectedRequestForLetter ? `สำหรับ ${selectedRequestForLetter.student.prefix}${selectedRequestForLetter.student.firstName} ${selectedRequestForLetter.student.lastName} · ${selectedRequestForLetter.companyName}` : undefined"
+      :ui="{ content: 'max-w-2xl' }"
+    >
+      <template #body>
+        <UForm class="grid gap-5" @submit.prevent="generateLetter">
+          <UFormField label="เลขที่หนังสือ" required :error="letterNumberError">
+            <UInput v-model="letterNumber" class="w-full" size="xl" placeholder="เช่น อว ๐๖๒๔.๖/๑๒๓" autocomplete="off" />
+          </UFormField>
+          <UFormField label="วันที่ออกหนังสือ" required :error="issueDateError">
+            <UPopover>
+              <UInputDate v-model="issueDate" class="w-full" size="xl" locale="th-TH" aria-label="Select a date" />
+              <template #content>
+                <UCalendar v-model="issueDate" locale="th-TH" />
+              </template>
+            </UPopover>
+          </UFormField>
+          <UAlert v-if="letterActionError" color="error" icon="i-lucide-circle-alert" title="ไม่สามารถออกเอกสารได้" :description="letterActionError" />
+        </UForm>
+      </template>
+      <template #footer>
+        <div class="flex w-full flex-wrap justify-end gap-2">
+          <UButton label="ยกเลิก" color="neutral" variant="outline" size="xl" :disabled="isLetterGenerating" @click="isLetterModalOpen = false" />
+          <UButton label="ดูตัวอย่างเต็มหน้า" icon="i-lucide-expand" color="neutral" variant="outline" size="xl" :disabled="isLetterGenerating" @click="openFullPagePreview" />
+          <UButton label="ยืนยันออกเอกสาร" icon="i-lucide-file-check-2" color="primary" size="xl" :loading="isLetterGenerating" @click="generateLetter" />
+        </div>
+      </template>
+    </UModal>
   </div>
 </template>

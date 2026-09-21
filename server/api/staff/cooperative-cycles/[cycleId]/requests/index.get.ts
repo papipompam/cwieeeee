@@ -62,15 +62,12 @@ export default defineEventHandler(async (event) => {
   return {
     requests: requests.map(r => ({
       id: r.id,
-      companyApplicationId: r.companyApplicationId,
       status: r.status,
       companyName: r.companyName,
       position: r.position,
       province: r.province,
       confirmedAt: r.confirmedAt,
       letterFilePath: r.letterFilePath,
-      letterOriginalName: r.letterOriginalName,
-      letterIssuedAt: r.letterIssuedAt,
       student: r.companyApplication.studentUser,
       latestDocument: r.documents[0] || null
     })),
