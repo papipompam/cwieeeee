@@ -50,35 +50,41 @@ enum DocumentStatus {
   SUPERSEDED
 }
 
+enum RequestLetterSource {
+  GENERATED
+  UPLOADED
+}
+
 model User {
-  id                  Int                  @id @default(autoincrement())
-  loginId             String               @unique @map("login_id")
-  passwordHash        String               @map("password_hash")
-  role                UserRole
-  prefix              String
-  firstName           String               @map("first_name")
-  lastName            String               @map("last_name")
+  id                             Int                             @id @default(autoincrement())
+  loginId                        String                          @unique @map("login_id")
+  passwordHash                   String                          @map("password_hash")
+  role                           UserRole
+  prefix                         String
+  firstName                      String                          @map("first_name")
+  lastName                       String                          @map("last_name")
   // Used only by teacher records; student records are constrained to NULL in migration.
-  gender              String?
-  phone               String?
-  cohortYear          Int?                 @map("cohort_year")
-  classGroup          Int?                 @map("class_group")
-  isActive            Boolean              @default(true) @map("is_active")
-  mustChangePassword  Boolean              @default(false) @map("must_change_password")
-  sessions            AuthSession[]
-  companyApplications CompanyApplication[]
-  cycleEnrollments    CooperativeCycleEnrollment[]
-  notifications       Notification[]
-  supervisionVisits   SupervisionVisit[]
-  supervisionGroupTeachers SupervisionGroupTeacher[]
+  gender                         String?
+  phone                          String?
+  cohortYear                     Int?                            @map("cohort_year")
+  classGroup                     Int?                            @map("class_group")
+  isActive                       Boolean                         @default(true) @map("is_active")
+  mustChangePassword             Boolean                         @default(false) @map("must_change_password")
+  sessions                       AuthSession[]
+  companyApplications            CompanyApplication[]
+  cycleEnrollments               CooperativeCycleEnrollment[]
+  notifications                  Notification[]
+  supervisionVisits              SupervisionVisit[]
+  supervisionGroupTeachers       SupervisionGroupTeacher[]
   supervisionAppointmentStudents SupervisionAppointmentStudent[]
   supervisionAppointmentTeachers SupervisionAppointmentTeacher[]
-  supervisionTravelTravellers SupervisionTravelTraveller[]
-  studentEvaluationsGiven StudentEvaluation[] @relation("student_evaluation_teacher")
-  studentEvaluationsReceived StudentEvaluation[] @relation("student_evaluation_student")
-  companyEvaluations CompanyEvaluation[]
-  createdAt           DateTime             @default(now()) @map("created_at")
-  updatedAt           DateTime             @updatedAt @map("updated_at")
+  supervisionTravelTravellers    SupervisionTravelTraveller[]
+  studentEvaluationsGiven        StudentEvaluation[]             @relation("student_evaluation_teacher")
+  studentEvaluationsReceived     StudentEvaluation[]             @relation("student_evaluation_student")
+  companyEvaluations             CompanyEvaluation[]
+  issuedRequestLetters           RequestLetterVersion[]          @relation("request_letter_issued_by")
+  createdAt                      DateTime                        @default(now()) @map("created_at")
+  updatedAt                      DateTime                        @updatedAt @map("updated_at")
 
   @@index([role, isActive])
   @@index([role, cohortYear, classGroup])
@@ -98,22 +104,23 @@ model AuthSession {
 }
 
 model CooperativeCycle {
-  id                   Int                    @id @default(autoincrement())
+  id                   Int                          @id @default(autoincrement())
   term                 Int
-  academicYear         Int                    @map("academic_year")
-  cohortYear           Int                    @map("cohort_year")
-  applicationStartDate DateTime               @map("application_start_date") @db.Date
-  applicationEndDate   DateTime               @map("application_end_date") @db.Date
-  internshipStartDate  DateTime               @map("internship_start_date") @db.Date
-  internshipEndDate    DateTime               @map("internship_end_date") @db.Date
-  status               CooperativeCycleStatus @default(OPEN_FOR_APPLICATION)
+  academicYear         Int                          @map("academic_year")
+  cohortYear           Int                          @map("cohort_year")
+  applicationStartDate DateTime                     @map("application_start_date") @db.Date
+  applicationEndDate   DateTime                     @map("application_end_date") @db.Date
+  internshipStartDate  DateTime                     @map("internship_start_date") @db.Date
+  internshipEndDate    DateTime                     @map("internship_end_date") @db.Date
+  internshipHours      Int?                         @map("internship_hours")
+  status               CooperativeCycleStatus       @default(OPEN_FOR_APPLICATION)
   note                 String?
   companyApplications  CompanyApplication[]
   enrollments          CooperativeCycleEnrollment[]
   supervisionVisits    SupervisionVisit[]
   supervisionRounds    SupervisionRound[]
-  createdAt            DateTime               @default(now()) @map("created_at")
-  updatedAt            DateTime               @updatedAt @map("updated_at")
+  createdAt            DateTime                     @default(now()) @map("created_at")
+  updatedAt            DateTime                     @updatedAt @map("updated_at")
 
   @@unique([term, academicYear], name: "term_academicYear")
   @@map("cooperative_cycles")
@@ -133,29 +140,29 @@ model CooperativeCycleEnrollment {
 }
 
 model Company {
-  id                  Int                  @id @default(autoincrement())
-  name                String
-  contactPerson       String               @map("contact_person")
-  phone               String?
-  email               String?
-  addressNo           String               @map("address_no")
-  moo                 String?
-  soi                 String?
-  street              String?
-  subdistrict         String
-  district            String
-  province            String
-  postalCode          String               @map("postal_code")
-  latitude            Float?
-  longitude           Float?
-  travelNote          String?              @map("travel_note")
-  isActive            Boolean              @default(true) @map("is_active")
-  companyIdentityKey  String               @unique @map("company_identity_key")
-  companyApplications CompanyApplication[]
+  id                        Int                       @id @default(autoincrement())
+  name                      String
+  contactPerson             String                    @map("contact_person")
+  phone                     String?
+  email                     String?
+  addressNo                 String                    @map("address_no")
+  moo                       String?
+  soi                       String?
+  street                    String?
+  subdistrict               String
+  district                  String
+  province                  String
+  postalCode                String                    @map("postal_code")
+  latitude                  Float?
+  longitude                 Float?
+  travelNote                String?                   @map("travel_note")
+  isActive                  Boolean                   @default(true) @map("is_active")
+  companyIdentityKey        String                    @unique @map("company_identity_key")
+  companyApplications       CompanyApplication[]
   supervisionGroupCompanies SupervisionGroupCompany[]
-  supervisionAppointments SupervisionAppointment[]
-  createdAt           DateTime             @default(now()) @map("created_at")
-  updatedAt           DateTime             @updatedAt @map("updated_at")
+  supervisionAppointments   SupervisionAppointment[]
+  createdAt                 DateTime                  @default(now()) @map("created_at")
+  updatedAt                 DateTime                  @updatedAt @map("updated_at")
 
   @@map("companies")
 }
@@ -189,35 +196,36 @@ model CompanyApplication {
 }
 
 model CooperativeRequest {
-  id                         Int                      @id @default(autoincrement())
-  companyApplicationId       Int                      @unique @map("company_application_id")
-  companyApplication        CompanyApplication       @relation(fields: [companyApplicationId], references: [id], onDelete: Cascade)
-  status                     CooperativeRequestStatus @default(SUBMITTED)
-  companyName                String                   @map("company_name")
-  internshipLocationName     String?                  @map("internship_location_name")
-  position                   String?
-  address                    String?
-  province                   String?
-  latitude                   Float?
-  longitude                  Float?
-  recipientName              String?                  @map("recipient_name")
-  recipientPosition          String?                  @map("recipient_position")
-  letterAddress              String?                  @map("letter_address")
-  appliedAt                  DateTime?                @map("applied_at") @db.Date
-  confirmedAt                DateTime                 @default(now()) @map("confirmed_at")
-  returnedReason             String?                  @map("returned_reason")
-  rejectedReason             String?                  @map("rejected_reason")
-  studentNote                String?                  @map("student_note")
-  letterFilePath             String?                  @map("letter_file_path")
-  letterOriginalName         String?                  @map("letter_original_name")
-  letterIssuedAt             DateTime?                @map("letter_issued_at")
-  signedDocumentPath         String?                  @map("signed_document_path")
-  signedDocumentOriginalName String?                  @map("signed_document_original_name")
-  signedDocumentSubmittedAt  DateTime?                @map("signed_document_submitted_at")
-  documents                  RequestDocument[]
+  id                             Int                             @id @default(autoincrement())
+  companyApplicationId           Int                             @unique @map("company_application_id")
+  companyApplication             CompanyApplication              @relation(fields: [companyApplicationId], references: [id], onDelete: Cascade)
+  status                         CooperativeRequestStatus        @default(SUBMITTED)
+  companyName                    String                          @map("company_name")
+  internshipLocationName         String?                         @map("internship_location_name")
+  position                       String?
+  address                        String?
+  province                       String?
+  latitude                       Float?
+  longitude                      Float?
+  recipientName                  String?                         @map("recipient_name")
+  recipientPosition              String?                         @map("recipient_position")
+  letterAddress                  String?                         @map("letter_address")
+  appliedAt                      DateTime?                       @map("applied_at") @db.Date
+  confirmedAt                    DateTime                        @default(now()) @map("confirmed_at")
+  returnedReason                 String?                         @map("returned_reason")
+  rejectedReason                 String?                         @map("rejected_reason")
+  studentNote                    String?                         @map("student_note")
+  letterFilePath                 String?                         @map("letter_file_path")
+  letterOriginalName             String?                         @map("letter_original_name")
+  letterIssuedAt                 DateTime?                       @map("letter_issued_at")
+  signedDocumentPath             String?                         @map("signed_document_path")
+  signedDocumentOriginalName     String?                         @map("signed_document_original_name")
+  signedDocumentSubmittedAt      DateTime?                       @map("signed_document_submitted_at")
+  documents                      RequestDocument[]
+  letterVersions                 RequestLetterVersion[]
   supervisionAppointmentStudents SupervisionAppointmentStudent[]
-  createdAt                  DateTime                 @default(now()) @map("created_at")
-  updatedAt                  DateTime                 @updatedAt @map("updated_at")
+  createdAt                      DateTime                        @default(now()) @map("created_at")
+  updatedAt                      DateTime                        @updatedAt @map("updated_at")
 
   @@map("cooperative_requests")
 }
@@ -238,9 +246,37 @@ model RequestDocument {
   createdAt            DateTime           @default(now()) @map("created_at")
   updatedAt            DateTime           @updatedAt @map("updated_at")
 
-  @@index([cooperativeRequestId])
   @@unique([cooperativeRequestId, version], name: "request_document_version")
+  @@index([cooperativeRequestId])
   @@map("request_documents")
+}
+
+model RequestLetterVersion {
+  id                   Int                 @id @default(autoincrement())
+  cooperativeRequestId Int                 @map("cooperative_request_id")
+  cooperativeRequest   CooperativeRequest  @relation(fields: [cooperativeRequestId], references: [id], onDelete: Cascade)
+  version              Int                 @default(1)
+  source               RequestLetterSource @default(GENERATED)
+  fileName             String              @map("file_name")
+  filePath             String              @map("file_path")
+  fileSize             Int                 @map("file_size")
+  sha256               String
+  letterNumber         String?             @map("letter_number")
+  issueDate            DateTime?           @map("issue_date") @db.Date
+  templateVersion      String?             @map("template_version")
+  signerName           String?             @map("signer_name")
+  signerTitle          String?             @map("signer_title")
+  issuedByUserId       Int?                @map("issued_by_user_id")
+  issuedByUser         User?               @relation("request_letter_issued_by", fields: [issuedByUserId], references: [id], onDelete: SetNull)
+  isActive             Boolean             @default(true) @map("is_active")
+  supersededAt         DateTime?           @map("superseded_at")
+  createdAt            DateTime            @default(now()) @map("created_at")
+  updatedAt            DateTime            @updatedAt @map("updated_at")
+
+  @@unique([cooperativeRequestId, version], name: "request_letter_version")
+  @@index([cooperativeRequestId, isActive])
+  @@index([issuedByUserId])
+  @@map("request_letter_versions")
 }
 
 model Notification {
@@ -291,36 +327,36 @@ enum SupervisionAppointmentStatus {
 }
 
 model SupervisionRound {
-  id                 Int                    @id @default(autoincrement())
-  cooperativeCycleId Int                    @map("cooperative_cycle_id")
-  cooperativeCycle   CooperativeCycle       @relation(fields: [cooperativeCycleId], references: [id], onDelete: Cascade)
-  roundNo            Int                    @default(1) @map("round_no")
+  id                 Int                       @id @default(autoincrement())
+  cooperativeCycleId Int                       @map("cooperative_cycle_id")
+  cooperativeCycle   CooperativeCycle          @relation(fields: [cooperativeCycleId], references: [id], onDelete: Cascade)
+  roundNo            Int                       @default(1) @map("round_no")
   name               String?
-  status             SupervisionRoundStatus @default(PUBLISHED)
+  status             SupervisionRoundStatus    @default(PUBLISHED)
   groups             SupervisionGroup[]
   groupCompanies     SupervisionGroupCompany[]
   groupTeachers      SupervisionGroupTeacher[]
   appointments       SupervisionAppointment[]
   travelPlans        SupervisionTravelPlan[]
-  createdAt          DateTime               @default(now()) @map("created_at")
-  updatedAt          DateTime               @updatedAt @map("updated_at")
+  createdAt          DateTime                  @default(now()) @map("created_at")
+  updatedAt          DateTime                  @updatedAt @map("updated_at")
 
   @@unique([cooperativeCycleId, roundNo], name: "cycle_roundNo")
   @@map("supervision_rounds")
 }
 
 model SupervisionGroup {
-  id                 Int                        @id @default(autoincrement())
-  supervisionRoundId Int                        @map("supervision_round_id")
-  supervisionRound   SupervisionRound           @relation(fields: [supervisionRoundId], references: [id], onDelete: Cascade)
+  id                 Int                       @id @default(autoincrement())
+  supervisionRoundId Int                       @map("supervision_round_id")
+  supervisionRound   SupervisionRound          @relation(fields: [supervisionRoundId], references: [id], onDelete: Cascade)
   name               String
   note               String?
   companies          SupervisionGroupCompany[]
   teachers           SupervisionGroupTeacher[]
   appointments       SupervisionAppointment[]
   travelPlans        SupervisionTravelPlan[]
-  createdAt          DateTime                   @default(now()) @map("created_at")
-  updatedAt          DateTime                   @updatedAt @map("updated_at")
+  createdAt          DateTime                  @default(now()) @map("created_at")
+  updatedAt          DateTime                  @updatedAt @map("updated_at")
 
   @@unique([supervisionRoundId, name], name: "round_group_name")
   @@map("supervision_groups")
@@ -357,35 +393,35 @@ model SupervisionGroupTeacher {
 }
 
 model SupervisionAppointment {
-  id                 Int                          @id @default(autoincrement())
-  supervisionRoundId Int                          @map("supervision_round_id")
-  supervisionRound   SupervisionRound             @relation(fields: [supervisionRoundId], references: [id], onDelete: Cascade)
-  supervisionGroupId Int                          @map("supervision_group_id")
-  supervisionGroup   SupervisionGroup             @relation(fields: [supervisionGroupId], references: [id], onDelete: Cascade)
-  companyId          Int                          @map("company_id")
-  company            Company                      @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  companyName        String                       @map("company_name")
-  companyAddress     String?                      @map("company_address")
+  id                 Int                             @id @default(autoincrement())
+  supervisionRoundId Int                             @map("supervision_round_id")
+  supervisionRound   SupervisionRound                @relation(fields: [supervisionRoundId], references: [id], onDelete: Cascade)
+  supervisionGroupId Int                             @map("supervision_group_id")
+  supervisionGroup   SupervisionGroup                @relation(fields: [supervisionGroupId], references: [id], onDelete: Cascade)
+  companyId          Int                             @map("company_id")
+  company            Company                         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  companyName        String                          @map("company_name")
+  companyAddress     String?                         @map("company_address")
   province           String?
   latitude           Float?
   longitude          Float?
-  scheduledDate      DateTime                     @map("scheduled_date") @db.Date
-  period             String                       @default("MORNING")
-  timeNote           String?                      @map("time_note")
-  status             SupervisionAppointmentStatus @default(PUBLISHED)
-  changeReason       String?                      @map("change_reason")
-  cancelReason       String?                      @map("cancel_reason")
-  publishedAt        DateTime?                    @map("published_at")
-  evaluationNote     String?                      @map("evaluation_note")
-  evaluatedAt        DateTime?                    @map("evaluated_at")
+  scheduledDate      DateTime                        @map("scheduled_date") @db.Date
+  period             String                          @default("MORNING")
+  timeNote           String?                         @map("time_note")
+  status             SupervisionAppointmentStatus    @default(PUBLISHED)
+  changeReason       String?                         @map("change_reason")
+  cancelReason       String?                         @map("cancel_reason")
+  publishedAt        DateTime?                       @map("published_at")
+  evaluationNote     String?                         @map("evaluation_note")
+  evaluatedAt        DateTime?                       @map("evaluated_at")
   students           SupervisionAppointmentStudent[]
   teachers           SupervisionAppointmentTeacher[]
   travelStops        SupervisionTravelStop[]
   studentEvaluations StudentEvaluation[]
   companyEvaluations CompanyEvaluation[]
   photos             SupervisionAppointmentPhoto[]
-  createdAt          DateTime                     @default(now()) @map("created_at")
-  updatedAt          DateTime                     @updatedAt @map("updated_at")
+  createdAt          DateTime                        @default(now()) @map("created_at")
+  updatedAt          DateTime                        @updatedAt @map("updated_at")
 
   @@unique([supervisionRoundId, companyId], name: "round_appointment_company")
   @@index([supervisionGroupId])
@@ -435,26 +471,26 @@ model SupervisionAppointmentTeacher {
 }
 
 model StudentEvaluation {
-  id                  Int                     @id @default(autoincrement())
-  appointmentId       Int                     @map("appointment_id")
-  appointment         SupervisionAppointment  @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
-  studentUserId       Int                     @map("student_user_id")
-  studentUser         User                    @relation("student_evaluation_student", fields: [studentUserId], references: [id], onDelete: Cascade)
-  teacherUserId       Int                     @map("teacher_user_id")
-  teacherUser         User                    @relation("student_evaluation_teacher", fields: [teacherUserId], references: [id], onDelete: Cascade)
-  responsibilityScore Int?                    @map("responsibility_score")
-  disciplineScore     Int?                    @map("discipline_score")
-  communicationScore  Int?                    @map("communication_score")
-  knowledgeScore      Int?                    @map("knowledge_score")
-  workQualityScore    Int?                    @map("work_quality_score")
-  problemSolvingScore Int?                    @map("problem_solving_score")
+  id                  Int                    @id @default(autoincrement())
+  appointmentId       Int                    @map("appointment_id")
+  appointment         SupervisionAppointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  studentUserId       Int                    @map("student_user_id")
+  studentUser         User                   @relation("student_evaluation_student", fields: [studentUserId], references: [id], onDelete: Cascade)
+  teacherUserId       Int                    @map("teacher_user_id")
+  teacherUser         User                   @relation("student_evaluation_teacher", fields: [teacherUserId], references: [id], onDelete: Cascade)
+  responsibilityScore Int?                   @map("responsibility_score")
+  disciplineScore     Int?                   @map("discipline_score")
+  communicationScore  Int?                   @map("communication_score")
+  knowledgeScore      Int?                   @map("knowledge_score")
+  workQualityScore    Int?                   @map("work_quality_score")
+  problemSolvingScore Int?                   @map("problem_solving_score")
   strengths           String?
   problems            String?
   recommendations     String?
-  followUp            String?                 @map("follow_up")
-  submittedAt         DateTime                 @default(now()) @map("submitted_at")
-  createdAt           DateTime                @default(now()) @map("created_at")
-  updatedAt           DateTime                @updatedAt @map("updated_at")
+  followUp            String?                @map("follow_up")
+  submittedAt         DateTime               @default(now()) @map("submitted_at")
+  createdAt           DateTime               @default(now()) @map("created_at")
+  updatedAt           DateTime               @updatedAt @map("updated_at")
 
   @@unique([appointmentId, studentUserId, teacherUserId], name: "appointment_student_teacher")
   @@index([teacherUserId])
@@ -463,32 +499,32 @@ model StudentEvaluation {
 }
 
 model CompanyEvaluation {
-  id                     Int                     @id @default(autoincrement())
-  appointmentId          Int                     @map("appointment_id")
-  appointment            SupervisionAppointment  @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
-  teacherUserId          Int                     @map("teacher_user_id")
-  teacherUser            User                    @relation(fields: [teacherUserId], references: [id], onDelete: Cascade)
-  workAlignmentScore     Int?                    @map("work_alignment_score")
-  workScopeScore         Int?                    @map("work_scope_score")
-  learningOpportunityScore Int?                  @map("learning_opportunity_score")
-  supervisorReadinessScore Int?                  @map("supervisor_readiness_score")
-  studentSupportScore    Int?                    @map("student_support_score")
-  environmentScore       Int?                    @map("environment_score")
-  safetyScore            Int?                    @map("safety_score")
-  resourcesScore         Int?                    @map("resources_score")
-  welfareScore           Int?                    @map("welfare_score")
-  travelScore            Int?                    @map("travel_score")
-  transportScore         Int?                    @map("transport_score")
-  accommodationScore     Int?                    @map("accommodation_score")
-  coordinationScore      Int?                    @map("coordination_score")
-  observations           String?
-  companyNeeds           String?                 @map("company_needs")
-  problems               String?
-  recommendations        String?
-  futureRecommendation   String?                 @map("future_recommendation")
-  submittedAt            DateTime                 @default(now()) @map("submitted_at")
-  createdAt              DateTime                @default(now()) @map("created_at")
-  updatedAt              DateTime                @updatedAt @map("updated_at")
+  id                       Int                    @id @default(autoincrement())
+  appointmentId            Int                    @map("appointment_id")
+  appointment              SupervisionAppointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  teacherUserId            Int                    @map("teacher_user_id")
+  teacherUser              User                   @relation(fields: [teacherUserId], references: [id], onDelete: Cascade)
+  workAlignmentScore       Int?                   @map("work_alignment_score")
+  workScopeScore           Int?                   @map("work_scope_score")
+  learningOpportunityScore Int?                   @map("learning_opportunity_score")
+  supervisorReadinessScore Int?                   @map("supervisor_readiness_score")
+  studentSupportScore      Int?                   @map("student_support_score")
+  environmentScore         Int?                   @map("environment_score")
+  safetyScore              Int?                   @map("safety_score")
+  resourcesScore           Int?                   @map("resources_score")
+  welfareScore             Int?                   @map("welfare_score")
+  travelScore              Int?                   @map("travel_score")
+  transportScore           Int?                   @map("transport_score")
+  accommodationScore       Int?                   @map("accommodation_score")
+  coordinationScore        Int?                   @map("coordination_score")
+  observations             String?
+  companyNeeds             String?                @map("company_needs")
+  problems                 String?
+  recommendations          String?
+  futureRecommendation     String?                @map("future_recommendation")
+  submittedAt              DateTime               @default(now()) @map("submitted_at")
+  createdAt                DateTime               @default(now()) @map("created_at")
+  updatedAt                DateTime               @updatedAt @map("updated_at")
 
   @@unique([appointmentId, teacherUserId], name: "appointment_teacher_company_evaluation")
   @@index([teacherUserId])
