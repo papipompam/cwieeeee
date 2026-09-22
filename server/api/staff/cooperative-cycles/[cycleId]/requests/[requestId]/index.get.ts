@@ -36,8 +36,13 @@ export default defineEventHandler(async (event) => {
     }
   })
 
+  const groupDocument = activeLetterVersion
+    ? await prisma.requestDocument.findFirst({ where: { requestLetterVersion: { isActive: true, participants: { some: { cooperativeRequestId: request.id } } } }, orderBy: { version: 'desc' } })
+    : null
+
   return {
     ...request,
+    documents: groupDocument ? [groupDocument] : request.documents,
     activeLetterVersion,
     activeSendingLetterVersion,
     letterCycle: {

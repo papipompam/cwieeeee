@@ -60,10 +60,19 @@ export default defineEventHandler(async (event) => {
       },
       documents: {
         orderBy: { version: 'desc' }
+      },
+      requestLetterParticipations: {
+        where: { requestLetterVersion: { isActive: true } },
+        include: { requestLetterVersion: { include: { responseDocuments: { orderBy: { version: 'desc' }, take: 1 } } } },
+        take: 1
       }
     },
     orderBy: { confirmedAt: 'desc' }
   })
+
+  if (latestRequest?.requestLetterParticipations[0]?.requestLetterVersion.responseDocuments[0]) {
+    latestRequest.documents = latestRequest.requestLetterParticipations[0].requestLetterVersion.responseDocuments
+  }
 
   // Confirmed placement
   const placement = latestRequest?.status === 'PLACEMENT_CONFIRMED'

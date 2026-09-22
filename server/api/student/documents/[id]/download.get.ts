@@ -11,11 +11,10 @@ export default defineEventHandler(async (event) => {
   const doc = await prisma.requestDocument.findFirst({
     where: {
       id,
-      cooperativeRequest: {
-        companyApplication: {
-          studentUserId: user.id
-        }
-      }
+      OR: [
+        { cooperativeRequest: { companyApplication: { studentUserId: user.id } } },
+        { requestLetterVersion: { participants: { some: { cooperativeRequest: { companyApplication: { studentUserId: user.id } } } } } }
+      ]
     }
   })
 

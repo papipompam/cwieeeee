@@ -39,6 +39,12 @@ export default defineEventHandler(async (event) => {
       company: true,
       cooperativeRequest: {
         include: {
+          documents: { orderBy: { version: 'desc' }, take: 1 },
+          requestLetterParticipations: {
+            where: { requestLetterVersion: { isActive: true } },
+            include: { requestLetterVersion: { include: { responseDocuments: { orderBy: { version: 'desc' }, take: 1 } } } },
+            take: 1
+          },
           sendingLetterParticipations: {
             where: { sendingLetterVersion: { isActive: true } },
             take: 1,
@@ -62,5 +68,9 @@ export default defineEventHandler(async (event) => {
     ]
   })
 
-  return applications
+  return applications.map(application => {
+    const request = application.cooperativeRequest
+    const groupDocument = request?.requestLetterParticipations[0]?.requestLetterVersion.responseDocuments[0] || null
+    return request ? { ...application, cooperativeRequest: { ...request, documents: groupDocument ? [groupDocument] : request.documents } } : application
+  })
 })

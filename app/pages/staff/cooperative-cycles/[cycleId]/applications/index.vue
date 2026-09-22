@@ -49,8 +49,8 @@ interface CooperativeCycle {
   cohortYear: number
   status: string
 }
-interface DocumentCandidate { id: number, companyName: string, recipientName: string | null, student: StudentUser }
-interface CompanyGroup { companyName: string, requests: RequestRow[], issued: number }
+interface DocumentCandidate { id: number, companyId: number, companyName: string, recipientName: string | null, student: StudentUser }
+interface CompanyGroup { companyId: number, companyName: string, applicantCount: number, confirmedCount: number, inProgressCount: number, pendingCount: number, issuedCount: number, documentRequestId: number | null, latestResponseStatus: string | null, students: string[] }
 
 const route = useRoute()
 const router = useRouter()
@@ -82,40 +82,49 @@ const letterActionError = ref('')
 const isGroupModalOpen = ref(false)
 const groupCandidates = ref<DocumentCandidate[]>([])
 const selectedCompany = ref('')
+const selectedCompanyId = ref<number | null>(null)
 const selectedGroupRequestIds = ref<number[]>([])
 const groupCandidatesLoading = ref(false)
 const groupLoading = ref(false)
 const groupError = ref('')
+const groupLetterNumber = ref('')
+const selectedCompanyDocuments = ref<CompanyGroup | null>(null)
+const isCompanyDocumentsOpen = ref(false)
+const isGroupPreviewOpen = ref(false)
+const groupPreviewUrl = ref<string | null>(null)
+const groupPreviewLoading = ref(false)
 let groupCandidateLoad = 0
-const visibleGroupCandidates = computed(() => groupCandidates.value.filter(item => item.companyName === selectedCompany.value))
-const companyGroups = computed<CompanyGroup[]>(() => Object.values((data.value?.requests ?? []).reduce((groups, request) => {
-  const group = groups[request.companyName] ?? { companyName: request.companyName, requests: [], issued: 0 }
-  group.requests.push(request)
-  if (request.letterFilePath) group.issued++
-  groups[request.companyName] = group
-  return groups
-}, {} as Record<string, CompanyGroup>)))
+const visibleGroupCandidates = computed(() => groupCandidates.value.filter(item => item.companyId === selectedCompanyId.value))
+const { data: companyGroupsData, refresh: refreshCompanyGroups } = await useFetch<CompanyGroup[]>(() => `/api/staff/cooperative-cycles/${cycleId.value}/document-groups/companies`)
+const companyGroups = computed(() => companyGroupsData.value || [])
 const companyGroupColumns: TableColumn<CompanyGroup>[] = [
   { accessorKey: 'companyName', header: 'สถานประกอบการ' },
-  { id: 'students', header: 'ผู้สมัคร', meta: { class: { th: 'w-24 text-center', td: 'w-24 text-center' } } },
+  { id: 'students', header: 'ผู้สมัคร', meta: { class: { th: 'w-36 text-center', td: 'w-36 text-center' } } },
   { id: 'pending', header: 'ยังไม่ออกเอกสาร', meta: { class: { th: 'w-36 text-center', td: 'w-36 text-center' } } },
   { id: 'issued', header: 'ออกแล้ว', meta: { class: { th: 'w-24 text-center', td: 'w-24 text-center' } } },
+  { id: 'documents', header: 'เอกสาร', meta: { class: { th: 'w-36 text-center', td: 'w-36 text-center' } } },
   { id: 'actions', header: () => h('span', { class: 'block text-right' }, 'จัดการ'), meta: { class: { th: 'w-36 text-end', td: 'w-36 text-end' } } }
 ]
-const openGroupModal = async (companyName: string) => {
+const openGroupModal = async (company: CompanyGroup) => {
   const loadId = ++groupCandidateLoad
-  selectedCompany.value = companyName
+  selectedCompany.value = company.companyName
+  selectedCompanyId.value = company.companyId
   selectedGroupRequestIds.value = []
   groupCandidates.value = []
   groupError.value = ''
   issueDateError.value = ''
   issueDate.value = today(getLocalTimeZone())
+  groupLetterNumber.value = ''
   isGroupModalOpen.value = true
   groupCandidatesLoading.value = true
   try {
-    const candidates = await $fetch<DocumentCandidate[]>(`/api/staff/cooperative-cycles/${cycleId.value}/document-groups/candidates`)
+    const [candidates, suggested] = await Promise.all([
+      $fetch<DocumentCandidate[]>(`/api/staff/cooperative-cycles/${cycleId.value}/document-groups/candidates`, { query: { companyId: company.companyId } }),
+      $fetch<{ letterNumber: string }>(`/api/staff/cooperative-cycles/${cycleId.value}/document-groups/next-letter-number`)
+    ])
     if (loadId !== groupCandidateLoad || !isGroupModalOpen.value) return
     groupCandidates.value = candidates
+    groupLetterNumber.value = suggested.letterNumber
     selectedGroupRequestIds.value = visibleGroupCandidates.value.slice(0, 6).map(candidate => candidate.id)
   } catch (error: any) {
     if (loadId === groupCandidateLoad && isGroupModalOpen.value) groupError.value = error?.data?.message || 'ไม่สามารถโหลดรายชื่อนักศึกษาได้'
@@ -124,6 +133,7 @@ const openGroupModal = async (companyName: string) => {
   }
 }
 const toggleGroupRequest = (id: number) => { selectedGroupRequestIds.value = selectedGroupRequestIds.value.includes(id) ? selectedGroupRequestIds.value.filter(value => value !== id) : [...selectedGroupRequestIds.value, id] }
+const openCompanyDocuments = (company: CompanyGroup) => { selectedCompanyDocuments.value = company; isCompanyDocumentsOpen.value = true }
 const generateGroupLetter = async () => {
   if (groupLoading.value || groupCandidatesLoading.value) return
   const selectedDate = issueDate.value?.toString()
@@ -132,15 +142,39 @@ const generateGroupLetter = async () => {
   if (!selectedDate || groupError.value) return
   groupLoading.value = true
   try {
-    await $fetch(`/api/staff/cooperative-cycles/${cycleId.value}/document-groups/request-letter`, { method: 'POST', body: { issueDate: selectedDate, requestIds: selectedGroupRequestIds.value } })
+    await $fetch(`/api/staff/cooperative-cycles/${cycleId.value}/document-groups/request-letter`, { method: 'POST', body: { issueDate: selectedDate, letterNumber: groupLetterNumber.value, requestIds: selectedGroupRequestIds.value } })
     notify.success('ออกหนังสือขอความอนุเคราะห์รวมเรียบร้อยแล้ว')
+    closeGroupPreview()
     isGroupModalOpen.value = false
-    await refresh()
+    await Promise.all([refresh(), refreshCompanyGroups()])
   } catch (error: any) {
     groupError.value = error?.data?.message || 'ไม่สามารถออกเอกสารได้'
   } finally {
     groupLoading.value = false
   }
+}
+const openGroupPreview = async () => {
+  const selectedDate = issueDate.value?.toString()
+  issueDateError.value = selectedDate ? '' : 'กรุณาเลือกวันที่ออกหนังสือ'
+  groupError.value = selectedGroupRequestIds.value.length ? '' : 'กรุณาเลือกนักศึกษาอย่างน้อย 1 คน'
+  if (!selectedDate || !groupLetterNumber.value.trim() || groupError.value) return
+  groupPreviewLoading.value = true
+  groupError.value = ''
+  try {
+    const pdf = await $fetch<Blob>(`/api/staff/cooperative-cycles/${cycleId.value}/document-groups/request-letter/preview`, { method: 'POST', body: { issueDate: selectedDate, letterNumber: groupLetterNumber.value, requestIds: selectedGroupRequestIds.value }, responseType: 'blob' })
+    if (groupPreviewUrl.value) URL.revokeObjectURL(groupPreviewUrl.value)
+    groupPreviewUrl.value = URL.createObjectURL(pdf)
+    isGroupPreviewOpen.value = true
+  } catch (error: any) {
+    groupError.value = error?.data?.message || 'ไม่สามารถสร้างตัวอย่างเอกสารได้'
+  } finally {
+    groupPreviewLoading.value = false
+  }
+}
+const closeGroupPreview = () => {
+  if (groupPreviewUrl.value) URL.revokeObjectURL(groupPreviewUrl.value)
+  groupPreviewUrl.value = null
+  isGroupPreviewOpen.value = false
 }
 
 // Fetch class groups for filter dropdown
@@ -422,11 +456,12 @@ const pageEnd = computed(() => {
 
       <div v-if="activeApplicationView === 'companies' && fetchStatus !== 'pending' && companyGroups.length" class="border-t border-divider">
         <div class="w-full overflow-x-auto"><UTable :data="companyGroups" :columns="companyGroupColumns" class="min-w-full" :ui="{ base: 'w-full min-w-180' }">
-          <template #companyName-cell="{ row }"><div><p class="font-medium text-ink">{{ row.original.companyName }}</p><p class="mt-0.5 text-xs text-muted">{{ row.original.requests.map(request => `${request.student.prefix}${request.student.firstName} ${request.student.lastName}`).join(', ') }}</p></div></template>
-          <template #students-cell="{ row }"><span class="tabular-nums">{{ row.original.requests.length }}</span></template>
-          <template #pending-cell="{ row }"><UBadge :label="`${row.original.requests.length - row.original.issued} คน`" color="warning" variant="subtle" /></template>
-          <template #issued-cell="{ row }"><UBadge :label="`${row.original.issued} คน`" color="success" variant="subtle" /></template>
-          <template #actions-cell="{ row }"><div class="flex justify-end"><UButton label="จัดทำเอกสาร" icon="i-lucide-file-pen-line" size="sm" @click="openGroupModal(row.original.companyName)" /></div></template>
+          <template #companyName-cell="{ row }"><div><p class="font-medium text-ink">{{ row.original.companyName }}</p><p class="mt-0.5 text-xs text-muted">{{ row.original.students.join(', ') }}</p></div></template>
+          <template #students-cell="{ row }"><div class="text-center"><p class="font-semibold tabular-nums text-ink">{{ row.original.confirmedCount }} / {{ row.original.applicantCount }} คน</p><p v-if="row.original.inProgressCount" class="mt-0.5 text-xs text-muted">กำลังดำเนินการ {{ row.original.inProgressCount }} คน</p><p v-else class="mt-0.5 text-xs text-success">ยืนยันครบแล้ว</p></div></template>
+          <template #pending-cell="{ row }"><UBadge :label="`${row.original.pendingCount} คน`" color="warning" variant="subtle" /></template>
+          <template #issued-cell="{ row }"><UBadge :label="`${row.original.issuedCount} คน`" color="success" variant="subtle" /></template>
+          <template #documents-cell="{ row }"><UButton v-if="row.original.documentRequestId" label="ดูเอกสาร" icon="i-lucide-folder-open" color="neutral" variant="outline" size="xs" @click="openCompanyDocuments(row.original)" /><span v-else class="text-muted">—</span></template>
+          <template #actions-cell="{ row }"><div class="flex justify-end gap-1"><UButton label="จัดทำเอกสาร" icon="i-lucide-file-pen-line" size="xs" @click="openGroupModal(row.original)" /><UButton label="รายละเอียด" icon="i-lucide-arrow-right" color="neutral" variant="ghost" size="xs" :to="`/staff/cooperative-cycles/${cycleId}/applications/companies/${row.original.companyId}`" /></div></template>
         </UTable></div>
       </div>
 
@@ -552,14 +587,6 @@ const pageEnd = computed(() => {
             <template #actions-cell="{ row }">
               <div class="flex items-center justify-end gap-1 whitespace-nowrap">
                 <UButton
-                  v-if="canGenerateLetter(row.original)"
-                  :label="row.original.letterFilePath ? 'ออกฉบับใหม่' : 'ออกเอกสาร'"
-                  icon="i-lucide-file-pen-line"
-                  color="primary"
-                  size="xs"
-                  @click="openLetterModal(row.original)"
-                />
-                <UButton
                   v-if="row.original.status === 'PLACEMENT_CONFIRMED' && cycle?.status !== 'CLOSED'"
                   :label="row.original.sendingLetterAvailable ? 'ออกส่งตัวฉบับใหม่' : 'ออกหนังสือส่งตัว'"
                   icon="i-lucide-send"
@@ -627,6 +654,11 @@ const pageEnd = computed(() => {
       </template>
     </UCard>
 
+    <UModal v-model:open="isCompanyDocumentsOpen" title="เอกสารสถานประกอบการ" :description="selectedCompanyDocuments?.companyName" :ui="{ content: 'max-w-xl' }">
+      <template #body><div v-if="selectedCompanyDocuments?.documentRequestId" class="space-y-3"><div class="flex items-center justify-between gap-3 rounded-panel border border-divider p-4"><div><p class="font-semibold text-ink">หนังสือขอความอนุเคราะห์</p><p class="mt-1 text-sm text-muted">{{ selectedCompanyDocuments.issuedCount }} ฉบับ</p></div><div class="flex flex-wrap justify-end gap-2"><UButton :to="`/api/staff/cooperative-cycles/${cycleId}/requests/${selectedCompanyDocuments.documentRequestId}/letter`" target="_blank" label="ดูเต็มหน้า" icon="i-lucide-external-link" color="neutral" variant="outline" size="sm" /><UButton :to="`/api/staff/cooperative-cycles/${cycleId}/requests/${selectedCompanyDocuments.documentRequestId}/letter`" :download="true" label="ดาวน์โหลด" icon="i-lucide-download" color="primary" size="sm" /></div></div><div class="h-[55vh] overflow-hidden rounded-panel border border-divider bg-surface"><iframe :src="`/api/staff/cooperative-cycles/${cycleId}/requests/${selectedCompanyDocuments.documentRequestId}/letter`" title="ตัวอย่างหนังสือขอความอนุเคราะห์" class="h-full w-full" /></div><div v-if="selectedCompanyDocuments.latestResponseStatus" class="rounded-panel border border-divider p-4 text-sm text-muted">มีหนังสือตอบรับจากสถานประกอบการแล้ว ดูรายละเอียดและไฟล์ทั้งหมดได้จากหน้ารายละเอียดบริษัท</div></div></template>
+      <template #footer><div class="flex w-full justify-end"><UButton label="ปิด" size="xl" color="neutral" variant="outline" @click="isCompanyDocumentsOpen = false" /></div></template>
+    </UModal>
+
     <UModal
       v-model:open="isLetterModalOpen"
       :title="letterKind === 'sending' ? 'ออกหนังสือส่งตัว' : 'ออกหนังสือขอความอนุเคราะห์'"
@@ -671,7 +703,10 @@ const pageEnd = computed(() => {
             <p v-if="visibleGroupCandidates.length > 6" class="text-xs text-muted">เลือก 6 คนแรกไว้ให้แล้ว สามารถปรับรายชื่อได้ก่อนออกเอกสาร</p>
             <UAlert v-if="!groupCandidatesLoading && !visibleGroupCandidates.length && !groupError" color="info" variant="subtle" title="ไม่มีรายชื่อที่สามารถเพิ่มได้" description="นักศึกษาที่อยู่ในเอกสารรวมฉบับที่ยังมีผล จะไม่สามารถเลือกซ้ำได้" />
           </div>
-          <p class="text-sm text-muted">เลขที่หนังสือ: ระบบจะกำหนดเลขลำดับตามปีเมื่อยืนยันออกเอกสาร</p>
+          <UFormField label="เลขที่หนังสือ" required>
+            <UInput v-model="groupLetterNumber" size="xl" class="w-full" autocomplete="off" />
+            <template #help>ระบบแนะนำเลขลำดับต่อปี สามารถแก้ไขก่อนออกเอกสารได้</template>
+          </UFormField>
           <UFormField label="วันที่ออกหนังสือ" required :error="issueDateError">
             <UPopover>
               <UInputDate v-model="issueDate" size="xl" class="w-full" locale="th-TH" aria-label="วันที่ออกหนังสือ" />
@@ -684,9 +719,13 @@ const pageEnd = computed(() => {
       <template #footer>
         <div class="flex w-full justify-end gap-2">
           <UButton label="ยกเลิก" color="neutral" variant="outline" size="xl" :disabled="groupLoading" @click="isGroupModalOpen = false" />
-          <UButton label="ยืนยันออกเอกสาร" size="xl" :loading="groupLoading" :disabled="groupCandidatesLoading" @click="generateGroupLetter" />
+          <UButton label="ดูตัวอย่างเอกสาร" icon="i-lucide-eye" size="xl" :loading="groupPreviewLoading" :disabled="groupCandidatesLoading" @click="openGroupPreview" />
         </div>
       </template>
+    </UModal>
+    <UModal :open="isGroupPreviewOpen" title="ตัวอย่างหนังสือขอความอนุเคราะห์" :description="selectedCompany" :ui="{ content: 'max-w-5xl' }" @update:open="(open) => { if (!open) closeGroupPreview() }">
+      <template #body><div class="h-[70vh] overflow-hidden rounded-panel border border-divider bg-surface"><iframe v-if="groupPreviewUrl" :src="groupPreviewUrl" title="ตัวอย่างหนังสือขอความอนุเคราะห์" class="h-full w-full" /></div></template>
+      <template #footer><div class="flex w-full flex-wrap justify-end gap-2"><UButton label="กลับไปแก้ไข" color="neutral" variant="outline" size="xl" @click="closeGroupPreview" /><UButton label="ยืนยันออกเอกสาร" icon="i-lucide-file-check-2" color="primary" size="xl" :loading="groupLoading" @click="generateGroupLetter" /></div></template>
     </UModal>
   </div>
 </template>

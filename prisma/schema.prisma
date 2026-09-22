@@ -85,6 +85,7 @@ model User {
   companyEvaluations             CompanyEvaluation[]
   issuedRequestLetters           RequestLetterVersion[]          @relation("request_letter_issued_by")
   issuedSendingLetters           SendingLetterVersion[]          @relation("sending_letter_issued_by")
+  uploadedRequestDocuments       RequestDocument[]               @relation("request_document_uploaded_by")
   createdAt                      DateTime                        @default(now()) @map("created_at")
   updatedAt                      DateTime                        @updatedAt @map("updated_at")
 
@@ -275,6 +276,10 @@ model RequestDocument {
   id                   Int                @id @default(autoincrement())
   cooperativeRequestId Int                @map("cooperative_request_id")
   cooperativeRequest   CooperativeRequest @relation(fields: [cooperativeRequestId], references: [id], onDelete: Cascade)
+  requestLetterVersionId Int?             @map("request_letter_version_id")
+  requestLetterVersion   RequestLetterVersion? @relation(fields: [requestLetterVersionId], references: [id], onDelete: Cascade)
+  uploadedByUserId       Int?              @map("uploaded_by_user_id")
+  uploadedByUser         User?             @relation("request_document_uploaded_by", fields: [uploadedByUserId], references: [id], onDelete: SetNull)
   documentType         String             @default("ACCEPTANCE_LETTER") @map("document_type")
   fileName             String             @map("file_name")
   filePath             String             @map("file_path")
@@ -288,6 +293,7 @@ model RequestDocument {
   updatedAt            DateTime           @updatedAt @map("updated_at")
 
   @@unique([cooperativeRequestId, version], name: "request_document_version")
+  @@unique([requestLetterVersionId, version], name: "request_letter_document_version")
   @@index([cooperativeRequestId])
   @@map("request_documents")
 }
@@ -297,6 +303,7 @@ model RequestLetterVersion {
   cooperativeRequestId Int                 @map("cooperative_request_id")
   cooperativeRequest   CooperativeRequest  @relation(fields: [cooperativeRequestId], references: [id], onDelete: Cascade)
   participants         RequestLetterParticipant[]
+  responseDocuments    RequestDocument[]
   version              Int                 @default(1)
   source               RequestLetterSource @default(GENERATED)
   fileName             String              @map("file_name")
@@ -332,6 +339,7 @@ model RequestLetterParticipant {
 
   @@unique([requestLetterVersionId, cooperativeRequestId], name: "request_letter_participant")
   @@index([cooperativeRequestId])
+  @@index([requestLetterVersionId])
   @@map("request_letter_participants")
 }
 
@@ -341,6 +349,16 @@ model OfficialLetterSequence {
   updatedAt  DateTime @updatedAt @map("updated_at")
 
   @@map("official_letter_sequences")
+}
+
+model OfficialLetterNumber {
+  id           Int      @id @default(autoincrement())
+  year         Int
+  letterNumber String   @unique @map("letter_number")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@index([year])
+  @@map("official_letter_numbers")
 }
 
 model SendingLetterVersion {

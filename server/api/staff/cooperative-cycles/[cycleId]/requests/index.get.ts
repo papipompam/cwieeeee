@@ -55,6 +55,11 @@ export default defineEventHandler(async (event) => {
           orderBy: { version: 'desc' },
           take: 1
         },
+        requestLetterParticipations: {
+          where: { requestLetterVersion: { isActive: true } },
+          include: { requestLetterVersion: { include: { responseDocuments: { orderBy: { version: 'desc' }, take: 1 } } } },
+          take: 1
+        },
         sendingLetterParticipations: {
           where: { sendingLetterVersion: { isActive: true } },
           take: 1,
@@ -75,7 +80,7 @@ export default defineEventHandler(async (event) => {
       letterFilePath: r.letterFilePath,
       sendingLetterAvailable: r.sendingLetterParticipations.length > 0,
       student: r.companyApplication.studentUser,
-      latestDocument: r.documents[0] || null
+      latestDocument: r.requestLetterParticipations[0]?.requestLetterVersion.responseDocuments[0] || r.documents[0] || null
     })),
     total,
     page,
