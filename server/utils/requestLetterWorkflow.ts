@@ -189,6 +189,7 @@ export interface SaveRequestLetterVersionParams {
   signerName?: string
   signerTitle?: string
   userId: number
+  participants?: Array<{ id: number, studentUserId: number, studentName: string }>
   deps?: RequestLetterWorkflowDeps
 }
 
@@ -217,6 +218,9 @@ export async function saveRequestLetterVersion(
     userId,
     deps
   } = params
+  const participants = params.participants?.length
+    ? params.participants
+    : [{ id: request.id, studentUserId: request.companyApplication.studentUserId, studentName: request.companyName }]
 
   const db = deps?.prismaClient ?? prisma
   const writeFile = deps?.writeLetterFile ?? writeRequestLetterFile
@@ -258,10 +262,9 @@ export async function saveRequestLetterVersion(
       createdVersion = await db.$transaction(async (tx: any) => {
         // Concurrency guard: check status has not changed
         const updated = await tx.cooperativeRequest.updateMany({
-          where: {
-            id: request.id,
-            status: request.status
-          },
+          where: params.participants?.length
+            ? { id: { in: participants.map(participant => participant.id) }, status: { in: ['SUBMITTED', 'STAFF_PROCESSING', 'LETTER_READY', 'RETURNED_FOR_REVISION'] } }
+            : { id: request.id, status: request.status },
           data: {
             status: targetStatus,
             letterFilePath: stored.filePath,
@@ -270,7 +273,7 @@ export async function saveRequestLetterVersion(
           }
         })
 
-        if (updated.count === 0) {
+        if (updated.count !== participants.length) {
           throw makeError(409, 'สถานะคำร้องมีการเปลี่ยนแปลงแล้ว กรุณารีเฟรชหน้าเว็บ')
         }
 
@@ -302,7 +305,8 @@ export async function saveRequestLetterVersion(
             signerName: signerName ?? null,
             signerTitle: signerTitle ?? null,
             issuedByUserId: userId,
-            isActive: true
+            isActive: true,
+            participants: { create: participants.map(participant => ({ cooperativeRequestId: participant.id, studentName: participant.studentName })) }
           }
         })
       })
@@ -333,14 +337,9 @@ export async function saveRequestLetterVersion(
           ? `เจ้าหน้าที่ได้อัปเดตไฟล์หนังสือขอความอนุเคราะห์สำหรับ ${request.companyName} ฉบับใหม่`
           : `เจ้าหน้าที่ได้จัดทำหนังสือขอความอนุเคราะห์สำหรับ ${request.companyName} ฉบับใหม่ (ฉบับที่ ${createdVersion.version})`
 
-      await db.notification.create({
-        data: {
-          userId: request.companyApplication.studentUserId,
-          title: notifTitle,
-          message: notifMessage,
-          link: '/student/applications'
-        }
-      })
+      await Promise.all(participants.map(participant => db.notification.create({ data: {
+        userId: participant.studentUserId, title: notifTitle, message: notifMessage, link: '/student/applications'
+      } })) )
     } catch {
       // Safe error handling without leaking path, signer data, or PDF bytes
       console.error('[saveRequestLetterVersion] Failed to send student notification')

@@ -260,6 +260,7 @@ model CooperativeRequest {
   signedDocumentSubmittedAt      DateTime?                       @map("signed_document_submitted_at")
   documents                      RequestDocument[]
   letterVersions                 RequestLetterVersion[]
+  requestLetterParticipations    RequestLetterParticipant[]
   primarySendingLetterVersions   SendingLetterVersion[]          @relation("sending_letter_primary_request")
   sendingLetterParticipations    SendingLetterParticipant[]
   supervisionAppointmentStudents SupervisionAppointmentStudent[]
@@ -295,6 +296,7 @@ model RequestLetterVersion {
   id                   Int                 @id @default(autoincrement())
   cooperativeRequestId Int                 @map("cooperative_request_id")
   cooperativeRequest   CooperativeRequest  @relation(fields: [cooperativeRequestId], references: [id], onDelete: Cascade)
+  participants         RequestLetterParticipant[]
   version              Int                 @default(1)
   source               RequestLetterSource @default(GENERATED)
   fileName             String              @map("file_name")
@@ -317,6 +319,28 @@ model RequestLetterVersion {
   @@index([cooperativeRequestId, isActive])
   @@index([issuedByUserId])
   @@map("request_letter_versions")
+}
+
+model RequestLetterParticipant {
+  id                     Int                  @id @default(autoincrement())
+  requestLetterVersionId Int                  @map("request_letter_version_id")
+  requestLetterVersion   RequestLetterVersion @relation(fields: [requestLetterVersionId], references: [id], onDelete: Cascade)
+  cooperativeRequestId   Int                  @map("cooperative_request_id")
+  cooperativeRequest     CooperativeRequest   @relation(fields: [cooperativeRequestId], references: [id], onDelete: Cascade)
+  studentName            String               @map("student_name")
+  createdAt              DateTime             @default(now()) @map("created_at")
+
+  @@unique([requestLetterVersionId, cooperativeRequestId], name: "request_letter_participant")
+  @@index([cooperativeRequestId])
+  @@map("request_letter_participants")
+}
+
+model OfficialLetterSequence {
+  year       Int      @id
+  lastNumber Int      @default(0) @map("last_number")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@map("official_letter_sequences")
 }
 
 model SendingLetterVersion {
@@ -589,6 +613,10 @@ model DocumentSettings {
   signerName    String?  @map("signer_name")
   signerTitle   String?  @map("signer_title")
   signaturePath String?  @map("signature_path")
+  requestLetterSamplePath String? @map("request_letter_sample_path")
+  requestLetterSampleName String? @map("request_letter_sample_name")
+  sendingLetterSamplePath String? @map("sending_letter_sample_path")
+  sendingLetterSampleName String? @map("sending_letter_sample_name")
   updatedAt     DateTime @updatedAt @map("updated_at")
 
   @@map("document_settings")

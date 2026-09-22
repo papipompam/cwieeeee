@@ -433,7 +433,7 @@ const handleConfirmPlacement = async () => {
           :label="request.letterFilePath ? 'ออกเอกสารฉบับใหม่' : 'ออกเอกสาร'"
           icon="i-lucide-file-pen-line"
           color="primary"
-          size="xl"
+          size="sm"
           @click="openLetterModal"
         />
         <UButton

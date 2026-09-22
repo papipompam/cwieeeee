@@ -14,10 +14,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const activeVersion = await prisma.requestLetterVersion.findFirst({
-    where: {
-      cooperativeRequestId: request.id,
-      isActive: true
-    },
+    where: { isActive: true, OR: [{ cooperativeRequestId: request.id }, { participants: { some: { cooperativeRequestId: request.id } } }] },
     orderBy: { version: 'desc' }
   })
 

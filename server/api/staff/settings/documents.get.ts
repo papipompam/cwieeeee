@@ -8,5 +8,9 @@ export default defineEventHandler(async (event) => {
     hasSignature: Boolean(settings?.signaturePath ?? process.env.DOCUMENT_SIGNER_SIGNATURE_PATH),
     updatedAt: settings?.updatedAt ?? null,
     source: settings ? 'DATABASE' : 'ENVIRONMENT'
+    ,templates: {
+      requestLetter: settings?.requestLetterSampleName ?? null,
+      sendingLetter: settings?.sendingLetterSampleName ?? null
+    }
   }
 })

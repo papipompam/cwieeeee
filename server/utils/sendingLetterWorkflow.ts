@@ -100,10 +100,12 @@ export async function saveSendingLetterVersion(params: {
   prismaClient?: any
   writeFile?: typeof writeRequestLetterFile
   cleanupFile?: typeof cleanupStoredLetterFile
+  participants?: Array<{ id: number, studentUserId: number }>
 }) {
   const db = params.prismaClient ?? prisma
   const writeFile = params.writeFile ?? writeRequestLetterFile
   const cleanupFile = params.cleanupFile ?? cleanupStoredLetterFile
+  const participants = params.participants?.length ? params.participants : [{ id: params.request.id, studentUserId: params.request.companyApplication.studentUserId }]
 
   for (let attempt = 0; attempt < 3; attempt++) {
     const latest = await db.sendingLetterVersion.findFirst({
@@ -144,19 +146,17 @@ export async function saveSendingLetterVersion(params: {
             signerName: params.signer.signerName,
             signerTitle: params.signer.signerTitleLines.join('\n'),
             issuedByUserId: params.userId,
-            participants: { create: { cooperativeRequestId: params.request.id } }
+            participants: { create: params.participants?.length ? participants.map(participant => ({ cooperativeRequestId: participant.id })) : { cooperativeRequestId: params.request.id } }
           }
         })
       })
 
-      await db.notification.create({
-        data: {
-          userId: params.request.companyApplication.studentUserId,
+      await Promise.all(participants.map(participant => db.notification.create({ data: {
+          userId: participant.studentUserId,
           title: 'หนังสือส่งตัวพร้อมดาวน์โหลด',
           message: 'เจ้าหน้าที่ได้จัดทำหนังสือส่งตัวสำหรับการฝึกประสบการณ์วิชาชีพแล้ว',
           link: '/student/applications'
-        }
-      }).catch(() => console.error('[saveSendingLetterVersion] Failed to send student notification'))
+        } }))).catch(() => console.error('[saveSendingLetterVersion] Failed to send student notification'))
       return created
     } catch (error: any) {
       await cleanupFile(stored.filePath).catch(() => {})

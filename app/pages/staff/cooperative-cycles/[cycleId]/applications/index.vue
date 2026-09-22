@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { InputDateProps, TableColumn } from '@nuxt/ui'
+import { getLocalTimeZone, today } from '@internationalized/date'
 import type { Ref } from 'vue'
 
 interface StudentUser {
@@ -48,6 +49,8 @@ interface CooperativeCycle {
   cohortYear: number
   status: string
 }
+interface DocumentCandidate { id: number, companyName: string, recipientName: string | null, student: StudentUser }
+interface CompanyGroup { companyName: string, requests: RequestRow[], issued: number }
 
 const route = useRoute()
 const router = useRouter()
@@ -61,6 +64,11 @@ const pageSizeOptions = [10, 20, 50, 100]
 const searchQuery = ref('')
 const statusFilter = ref<string>('all')
 const classGroupFilter = ref<string>('all')
+const activeApplicationView = ref<'companies' | 'students'>('companies')
+const applicationTabs = [
+  { label: 'สถานประกอบการ', icon: 'i-lucide-building-2', value: 'companies' },
+  { label: 'นักศึกษา', icon: 'i-lucide-graduation-cap', value: 'students' }
+]
 
 const selectedRequestForLetter = ref<RequestRow | null>(null)
 const letterKind = ref<'request' | 'sending'>('request')
@@ -71,6 +79,69 @@ const issueDate = shallowRef<InputDateProps<false>['modelValue']>()
 const letterNumberError = ref('')
 const issueDateError = ref('')
 const letterActionError = ref('')
+const isGroupModalOpen = ref(false)
+const groupCandidates = ref<DocumentCandidate[]>([])
+const selectedCompany = ref('')
+const selectedGroupRequestIds = ref<number[]>([])
+const groupCandidatesLoading = ref(false)
+const groupLoading = ref(false)
+const groupError = ref('')
+let groupCandidateLoad = 0
+const visibleGroupCandidates = computed(() => groupCandidates.value.filter(item => item.companyName === selectedCompany.value))
+const companyGroups = computed<CompanyGroup[]>(() => Object.values((data.value?.requests ?? []).reduce((groups, request) => {
+  const group = groups[request.companyName] ?? { companyName: request.companyName, requests: [], issued: 0 }
+  group.requests.push(request)
+  if (request.letterFilePath) group.issued++
+  groups[request.companyName] = group
+  return groups
+}, {} as Record<string, CompanyGroup>)))
+const companyGroupColumns: TableColumn<CompanyGroup>[] = [
+  { accessorKey: 'companyName', header: 'สถานประกอบการ' },
+  { id: 'students', header: 'ผู้สมัคร', meta: { class: { th: 'w-24 text-center', td: 'w-24 text-center' } } },
+  { id: 'pending', header: 'ยังไม่ออกเอกสาร', meta: { class: { th: 'w-36 text-center', td: 'w-36 text-center' } } },
+  { id: 'issued', header: 'ออกแล้ว', meta: { class: { th: 'w-24 text-center', td: 'w-24 text-center' } } },
+  { id: 'actions', header: () => h('span', { class: 'block text-right' }, 'จัดการ'), meta: { class: { th: 'w-36 text-end', td: 'w-36 text-end' } } }
+]
+const openGroupModal = async (companyName: string) => {
+  const loadId = ++groupCandidateLoad
+  selectedCompany.value = companyName
+  selectedGroupRequestIds.value = []
+  groupCandidates.value = []
+  groupError.value = ''
+  issueDateError.value = ''
+  issueDate.value = today(getLocalTimeZone())
+  isGroupModalOpen.value = true
+  groupCandidatesLoading.value = true
+  try {
+    const candidates = await $fetch<DocumentCandidate[]>(`/api/staff/cooperative-cycles/${cycleId.value}/document-groups/candidates`)
+    if (loadId !== groupCandidateLoad || !isGroupModalOpen.value) return
+    groupCandidates.value = candidates
+    selectedGroupRequestIds.value = visibleGroupCandidates.value.slice(0, 6).map(candidate => candidate.id)
+  } catch (error: any) {
+    if (loadId === groupCandidateLoad && isGroupModalOpen.value) groupError.value = error?.data?.message || 'ไม่สามารถโหลดรายชื่อนักศึกษาได้'
+  } finally {
+    if (loadId === groupCandidateLoad) groupCandidatesLoading.value = false
+  }
+}
+const toggleGroupRequest = (id: number) => { selectedGroupRequestIds.value = selectedGroupRequestIds.value.includes(id) ? selectedGroupRequestIds.value.filter(value => value !== id) : [...selectedGroupRequestIds.value, id] }
+const generateGroupLetter = async () => {
+  if (groupLoading.value || groupCandidatesLoading.value) return
+  const selectedDate = issueDate.value?.toString()
+  issueDateError.value = selectedDate ? '' : 'กรุณาเลือกวันที่ออกหนังสือ'
+  groupError.value = selectedGroupRequestIds.value.length ? '' : 'กรุณาเลือกนักศึกษาอย่างน้อย 1 คน'
+  if (!selectedDate || groupError.value) return
+  groupLoading.value = true
+  try {
+    await $fetch(`/api/staff/cooperative-cycles/${cycleId.value}/document-groups/request-letter`, { method: 'POST', body: { issueDate: selectedDate, requestIds: selectedGroupRequestIds.value } })
+    notify.success('ออกหนังสือขอความอนุเคราะห์รวมเรียบร้อยแล้ว')
+    isGroupModalOpen.value = false
+    await refresh()
+  } catch (error: any) {
+    groupError.value = error?.data?.message || 'ไม่สามารถออกเอกสารได้'
+  } finally {
+    groupLoading.value = false
+  }
+}
 
 // Fetch class groups for filter dropdown
 const { data: studentsData } = await useFetch<{ students: Array<{ classGroup: number }> }>(
@@ -279,6 +350,7 @@ const pageEnd = computed(() => {
             <p class="mt-1 text-sm leading-6 text-muted">
               คิวตรวจสอบคำร้องและออกหนังสือขอความอนุเคราะห์ (ภาคเรียนที่ {{ cycle?.term }}/{{ cycle?.academicYear }})
             </p>
+            <UTabs v-model="activeApplicationView" :items="applicationTabs" size="xl" :content="false" class="mt-4" />
           </div>
         </div>
 
@@ -348,6 +420,16 @@ const pageEnd = computed(() => {
         </div>
       </div>
 
+      <div v-if="activeApplicationView === 'companies' && fetchStatus !== 'pending' && companyGroups.length" class="border-t border-divider">
+        <div class="w-full overflow-x-auto"><UTable :data="companyGroups" :columns="companyGroupColumns" class="min-w-full" :ui="{ base: 'w-full min-w-180' }">
+          <template #companyName-cell="{ row }"><div><p class="font-medium text-ink">{{ row.original.companyName }}</p><p class="mt-0.5 text-xs text-muted">{{ row.original.requests.map(request => `${request.student.prefix}${request.student.firstName} ${request.student.lastName}`).join(', ') }}</p></div></template>
+          <template #students-cell="{ row }"><span class="tabular-nums">{{ row.original.requests.length }}</span></template>
+          <template #pending-cell="{ row }"><UBadge :label="`${row.original.requests.length - row.original.issued} คน`" color="warning" variant="subtle" /></template>
+          <template #issued-cell="{ row }"><UBadge :label="`${row.original.issued} คน`" color="success" variant="subtle" /></template>
+          <template #actions-cell="{ row }"><div class="flex justify-end"><UButton label="จัดทำเอกสาร" icon="i-lucide-file-pen-line" size="sm" @click="openGroupModal(row.original.companyName)" /></div></template>
+        </UTable></div>
+      </div>
+
       <!-- Loading Skeleton -->
       <div v-if="fetchStatus === 'pending'" class="space-y-3 p-5 sm:p-6" aria-label="กำลังโหลดข้อมูล">
         <div v-for="row in 4" :key="row" class="grid grid-cols-[2rem_1.2fr_1fr_8rem] gap-4 max-md:grid-cols-[1fr_7rem]">
@@ -381,7 +463,7 @@ const pageEnd = computed(() => {
       </div>
 
       <!-- Table -->
-      <template v-else>
+      <template v-else-if="activeApplicationView === 'students'">
         <div class="w-full overflow-x-auto">
           <UTable
             :data="data?.requests || []"
@@ -572,6 +654,37 @@ const pageEnd = computed(() => {
           <UButton label="ยกเลิก" color="neutral" variant="outline" size="xl" :disabled="isLetterGenerating" @click="isLetterModalOpen = false" />
           <UButton label="ดูตัวอย่างเต็มหน้า" icon="i-lucide-expand" color="neutral" variant="outline" size="xl" :disabled="isLetterGenerating" @click="openFullPagePreview" />
           <UButton :label="letterKind === 'sending' ? 'ยืนยันออกหนังสือส่งตัว' : 'ยืนยันออกเอกสาร'" icon="i-lucide-file-check-2" color="primary" size="xl" :loading="isLetterGenerating" @click="generateLetter" />
+        </div>
+      </template>
+    </UModal>
+    <UModal v-model:open="isGroupModalOpen" title="จัดทำหนังสือขอความอนุเคราะห์รวม" description="ตรวจสอบรายชื่อนักศึกษาที่จะอยู่ในเอกสารฉบับนี้" :ui="{ content: 'max-w-2xl' }">
+      <template #body>
+        <UForm class="space-y-4" @submit.prevent="generateGroupLetter">
+          <div>
+            <p class="text-sm font-semibold text-ink">สถานประกอบการ</p>
+            <p class="mt-1 text-base text-ink">{{ selectedCompany }}</p>
+          </div>
+          <div class="space-y-2">
+            <p class="text-sm font-semibold text-ink">นักศึกษา (เลือกได้สูงสุด 6 คน)</p>
+            <p v-if="groupCandidatesLoading" class="text-sm text-muted">กำลังโหลดรายชื่อ...</p>
+            <UCheckbox v-for="candidate in visibleGroupCandidates" :key="candidate.id" :model-value="selectedGroupRequestIds.includes(candidate.id)" :disabled="!selectedGroupRequestIds.includes(candidate.id) && selectedGroupRequestIds.length >= 6" size="lg" :label="`${candidate.student.prefix}${candidate.student.firstName} ${candidate.student.lastName}`" @update:model-value="toggleGroupRequest(candidate.id)" />
+            <p v-if="visibleGroupCandidates.length > 6" class="text-xs text-muted">เลือก 6 คนแรกไว้ให้แล้ว สามารถปรับรายชื่อได้ก่อนออกเอกสาร</p>
+            <UAlert v-if="!groupCandidatesLoading && !visibleGroupCandidates.length && !groupError" color="info" variant="subtle" title="ไม่มีรายชื่อที่สามารถเพิ่มได้" description="นักศึกษาที่อยู่ในเอกสารรวมฉบับที่ยังมีผล จะไม่สามารถเลือกซ้ำได้" />
+          </div>
+          <p class="text-sm text-muted">เลขที่หนังสือ: ระบบจะกำหนดเลขลำดับตามปีเมื่อยืนยันออกเอกสาร</p>
+          <UFormField label="วันที่ออกหนังสือ" required :error="issueDateError">
+            <UPopover>
+              <UInputDate v-model="issueDate" size="xl" class="w-full" locale="th-TH" aria-label="วันที่ออกหนังสือ" />
+              <template #content><UCalendar v-model="issueDate" locale="th-TH" /></template>
+            </UPopover>
+          </UFormField>
+          <UAlert v-if="groupError" color="error" title="ไม่สามารถออกเอกสารได้" :description="groupError" />
+        </UForm>
+      </template>
+      <template #footer>
+        <div class="flex w-full justify-end gap-2">
+          <UButton label="ยกเลิก" color="neutral" variant="outline" size="xl" :disabled="groupLoading" @click="isGroupModalOpen = false" />
+          <UButton label="ยืนยันออกเอกสาร" size="xl" :loading="groupLoading" :disabled="groupCandidatesLoading" @click="generateGroupLetter" />
         </div>
       </template>
     </UModal>

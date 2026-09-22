@@ -80,6 +80,19 @@ describe('requestLetter renderer', () => {
     assert.strictEqual(doc.getPageCount(), 2)
   })
 
+  it('renders up to six student names in two columns', async () => {
+    const pdfBytes = await generateRequestLetter({
+      ...baseValidData,
+      studentCount: 6,
+      studentNames: [
+        'นางสาว ก.', 'นาย ข.', 'นางสาว ค.',
+        'นาย ง.', 'นางสาว จ.', 'นาย ฉ.'
+      ]
+    }, assets)
+    const doc = await PDFDocument.load(pdfBytes)
+    assert.strictEqual(doc.getPageCount(), 2)
+  })
+
   it('handles complex Thai vowels and tone marks properly', async () => {
     const thaiVowelData: RequestLetterData = {
       ...baseValidData,
@@ -272,7 +285,7 @@ function extractPageDrawnLines(page: any, doc: any) {
           )
         },
         (err: Error) => {
-          assert.ok(err.message.includes('Student details are too long'), 'Must name field in error message')
+          assert.ok(err.message.includes('ชื่อนักศึกษา'), 'Must name field in error message')
           return true
         }
       )

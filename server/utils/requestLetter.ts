@@ -16,6 +16,7 @@ export interface RequestLetterData {
   recipientName: string
   companyName: string
   studentName: string
+  studentNames?: string[]
   studentCount: number
   signerName: string
   signerTitleLines: string[]
@@ -239,20 +240,31 @@ export async function generateRequestLetter(
     )
   }
 
-  const studentLineText = `๑.  ${data.studentName.trim()}`
-  const studentLineWidth = regularFont.widthOfTextAtSize(studentLineText, fontSize)
-  if (studentLineWidth > LAYOUT.student.maxWidth) {
-    throw new Error(
-      `Student details are too long for one line (${studentLineWidth.toFixed(1)} pt, maximum ${LAYOUT.student.maxWidth} pt). Please shorten studentName.`
-    )
+  const studentNames = (data.studentNames?.length ? data.studentNames : [data.studentName])
+    .map(name => name.trim())
+    .filter(Boolean)
+  if (!studentNames.length || studentNames.length > 6) {
+    throw new Error('หนังสือขอความอนุเคราะห์รองรับรายชื่อนักศึกษาสูงสุด 6 คนต่อฉบับ')
   }
-  page1.drawText(studentLineText, {
-    x: leftMargin + LAYOUT.student.firstLineIndent,
-    y: studentY,
-    size: fontSize,
-    font: regularFont,
-    color
-  })
+
+  const rows = Math.ceil(studentNames.length / 2)
+  const studentColumnWidth = 205
+  for (let index = 0; index < studentNames.length; index++) {
+    const column = index < rows ? 0 : 1
+    const row = column === 0 ? index : index - rows
+    const studentLineText = `${toThaiDigits(index + 1)}.  ${studentNames[index]}`
+    const studentLineWidth = regularFont.widthOfTextAtSize(studentLineText, fontSize)
+    if (studentLineWidth > studentColumnWidth) {
+      throw new Error('ชื่อนักศึกษายาวเกินพื้นที่เอกสาร กรุณาตรวจสอบข้อมูล')
+    }
+    page1.drawText(studentLineText, {
+      x: leftMargin + LAYOUT.student.firstLineIndent + column * 225,
+      y: studentY - row * LAYOUT.paragraph1.lineSpacing,
+      size: fontSize,
+      font: regularFont,
+      color
+    })
+  }
 
   // 6. Page 1: Signature image & Signer block
   const signerCenterX = LAYOUT.signer.centerX

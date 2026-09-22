@@ -5,13 +5,15 @@ export default defineEventHandler(async (event) => {
   const input = validateLetterGenerationInput(await readBody(event))
 
   const reference = await prisma.requestLetterVersion.findFirst({
-    where: { cooperativeRequestId: request.id, isActive: true },
+    where: { isActive: true, OR: [{ cooperativeRequestId: request.id }, { participants: { some: { cooperativeRequestId: request.id } } }] },
     orderBy: { version: 'desc' },
-    select: { letterNumber: true, issueDate: true }
+    include: { participants: { include: { cooperativeRequest: { include: { companyApplication: { include: { studentUser: true } } } } } } }
   })
   if (!reference?.letterNumber || !reference.issueDate) {
     throw createError({ statusCode: 400, message: 'ไม่พบเลขที่หรือวันที่ของหนังสือขอความอนุเคราะห์ฉบับที่ใช้อ้างอิง' })
   }
+  const participants = reference.participants.length ? reference.participants.map(item => item.cooperativeRequest) : [request]
+  if (!participants.every(item => item.status === 'PLACEMENT_CONFIRMED')) throw createError({ statusCode: 400, message: 'รอการยืนยันสถานที่ฝึกของนักศึกษาในเอกสารฉบับนี้ให้ครบก่อน' })
 
   const signer = await loadRequestLetterSigner(await getDocumentSignerOverrides()).catch((error) => {
     if (error instanceof RequestLetterSignerError) throw createError({ statusCode: 500, message: error.message })
@@ -20,7 +22,7 @@ export default defineEventHandler(async (event) => {
   let pdf: Uint8Array
   try {
     pdf = await generateSendingLetter(
-      buildSendingLetterData(cycle, request, input, reference, signer),
+      (() => { const data = buildSendingLetterData(cycle, request, input, reference, signer); data.students = participants.map(item => ({ name: `${item.companyApplication.studentUser.prefix ?? ''}${item.companyApplication.studentUser.firstName} ${item.companyApplication.studentUser.lastName}`.trim(), studentId: item.companyApplication.studentUser.loginId ?? undefined })); return data })(),
       await loadSendingLetterAssets('v1')
     )
   } catch (error: any) {
@@ -33,7 +35,8 @@ export default defineEventHandler(async (event) => {
     input,
     reference: { letterNumber: reference.letterNumber, issueDate: reference.issueDate },
     signer,
-    userId: user.id
+    userId: user.id,
+    participants: participants.map(item => ({ id: item.id, studentUserId: item.companyApplication.studentUserId }))
   })
 
   return { success: true, version }
