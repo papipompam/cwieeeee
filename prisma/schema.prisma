@@ -72,6 +72,7 @@ model User {
   mustChangePassword             Boolean                         @default(false) @map("must_change_password")
   sessions                       AuthSession[]
   companyApplications            CompanyApplication[]
+  companyReviews                 CompanyReview[]
   cycleEnrollments               CooperativeCycleEnrollment[]
   notifications                  Notification[]
   supervisionVisits              SupervisionVisit[]
@@ -120,11 +121,46 @@ model CooperativeCycle {
   enrollments          CooperativeCycleEnrollment[]
   supervisionVisits    SupervisionVisit[]
   supervisionRounds    SupervisionRound[]
+  evaluationQuestions  EvaluationQuestion[]
   createdAt            DateTime                     @default(now()) @map("created_at")
   updatedAt            DateTime                     @updatedAt @map("updated_at")
 
   @@unique([term, academicYear], name: "term_academicYear")
   @@map("cooperative_cycles")
+}
+
+model EvaluationQuestion {
+  id                 Int              @id @default(autoincrement())
+  cooperativeCycleId Int              @map("cooperative_cycle_id")
+  cooperativeCycle   CooperativeCycle @relation(fields: [cooperativeCycleId], references: [id], onDelete: Cascade)
+  evaluationType     String           @map("evaluation_type")
+  scoreKey           String           @map("score_key")
+  label              String
+  sortOrder          Int              @map("sort_order")
+  isActive           Boolean          @default(true) @map("is_active")
+  createdAt          DateTime         @default(now()) @map("created_at")
+  updatedAt          DateTime         @updatedAt @map("updated_at")
+  answers            EvaluationAnswer[]
+  @@unique([cooperativeCycleId, evaluationType, scoreKey])
+  @@index([cooperativeCycleId, evaluationType, sortOrder])
+  @@map("evaluation_questions")
+}
+
+model EvaluationAnswer {
+  id                  Int                @id @default(autoincrement())
+  questionId          Int                @map("question_id")
+  question            EvaluationQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  studentEvaluationId Int?               @map("student_evaluation_id")
+  studentEvaluation   StudentEvaluation? @relation(fields: [studentEvaluationId], references: [id], onDelete: Cascade)
+  companyEvaluationId Int?               @map("company_evaluation_id")
+  companyEvaluation   CompanyEvaluation? @relation(fields: [companyEvaluationId], references: [id], onDelete: Cascade)
+  score               Int?
+  textValue           String?            @map("text_value")
+  createdAt           DateTime           @default(now()) @map("created_at")
+  updatedAt           DateTime           @updatedAt @map("updated_at")
+  @@unique([questionId, studentEvaluationId])
+  @@unique([questionId, companyEvaluationId])
+  @@map("evaluation_answers")
 }
 
 model CooperativeCycleEnrollment {
@@ -229,6 +265,7 @@ model CooperativeRequest {
   supervisionAppointmentStudents SupervisionAppointmentStudent[]
   createdAt                      DateTime                        @default(now()) @map("created_at")
   updatedAt                      DateTime                        @updatedAt @map("updated_at")
+  companyReview                  CompanyReview?
 
   @@map("cooperative_requests")
 }
@@ -537,11 +574,41 @@ model StudentEvaluation {
   submittedAt         DateTime               @default(now()) @map("submitted_at")
   createdAt           DateTime               @default(now()) @map("created_at")
   updatedAt           DateTime               @updatedAt @map("updated_at")
+  answers             EvaluationAnswer[]
 
   @@unique([appointmentId, studentUserId, teacherUserId], name: "appointment_student_teacher")
   @@index([teacherUserId])
   @@index([studentUserId])
   @@map("student_evaluations")
+}
+
+/// Singleton settings used by the server when it generates official letters.
+/// The signature stays in private storage; only its filesystem path is stored.
+model DocumentSettings {
+  id            Int      @id
+  signerName    String?  @map("signer_name")
+  signerTitle   String?  @map("signer_title")
+  signaturePath String?  @map("signature_path")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@map("document_settings")
+}
+
+model CompanyReview {
+  id                   Int                @id @default(autoincrement())
+  studentUserId        Int                @map("student_user_id")
+  studentUser          User               @relation(fields: [studentUserId], references: [id], onDelete: Cascade)
+  cooperativeRequestId Int                @unique @map("cooperative_request_id")
+  cooperativeRequest   CooperativeRequest @relation(fields: [cooperativeRequestId], references: [id], onDelete: Cascade)
+  rating               Int
+  comment              String
+  status               String             @default("PENDING")
+  reviewerNote         String?            @map("reviewer_note")
+  reviewedAt           DateTime?          @map("reviewed_at")
+  createdAt            DateTime           @default(now()) @map("created_at")
+  updatedAt            DateTime           @updatedAt @map("updated_at")
+  @@unique([studentUserId, cooperativeRequestId])
+  @@map("company_reviews")
 }
 
 model CompanyEvaluation {
@@ -571,6 +638,7 @@ model CompanyEvaluation {
   submittedAt              DateTime               @default(now()) @map("submitted_at")
   createdAt                DateTime               @default(now()) @map("created_at")
   updatedAt                DateTime               @updatedAt @map("updated_at")
+  answers                  EvaluationAnswer[]
 
   @@unique([appointmentId, teacherUserId], name: "appointment_teacher_company_evaluation")
   @@index([teacherUserId])

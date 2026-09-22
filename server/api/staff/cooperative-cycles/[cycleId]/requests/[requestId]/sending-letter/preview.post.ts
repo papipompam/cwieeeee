@@ -11,7 +11,7 @@ export default defineEventHandler(async (event) => {
   })
   if (!reference) throw createError({ statusCode: 400, message: 'ไม่พบหนังสือขอความอนุเคราะห์ฉบับที่ใช้อ้างอิง' })
 
-  const signer = await loadRequestLetterSigner().catch((error) => {
+  const signer = await loadRequestLetterSigner(await getDocumentSignerOverrides()).catch((error) => {
     if (error instanceof RequestLetterSignerError) throw createError({ statusCode: 500, message: error.message })
     throw error
   })

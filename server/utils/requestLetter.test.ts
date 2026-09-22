@@ -30,7 +30,6 @@ const baseValidData: RequestLetterData = {
   recipientName: 'ผู้จัดการฝ่ายทรัพยากรบุคคล',
   companyName: 'บริษัท ทดสอบเทคโนโลยี จำกัด',
   studentName: 'นายทดสอบ ระบบดี',
-  studentId: '๖๔๐๑๒๓๔๕๖๗๘',
   studentCount: 1,
   signerName: 'ผู้ช่วยศาสตราจารย์ ดร.ผู้ลงนาม ทดสอบ',
   signerTitleLines: ['คณบดีคณะวิทยาศาสตร์'],
@@ -129,7 +128,6 @@ function extractPageDrawnLines(page: any, doc: any) {
       recipientName: 'ผู้จัดการฝ่ายทรัพยากรบุคคล',
       companyName: 'บริษัท ทดสอบ ก จำกัด',
       studentName: 'นายสมชาย สายลม',
-      studentId: '๖๔๐๑๑๑๑๑๑๑๑',
       studentCount: 1,
       signerName: 'ผู้ช่วยศาสตราจารย์ ดร.สมศักดิ์ นามสมมุติ',
       signerTitleLines: ['คณบดีคณะวิทยาศาสตร์'],
@@ -152,7 +150,6 @@ function extractPageDrawnLines(page: any, doc: any) {
       recipientName: 'กรรมการผู้จัดการใหญ่และประธานเจ้าหน้าที่บริหาร',
       companyName: 'บริษัท ปิโตรเคมีคอล นวัตกรรม จำกัด (มหาชน)',
       studentName: 'นางสาวกานดา วิไลลักษณ์',
-      studentId: '๖๔๐๙๙๙๙๙๙๙๙',
       studentCount: 3,
       signerName: 'รองศาสตราจารย์ ดร.ประสิทธิ์ เกียรติขจร',
       signerTitleLines: [
@@ -269,8 +266,7 @@ function extractPageDrawnLines(page: any, doc: any) {
             {
               ...baseValidData,
               studentName:
-                'นายสมเด็จพระมหาบุรุษรามาธิบดีศรีสุริยพงศ์พิริยะสถาพรชัยโยดมสกลรัตนโกสินทร์ มหาเจษฎาบดินทร์สิริวิลาสโภคินทร์วรวัชรเกียรติกุลวัฒนศักดาภิเษก',
-              studentId: '๖๔๐๑๙๙๙๙๙๙๙๙๙๙๙๙๙๙๙๙๙๙'
+                'นายสมเด็จพระมหาบุรุษรามาธิบดีศรีสุริยพงศ์พิริยะสถาพรชัยโยดมสกลรัตนโกสินทร์ มหาเจษฎาบดินทร์สิริวิลาสโภคินทร์วรวัชรเกียรติกุลวัฒนศักดาภิเษก'
             },
             assets
           )

@@ -9,7 +9,7 @@ interface Item {
   companyName: string
   groupName: string
   roundNo: number
-  cycle: { term: number, academicYear: number }
+  cycle: { id: number, term: number, academicYear: number, evaluationQuestions?: Array<{ id: number, scoreKey: string, label: string, isActive: boolean }> }
   student: { id: number, studentId: string, name: string, position: string | null }
   evaluation: ({ responsibilityScore: number | null, disciplineScore: number | null, communicationScore: number | null, knowledgeScore: number | null, workQualityScore: number | null, problemSolvingScore: number | null, strengths: string | null, problems: string | null, recommendations: string | null, followUp: string | null }) | null
 }
@@ -37,6 +37,15 @@ const scoreLabels: Array<{ key: ScoreKey, label: string }> = [
   { key: 'workQualityScore', label: 'คุณภาพและความก้าวหน้าของงาน' },
   { key: 'problemSolvingScore', label: 'การเรียนรู้และแก้ไขปัญหา' }
 ]
+const cycleId = computed(() => items.value?.[0]?.cycle.id)
+const questions = ref<Array<{ id: number, scoreKey: string, label: string, isActive: boolean }>>([])
+const loadQuestions = async () => { questions.value = items.value?.[0]?.cycle.evaluationQuestions ?? [] }
+watch(items, loadQuestions, { immediate: true })
+const visibleScoreLabels = computed(() => questions.value?.length ? scoreLabels.filter(item => questions.value?.some(q => q.scoreKey === item.key)) : scoreLabels)
+const customQuestions = computed(() => (questions.value ?? []).filter(q => q.isActive && !scoreLabels.some(item => item.key === q.scoreKey)))
+const customScores = reactive<Record<number, number | null>>({})
+const setCustomScore = (id: number, score: number, checked: boolean | 'indeterminate') => { customScores[id] = checked ? score : customScores[id] === score ? null : customScores[id] ?? null }
+watch(questions, values => values?.forEach(q => { const item = scoreLabels.find(label => label.key === q.scoreKey); if (item) item.label = q.label }), { immediate: true })
 const evaluationState = (item: Item) => item.evaluation ? 'SUBMITTED' : 'NOT_STARTED'
 const filtered = computed(() => (items.value ?? []).filter((item) => {
   const keyword = search.value.trim().toLowerCase()
@@ -46,8 +55,13 @@ const filtered = computed(() => (items.value ?? []).filter((item) => {
 }))
 const statusInfo = (item: Item) => ({ NOT_STARTED: { label: 'ยังไม่เริ่มประเมิน', color: 'warning' as const }, SUBMITTED: { label: 'ประเมินแล้ว', color: 'success' as const } }[evaluationState(item)])
 const openForm = (item: Item) => {
+  if (item.evaluation) {
+    notify.warning('บันทึกผลประเมินรายการนี้แล้ว จึงไม่สามารถแก้ไขได้')
+    return
+  }
   selected.value = item
-  scoreLabels.forEach(({ key }) => { form[key] = item.evaluation?.[key] ?? null })
+  visibleScoreLabels.value.forEach(({ key }) => { form[key] = item.evaluation?.[key] ?? null })
+  customQuestions.value.forEach(q => { customScores[q.id] = null })
   ;(['strengths', 'problems', 'recommendations', 'followUp'] as const).forEach(key => { form[key] = item.evaluation?.[key] ?? '' })
   open.value = true
 }
@@ -58,8 +72,8 @@ const submit = async () => {
   if (!selected.value) return
   saving.value = true
   try {
-    await $fetch(`/api/teacher/student-evaluations/${selected.value.appointmentId}/${selected.value.student.id}`, { method: 'PUT', body: form })
-    notify.success(selected.value.evaluation ? 'บันทึกการแก้ไขเรียบร้อยแล้ว' : 'บันทึกแบบประเมินเรียบร้อยแล้ว')
+    await $fetch(`/api/teacher/student-evaluations/${selected.value.appointmentId}/${selected.value.student.id}`, { method: 'PUT', body: { ...form, answers: customQuestions.value.map(q => ({ questionId: q.id, score: customScores[q.id] })) } })
+    notify.success('บันทึกแบบประเมินเรียบร้อยแล้ว')
     open.value = false
     await refresh()
   } catch (err: any) {
@@ -214,7 +228,8 @@ const columns: TableColumn<Item>[] = [
               <template #actions-cell="{ row }">
                 <div class="flex items-center justify-end">
                   <UButton
-                    :label="evaluationState(row.original) === 'SUBMITTED' ? 'แก้ไขผล' : 'ประเมิน'"
+                    v-if="evaluationState(row.original) !== 'SUBMITTED'"
+                    label="ประเมิน"
                     color="primary"
                     variant="ghost"
                     size="xs"
@@ -235,7 +250,7 @@ const columns: TableColumn<Item>[] = [
       <div v-if="selected" class="space-y-5">
         <div>
           <p class="text-sm text-ink font-medium">{{ selected.companyName }} · นัดหมาย #{{ selected.appointmentId }}</p>
-          <p class="mt-0.5 text-xs text-muted">บันทึกแล้วสามารถกลับมาแก้ไขได้ตลอด</p>
+          <p class="mt-0.5 text-xs text-muted">เมื่อตรวจสอบครบถ้วนแล้วจึงบันทึก เพราะไม่สามารถแก้ไขภายหลังได้</p>
         </div>
         <div class="overflow-x-auto rounded-panel border border-divider">
           <table class="min-w-full text-sm">
@@ -244,9 +259,10 @@ const columns: TableColumn<Item>[] = [
                 <th class="min-w-64 px-3 py-2 text-left font-medium">หัวข้อประเมิน</th>
                 <th v-for="score in [5, 4, 3, 2, 1]" :key="score" class="w-14 px-2 py-2 text-center font-medium">{{ score }}</th>
               </tr>
+              <tr v-for="item in customQuestions" :key="item.id" class="border-t border-divider"><th scope="row" class="px-3 py-2 text-left font-medium text-ink">{{ item.label }}</th><td v-for="score in [5, 4, 3, 2, 1]" :key="score" class="px-2 py-2 text-center"><UCheckbox :model-value="customScores[item.id] === score" size="sm" @update:model-value="setCustomScore(item.id, score, $event)" /></td></tr>
             </thead>
             <tbody>
-              <tr v-for="item in scoreLabels" :key="item.key" class="border-t border-divider">
+              <tr v-for="item in visibleScoreLabels" :key="item.key" class="border-t border-divider">
                 <th scope="row" class="px-3 py-2 text-left font-medium text-ink">{{ item.label }}</th>
                 <td v-for="score in [5, 4, 3, 2, 1]" :key="score" class="px-2 py-2 text-center">
                   <UCheckbox
@@ -281,7 +297,7 @@ const columns: TableColumn<Item>[] = [
         <UButton
           size="xl"
           color="primary"
-          :label="selected?.evaluation ? 'บันทึกการแก้ไข' : 'บันทึกแบบประเมิน'"
+          label="บันทึกแบบประเมิน"
           :loading="saving"
           @click="submit"
         />

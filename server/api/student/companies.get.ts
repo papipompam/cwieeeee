@@ -21,8 +21,12 @@ export default defineEventHandler(async (event) => {
   const companies = await prisma.company.findMany({
     where,
     orderBy: { name: 'asc' },
-    take: 20
+    take: 20,
+    include: { companyApplications: { include: { cooperativeRequest: { include: { companyReview: true } } } } }
   })
 
-  return companies
+  return companies.map(({ companyApplications, ...company }) => {
+    const reviews = companyApplications.map(application => application.cooperativeRequest?.companyReview).filter(review => review?.status === 'APPROVED')
+    return { ...company, reviewCount: reviews.length, averageRating: reviews.length ? reviews.reduce((sum, review) => sum + review!.rating, 0) / reviews.length : null }
+  })
 })

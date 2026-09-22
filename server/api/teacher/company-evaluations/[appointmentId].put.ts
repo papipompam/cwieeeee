@@ -19,7 +19,7 @@ export default defineEventHandler(async (event) => {
     if (!Number.isInteger(score) || score < 1 || score > 5) throw createError({ statusCode: 400, message: 'คะแนนต้องเป็นจำนวนเต็ม 1 ถึง 5' })
     return [key, score]
   }))
-  if (scoreKeys.some(key => scores[key] === null)) throw createError({ statusCode: 400, message: 'กรุณาให้คะแนนให้ครบทั้ง 13 ด้านก่อนส่งแบบประเมิน' })
+  if (scoreKeys.some(key => scores[key] === null) && !Array.isArray(body?.answers)) throw createError({ statusCode: 400, message: 'กรุณาให้คะแนนให้ครบทุกข้อก่อนส่งแบบประเมิน' })
   const text = (key: string) => typeof body?.[key] === 'string' && body[key].trim() ? body[key].trim() : null
   const data = { ...scores, observations: text('observations'), companyNeeds: text('companyNeeds'), problems: text('problems'), recommendations: text('recommendations'), futureRecommendation: text('futureRecommendation') }
   return prisma.$transaction(async (tx) => {
@@ -29,8 +29,12 @@ export default defineEventHandler(async (event) => {
       orderBy: { updatedAt: 'desc' }
     })
     if (existing) {
-      return tx.companyEvaluation.update({ where: { id: existing.id }, data })
+      const evaluation = await tx.companyEvaluation.update({ where: { id: existing.id }, data })
+      if (Array.isArray(body?.answers)) for (const answer of body.answers) await tx.evaluationAnswer.upsert({ where: { questionId_companyEvaluationId: { questionId: Number(answer.questionId), companyEvaluationId: evaluation.id } }, create: { questionId: Number(answer.questionId), companyEvaluationId: evaluation.id, score: answer.score == null ? null : Number(answer.score), textValue: answer.textValue || null }, update: { score: answer.score == null ? null : Number(answer.score), textValue: answer.textValue || null } })
+      return evaluation
     }
-    return tx.companyEvaluation.create({ data: { ...data, appointmentId, teacherUserId: user.id } })
+    const evaluation = await tx.companyEvaluation.create({ data: { ...data, appointmentId, teacherUserId: user.id } })
+    if (Array.isArray(body?.answers)) for (const answer of body.answers) await tx.evaluationAnswer.create({ data: { questionId: Number(answer.questionId), companyEvaluationId: evaluation.id, score: answer.score == null ? null : Number(answer.score), textValue: answer.textValue || null } })
+    return evaluation
   })
 })

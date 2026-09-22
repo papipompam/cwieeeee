@@ -156,10 +156,34 @@ const staffLinks = computed<NavigationMenuItem[]>(() => {
       onSelect: handleSelect
     },
     {
-      label: 'การแจ้งเตือน',
-      icon: 'i-lucide-bell',
-      to: '/staff/notifications',
-      onSelect: handleSelect
+      label: 'การตั้งค่า',
+      icon: 'i-lucide-settings-2',
+      children: [
+        {
+          label: 'การแจ้งเตือน',
+          icon: 'i-lucide-bell',
+          to: '/staff/notifications',
+          onSelect: handleSelect
+        },
+        {
+          label: 'จัดการเอกสาร',
+          icon: 'i-lucide-file-cog',
+          to: '/staff/settings/documents',
+          onSelect: handleSelect
+        },
+        {
+          label: 'จัดการการประเมิน',
+          icon: 'i-lucide-list-checks',
+          to: '/staff/settings/evaluations',
+          onSelect: handleSelect
+        },
+        {
+          label: 'จัดการรีวิวสถานประกอบการ',
+          icon: 'i-lucide-message-square-heart',
+          to: '/staff/company-reviews',
+          onSelect: handleSelect
+        }
+      ]
     }
   ]
 })
@@ -331,12 +355,12 @@ const currentMenuGroups = computed<MenuGroup[]>(() => {
               tooltip
               class="sidebar-menu"
               :ui="{
-                root: 'gap-2',
-                list: 'space-y-1',
-                link: 'min-h-11 gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors duration-150 hover:before:!bg-sidebar-hover hover:!text-white focus-visible:before:outline-primary/50',
+                root: 'gap-1',
+                list: 'space-y-0.5',
+                link: 'min-h-10 gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-colors duration-150 hover:before:!bg-sidebar-hover hover:!text-white focus-visible:before:outline-primary/50',
                 linkLeadingIcon: 'size-5 transition-colors duration-150 group-hover:!text-white',
                 childList: 'mt-1 space-y-0 border-sidebar-border',
-                childLink: 'min-h-10 gap-2.5 rounded-xl px-3 py-2.5 transition-colors duration-150 hover:before:!bg-sidebar-hover hover:!text-white',
+                childLink: 'min-h-9 gap-2.5 rounded-xl px-3 py-1.5 transition-colors duration-150 hover:before:!bg-sidebar-hover hover:!text-white',
                 childLinkIcon: 'size-4.5 transition-colors duration-150 group-hover:!text-white'
               }"
             />

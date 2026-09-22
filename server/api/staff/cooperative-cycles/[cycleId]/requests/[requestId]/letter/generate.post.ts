@@ -20,7 +20,7 @@ export default defineEventHandler(async (event) => {
 
   let signer: RequestLetterSigner
   try {
-    signer = await loadRequestLetterSigner()
+    signer = await loadRequestLetterSigner(await getDocumentSignerOverrides())
   } catch (err: any) {
     if (err instanceof RequestLetterSignerError) {
       throw createError({ statusCode: 500, message: err.message })

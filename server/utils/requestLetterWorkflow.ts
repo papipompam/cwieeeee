@@ -93,7 +93,6 @@ export function buildRequestLetterData(
 
   const prefix = studentUser.prefix?.trim() || ''
   const studentName = `${prefix}${studentUser.firstName.trim()} ${studentUser.lastName.trim()}`
-  const studentId = studentUser.loginId?.trim() || undefined
 
   return {
     letterNumber: input.letterNumber,
@@ -106,7 +105,6 @@ export function buildRequestLetterData(
     recipientName,
     companyName,
     studentName,
-    studentId,
     studentCount: 1,
     signerName: signer.signerName,
     signerTitleLines: signer.signerTitleLines,

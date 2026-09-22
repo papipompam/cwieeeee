@@ -263,7 +263,6 @@ describe('requestLetterWorkflow utility', () => {
     assert.strictEqual(data.recipientName, 'กรรมการผู้จัดการ')
     assert.strictEqual(data.companyName, 'บริษัท เอบีซี เทคโนโลยี จำกัด')
     assert.strictEqual(data.studentName, 'นายสมชาย เรียนดี')
-    assert.strictEqual(data.studentId, '64012345678')
     assert.strictEqual(data.studentCount, 1)
     assert.strictEqual(data.signerName, validSigner.signerName)
     assert.deepStrictEqual(data.signerTitleLines, validSigner.signerTitleLines)

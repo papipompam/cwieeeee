@@ -62,6 +62,7 @@ const selectedEvaluationAppointment = ref<Appointment | null>(null)
 const selectedStudentEvaluation = ref<StudentEvaluationItem | null>(null)
 const studentSaving = ref(false)
 const companySaving = ref(false)
+const evaluationQuestions = ref<Array<{ evaluationType: 'student' | 'company', scoreKey: string, label: string }>>([])
 const statusSaving = ref(false)
 const photoUploading = ref(false)
 const appointmentId = computed(() => {
@@ -173,6 +174,17 @@ const companyScoreLabels: Array<{ key: CompanyScoreKey, label: string }> = [
   { key: 'accommodationScore', label: 'ความเหมาะสมของที่พัก' },
   { key: 'coordinationScore', label: 'การประสานงานกับมหาวิทยาลัย' }
 ]
+const visibleStudentScoreLabels = computed(() => evaluationQuestions.value.some(q => q.evaluationType === 'student') ? studentScoreLabels.filter(item => evaluationQuestions.value.some(q => q.evaluationType === 'student' && q.scoreKey === item.key)) : studentScoreLabels)
+const visibleCompanyScoreLabels = computed(() => evaluationQuestions.value.some(q => q.evaluationType === 'company') ? companyScoreLabels.filter(item => evaluationQuestions.value.some(q => q.evaluationType === 'company' && q.scoreKey === item.key)) : companyScoreLabels)
+watch(appointments, async (items) => {
+  const cycleId = items?.[0]?.round.cooperativeCycle.id
+  if (!cycleId) return
+  try {
+    evaluationQuestions.value = await $fetch(`/api/teacher/evaluation-questions?cycleId=${cycleId}`)
+    evaluationQuestions.value.filter(q => q.evaluationType === 'student').forEach(q => { const item = studentScoreLabels.find(label => label.key === q.scoreKey); if (item) item.label = q.label })
+    evaluationQuestions.value.filter(q => q.evaluationType === 'company').forEach(q => { const item = companyScoreLabels.find(label => label.key === q.scoreKey); if (item) item.label = q.label })
+  } catch { /* keep built-in labels when configuration is unavailable */ }
+}, { immediate: true })
 const studentForm = reactive<Record<StudentScoreKey | 'strengths' | 'problems' | 'recommendations' | 'followUp', number | null | string>>({ responsibilityScore: null, disciplineScore: null, communicationScore: null, knowledgeScore: null, workQualityScore: null, problemSolvingScore: null, strengths: '', problems: '', recommendations: '', followUp: '' })
 const companyForm = reactive<Record<CompanyScoreKey | 'observations' | 'companyNeeds' | 'problems' | 'recommendations' | 'futureRecommendation', number | null | string>>(Object.fromEntries([...companyScoreLabels.map(item => [item.key, null]), ['observations', ''], ['companyNeeds', ''], ['problems', ''], ['recommendations', ''], ['futureRecommendation', '']]) as Record<CompanyScoreKey | 'observations' | 'companyNeeds' | 'problems' | 'recommendations' | 'futureRecommendation', number | null | string>)
 const studentItemsForSelectedAppointment = computed(() => (studentEvaluationItems.value ?? []).filter(item => item.appointmentId === selectedEvaluationAppointment.value?.id))
@@ -584,7 +596,7 @@ const columns: TableColumn<Appointment>[] = [
               </tr>
             </thead>
             <tbody>
-              <tr v-for="item in studentScoreLabels" :key="item.key" class="border-t border-divider">
+              <tr v-for="item in visibleStudentScoreLabels" :key="item.key" class="border-t border-divider">
                 <th scope="row" class="px-3 py-2 text-left font-medium text-ink">{{ item.label }}</th>
                 <td v-for="score in [5, 4, 3, 2, 1]" :key="score" class="px-2 py-2 text-center">
                   <UCheckbox
@@ -640,7 +652,7 @@ const columns: TableColumn<Appointment>[] = [
               </tr>
             </thead>
             <tbody>
-              <tr v-for="item in companyScoreLabels" :key="item.key" class="border-t border-divider">
+              <tr v-for="item in visibleCompanyScoreLabels" :key="item.key" class="border-t border-divider">
                 <th scope="row" class="px-3 py-2 text-left font-medium text-ink">{{ item.label }}</th>
                 <td v-for="score in [5, 4, 3, 2, 1]" :key="score" class="px-2 py-2 text-center">
                   <UCheckbox

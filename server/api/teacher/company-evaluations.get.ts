@@ -4,7 +4,7 @@ export default defineEventHandler(async (event) => {
     where: { supervisionGroup: { teachers: { some: { teacherUserId: user.id } } }, status: { in: ['PUBLISHED', 'RESCHEDULED', 'COMPLETED'] } },
     include: {
       supervisionGroup: { select: { name: true } },
-      supervisionRound: { select: { roundNo: true, cooperativeCycle: { select: { term: true, academicYear: true } } } },
+      supervisionRound: { select: { roundNo: true, cooperativeCycle: { select: { id: true, term: true, academicYear: true, evaluationQuestions: { where: { evaluationType: 'company', isActive: true }, orderBy: { sortOrder: 'asc' } } } } } },
       companyEvaluations: {
         orderBy: { updatedAt: 'desc' },
         take: 1,

@@ -16,7 +16,6 @@ export interface RequestLetterData {
   recipientName: string
   companyName: string
   studentName: string
-  studentId?: string
   studentCount: number
   signerName: string
   signerTitleLines: string[]
@@ -240,9 +239,7 @@ export async function generateRequestLetter(
     )
   }
 
-  const studentLineText = data.studentId
-    ? `๑.  ${data.studentName.trim()}    รหัสนักศึกษา  ${toThaiDigits(data.studentId.trim())}`
-    : `๑.  ${data.studentName.trim()}`
+  const studentLineText = `๑.  ${data.studentName.trim()}`
   const studentLineWidth = regularFont.widthOfTextAtSize(studentLineText, fontSize)
   if (studentLineWidth > LAYOUT.student.maxWidth) {
     throw new Error(

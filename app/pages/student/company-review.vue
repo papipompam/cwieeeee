@@ -9,40 +9,21 @@ interface Placement {
   province: string | null
 }
 
-const { data, status, error, refresh } = await useFetch<{ placement: Placement | null }>('/api/student/placement')
+interface Review { rating: number, comment: string, status: 'PENDING' | 'APPROVED' | 'RETURNED', reviewerNote: string | null }
+const { data, status, error, refresh } = await useFetch<{ placement: Placement | null, review: Review | null }>('/api/student/company-review')
 const notify = useNotify()
 const rating = ref(0)
 const comment = ref('')
 const savedAt = ref<string | null>(null)
 
-const draftKey = computed(() => data.value?.placement ? `company-review-draft:${data.value.placement.id}` : null)
-
-onMounted(() => {
-  if (!draftKey.value) return
-  const draft = localStorage.getItem(draftKey.value)
-  if (!draft) return
-  try {
-    const parsed = JSON.parse(draft)
-    rating.value = Number(parsed.rating) || 0
-    comment.value = typeof parsed.comment === 'string' ? parsed.comment : ''
-    savedAt.value = typeof parsed.savedAt === 'string' ? parsed.savedAt : null
-  } catch {
-    localStorage.removeItem(draftKey.value)
-  }
-})
+watch(data, value => { rating.value = value?.review?.rating ?? 0; comment.value = value?.review?.comment ?? '' }, { immediate: true })
 
 const saveDraft = () => {
-  if (!draftKey.value || !rating.value || !comment.value.trim()) {
+  if (!data.value?.placement || !rating.value || !comment.value.trim()) {
     notify.error('กรุณาให้คะแนนและเขียนความคิดเห็นก่อนบันทึก')
     return
   }
-  savedAt.value = new Date().toISOString()
-  localStorage.setItem(draftKey.value, JSON.stringify({
-    rating: rating.value,
-    comment: comment.value.trim(),
-    savedAt: savedAt.value
-  }))
-  notify.success('บันทึกแบบร่างรีวิวในอุปกรณ์นี้แล้ว')
+  $fetch('/api/student/company-review', { method: 'POST', body: { requestId: data.value.placement.id, rating: rating.value, comment: comment.value } }).then(async () => { savedAt.value = new Date().toISOString(); await refresh(); notify.success('ส่งรีวิวให้เจ้าหน้าที่ตรวจสอบแล้ว') }).catch((err: any) => notify.error(err?.data?.message || 'ไม่สามารถบันทึกรีวิวได้'))
 }
 
 const formatSavedAt = computed(() => savedAt.value
@@ -103,7 +84,7 @@ const formatSavedAt = computed(() => savedAt.value
             <template #header>
               <div>
                 <h2 class="text-base font-semibold text-highlighted">คะแนนและความคิดเห็น</h2>
-                <p class="mt-1 text-xs text-muted">ข้อมูลส่วนนี้เป็นแบบร่างที่เก็บไว้เฉพาะในอุปกรณ์นี้</p>
+                <p class="mt-1 text-xs text-muted">สถานะ: {{ data?.review?.status === 'APPROVED' ? 'เผยแพร่แล้ว' : data?.review?.status === 'RETURNED' ? 'ส่งกลับแก้ไข' : data?.review ? 'รอตรวจสอบ' : 'ยังไม่ส่งรีวิว' }}</p>
               </div>
             </template>
 
@@ -147,7 +128,7 @@ const formatSavedAt = computed(() => savedAt.value
             <template #footer>
               <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <span class="text-xs text-muted">{{ formatSavedAt ? `บันทึกล่าสุด ${formatSavedAt}` : 'ยังไม่ได้บันทึกแบบร่าง' }}</span>
-                <UButton size="xl" color="primary" icon="i-lucide-save" label="บันทึกแบบร่าง" @click="saveDraft" />
+                <UButton size="xl" color="primary" icon="i-lucide-send" :label="data?.review ? 'แก้ไขและส่งใหม่' : 'ส่งรีวิว'" @click="saveDraft" />
               </div>
             </template>
           </UCard>
