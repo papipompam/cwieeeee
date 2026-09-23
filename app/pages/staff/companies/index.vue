@@ -222,10 +222,6 @@ const columns: TableColumn<Company>[] = [
     cell: ({ row }) => h('div', { class: 'font-semibold text-ink' }, row.original.name)
   },
   {
-    accessorKey: 'contactPerson',
-    header: 'ผู้ติดต่อหลัก'
-  },
-  {
     id: 'location',
     header: 'จังหวัด (ภูมิภาค)',
     cell: ({ row }) => `${row.original.province} (${getRegionByProvince(row.original.province)})`
