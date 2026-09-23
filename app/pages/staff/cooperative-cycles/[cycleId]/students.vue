@@ -543,7 +543,7 @@ const pageEnd = computed(() => {
                 <UInput v-model.number="bulkCohortYear" type="number" placeholder="เช่น 2566" size="xl" />
               </UFormField>
               <UButton
-                size="xl"
+                size="md"
                 label="เพิ่มทั้งรุ่น"
                 icon="i-lucide-users-round"
                 :loading="isEnrollmentSaving"
