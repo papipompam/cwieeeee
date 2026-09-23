@@ -60,9 +60,8 @@ export const validatePositiveId = (id: unknown, label = 'รหัส'): number 
 }
 
 export const ensureStudentsCanJoinOpenCycle = async (tx: any, cycleId: number, studentIds: number[]) => {
-  for (const studentId of [...new Set(studentIds)].sort((a, b) => a - b)) {
-    await tx.$executeRaw`SELECT pg_advisory_xact_lock(${studentId}, 0)`
-  }
+  // ponytail: One global enrollment lock keeps bulk inserts bounded; use per-student locks in one SQL call if concurrency becomes a bottleneck.
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(20260, 1)`
 
   const existing = await tx.cooperativeCycleEnrollment.findFirst({
     where: {
