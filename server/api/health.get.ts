@@ -1,1 +1,4 @@
-export default defineEventHandler(() => ({ status: 'ok' }))
+export default defineEventHandler(async () => {
+  await prisma.$queryRaw`SELECT 1`
+  return { status: 'ok' }
+})

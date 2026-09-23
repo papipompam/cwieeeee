@@ -1,0 +1,56 @@
+export default defineEventHandler(async (event) => {
+  const { cycle, cycleId } = await getStaffCycle(event)
+  const requestId = validatePositiveId(getRouterParam(event, 'requestId'), 'รหัสคำร้อง')
+
+  const request = await getStaffCycleRequest(event, cycleId, requestId)
+  const activeLetterVersion = await prisma.requestLetterVersion.findFirst({
+    where: { isActive: true, OR: [{ cooperativeRequestId: request.id }, { participants: { some: { cooperativeRequestId: request.id } } }] },
+    orderBy: { version: 'desc' },
+    select: {
+      version: true,
+      source: true,
+      letterNumber: true,
+      issueDate: true,
+      templateVersion: true,
+      signerName: true,
+      signerTitle: true,
+      issuedByUser: {
+        select: { prefix: true, firstName: true, lastName: true }
+      }
+    }
+  })
+  const activeSendingLetterVersion = await prisma.sendingLetterVersion.findFirst({
+    where: {
+      isActive: true,
+      participants: { some: { cooperativeRequestId: request.id } }
+    },
+    orderBy: { version: 'desc' },
+    select: {
+      version: true,
+      letterNumber: true,
+      issueDate: true,
+      referenceLetterNumber: true,
+      referenceIssueDate: true,
+      templateVersion: true,
+      createdAt: true
+    }
+  })
+
+  const groupDocument = activeLetterVersion
+    ? await prisma.requestDocument.findFirst({ where: { requestLetterVersion: { isActive: true, participants: { some: { cooperativeRequestId: request.id } } } }, orderBy: { version: 'desc' } })
+    : null
+
+  return {
+    ...request,
+    documents: groupDocument ? [groupDocument] : request.documents,
+    activeLetterVersion,
+    activeSendingLetterVersion,
+    letterCycle: {
+      term: cycle.term,
+      academicYear: cycle.academicYear,
+      internshipHours: cycle.internshipHours,
+      internshipStartDate: cycle.internshipStartDate,
+      internshipEndDate: cycle.internshipEndDate
+    }
+  }
+})

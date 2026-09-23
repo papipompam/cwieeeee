@@ -84,12 +84,14 @@ const handleConfirm = () => {
     <template #footer>
       <div class="flex w-full justify-end gap-3">
         <UButton
+          size="xl"
           label="ยกเลิก"
           color="neutral"
           variant="outline"
           @click="handleCancel"
         />
         <UButton
+          size="xl"
           :label="confirmLabel"
           :color="confirmColor"
           :loading="loading"

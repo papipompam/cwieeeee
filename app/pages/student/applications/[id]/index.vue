@@ -1,0 +1,366 @@
+<script setup lang="ts">
+definePageMeta({ layout: 'dashboard' })
+
+const route = useRoute()
+const router = useRouter()
+const notify = useNotify()
+
+const id = computed(() => Number(route.params.id))
+const { data: app, status: fetchStatus, error: fetchError, refresh } = await useFetch<any>(() => `/api/student/applications/${id.value}`)
+
+const formatThaiDate = (val?: string | null) => {
+  if (!val) return '—'
+  return new Intl.DateTimeFormat('th-TH', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric'
+  }).format(new Date(val))
+}
+
+const getStatusBadge = (s: string) => {
+  switch (s) {
+    case 'SUBMITTED':
+      return { label: 'ส่งข้อมูลการสมัครแล้ว', color: 'info' as const }
+    case 'AWAITING_RESPONSE':
+      return { label: 'รอผลตอบกลับ', color: 'warning' as const }
+    case 'INTERVIEW':
+      return { label: 'รอสัมภาษณ์', color: 'info' as const }
+    case 'ACCEPTED':
+      return { label: 'บริษัทตอบรับแล้ว', color: 'success' as const }
+    case 'REJECTED':
+      return { label: 'บริษัทปฏิเสธ', color: 'error' as const }
+    case 'WITHDRAWN':
+      return { label: 'ยกเลิกการสมัคร', color: 'neutral' as const }
+    case 'CONFIRMED':
+      return { label: 'ยืนยันและส่งคำร้องแล้ว', color: 'success' as const }
+    default:
+      return { label: s, color: 'neutral' as const }
+  }
+}
+
+// Milestone update modal state
+const isMilestoneModalOpen = ref(false)
+const selectedMilestone = ref('')
+const isUpdatingMilestone = ref(false)
+
+const openMilestoneModal = () => {
+  if (!app.value) return
+  if (app.value.status === 'SUBMITTED') selectedMilestone.value = 'AWAITING_RESPONSE'
+  else if (app.value.status === 'AWAITING_RESPONSE') selectedMilestone.value = 'INTERVIEW'
+  else if (app.value.status === 'INTERVIEW') selectedMilestone.value = 'ACCEPTED'
+  isMilestoneModalOpen.value = true
+}
+
+const handleUpdateMilestone = async () => {
+  if (!selectedMilestone.value) return
+  isUpdatingMilestone.value = true
+  try {
+    await $fetch(`/api/student/applications/${id.value}/outcome`, {
+      method: 'POST',
+      body: { status: selectedMilestone.value }
+    })
+
+    notify.success('อัปเดตสถานะการสมัครเรียบร้อยแล้ว')
+    isMilestoneModalOpen.value = false
+    await refresh()
+  } catch (err: any) {
+    notify.error(err.data?.message || 'ไม่สามารถอัปเดตสถานะได้')
+  } finally {
+    isUpdatingMilestone.value = false
+  }
+}
+
+// Cancel application modal state
+const isCancelModalOpen = ref(false)
+const isCancelling = ref(false)
+
+const handleCancelConfirm = async () => {
+  isCancelling.value = true
+  try {
+    await $fetch(`/api/student/applications/${id.value}/outcome`, {
+      method: 'POST',
+      body: { status: 'WITHDRAWN' }
+    })
+    notify.success('ยกเลิกการสมัครเรียบร้อยแล้ว')
+    isCancelModalOpen.value = false
+    await refresh()
+  } catch (err: any) {
+    notify.error(err.data?.message || 'ไม่สามารถยกเลิกการสมัครได้')
+  } finally {
+    isCancelling.value = false
+  }
+}
+
+// Confirm application state (ACCEPTED -> CONFIRMED + Request)
+const isConfirmModalOpen = ref(false)
+const isConfirming = ref(false)
+
+const handleConfirmApplication = async () => {
+  isConfirming.value = true
+  try {
+    await $fetch(`/api/student/applications/${id.value}/confirm`, {
+      method: 'POST'
+    })
+    notify.success('ยืนยันสถานประกอบการและส่งคำร้องเรียบร้อยแล้ว')
+    isConfirmModalOpen.value = false
+    await router.push('/student/applications')
+  } catch (err: any) {
+    notify.error(err.data?.message || 'ไม่สามารถยืนยันคำร้องได้')
+  } finally {
+    isConfirming.value = false
+  }
+}
+
+</script>
+
+<template>
+  <UDashboardPanel id="student-application-detail-page">
+    <template #header>
+      <AppDashboardNavbar :title="app?.company?.name || 'รายละเอียดการสมัคร'">
+        <template #leading>
+          <UDashboardSidebarCollapse />
+          <UButton
+            icon="i-lucide-arrow-left"
+            color="neutral"
+            variant="ghost"
+            to="/student/applications"
+            aria-label="กลับไปหน้ารายการสมัคร"
+          />
+        </template>
+        <template #right>
+          <UIButtonRefresh :loading="fetchStatus === 'pending'" @refresh="refresh" />
+          <AppNotificationBell />
+        </template>
+      </AppDashboardNavbar>
+    </template>
+
+    <template #body>
+      <div class="mx-auto w-full max-w-4xl pb-16 space-y-6">
+        <UAlert
+          v-if="fetchError"
+          color="error"
+          icon="i-lucide-circle-alert"
+          title="ไม่พบข้อมูลการสมัคร"
+          :description="fetchError.message"
+        />
+
+        <div v-else-if="fetchStatus === 'pending'" class="space-y-4">
+          <USkeleton class="h-32 rounded-panel" />
+          <USkeleton class="h-48 rounded-panel" />
+        </div>
+
+        <template v-else-if="app">
+          <!-- Status Banner & Action Bar -->
+          <UCard>
+            <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div class="space-y-1">
+                <div class="flex items-center gap-2">
+                  <span class="text-xs text-muted">#{{ app.id }}</span>
+                  <UBadge :color="getStatusBadge(app.status).color" variant="subtle" size="md">
+                    {{ getStatusBadge(app.status).label }}
+                  </UBadge>
+                </div>
+                <h1 class="text-xl font-bold text-ink">{{ app.company.name }}</h1>
+                <p class="text-xs text-muted">ตำแหน่ง: {{ app.applicationPosition || '—' }} • ยื่นสมัครเมื่อ: {{ formatThaiDate(app.appliedAt) }}</p>
+              </div>
+
+              <!-- Contextual Actions -->
+              <div class="flex flex-wrap items-center gap-2 self-stretch sm:self-auto justify-end">
+                <!-- If active before ACCEPTED: Edit, Update Milestone, Cancel -->
+                <template v-if="['SUBMITTED', 'AWAITING_RESPONSE', 'INTERVIEW'].includes(app.status)">
+                  <UButton
+                    color="neutral"
+                    variant="outline"
+                    size="sm"
+                    icon="i-lucide-pencil"
+                    label="แก้ไขข้อมูล"
+                    :to="`/student/applications/${app.id}/edit`"
+                  />
+                  <UButton
+                    color="primary"
+                    size="sm"
+                    icon="i-lucide-step-forward"
+                    label="ระบุผล / ความคืบหน้า"
+                    @click="openMilestoneModal"
+                  />
+                  <UButton
+                    color="neutral"
+                    variant="ghost"
+                    size="sm"
+                    label="ยกเลิกการสมัคร"
+                    @click="isCancelModalOpen = true"
+                  />
+                </template>
+
+                <!-- If ACCEPTED: Confirm & Send Request -->
+                <template v-else-if="app.status === 'ACCEPTED'">
+                  <UButton
+                    color="success"
+                    size="sm"
+                    icon="i-lucide-check-circle"
+                    label="ยืนยันสถานประกอบการและส่งคำร้อง"
+                    @click="isConfirmModalOpen = true"
+                  />
+                </template>
+
+                <!-- If CONFIRMED: Return to the unified applications view -->
+                <template v-else-if="app.status === 'CONFIRMED'">
+                  <UButton
+                    color="primary"
+                    size="sm"
+                    icon="i-lucide-briefcase-business"
+                    label="ดูสถานะการสมัคร"
+                    to="/student/applications"
+                  />
+                </template>
+
+              </div>
+            </div>
+          </UCard>
+
+          <!-- Confirmed Lock Notice -->
+          <UAlert
+            v-if="app.status === 'CONFIRMED'"
+            color="success"
+            variant="subtle"
+            icon="i-lucide-lock"
+            title="รายการนี้ได้รับการยืนยันและส่งคำร้องเรียบร้อยแล้ว"
+            description="ข้อมูลหลักถูกบันทึกเป็น Snapshot สำหรับเจ้าหน้าที่"
+            :actions="[{ label: 'ดูสถานะการสมัคร', color: 'success', variant: 'outline', to: '/student/applications' }]"
+          />
+
+          <!-- Application Details Grid -->
+          <div class="grid gap-6 md:grid-cols-2">
+            <!-- Company Info Card -->
+            <UCard>
+              <template #header>
+                <div class="flex items-center gap-2">
+                  <UIcon name="i-lucide-building-2" class="size-5 text-primary" />
+                  <h3 class="font-semibold text-ink text-sm">ข้อมูลสถานประกอบการ</h3>
+                </div>
+              </template>
+              <div class="space-y-3 text-sm">
+                <div>
+                  <span class="text-xs text-muted block">ชื่อสถานประกอบการ</span>
+                  <span class="font-medium text-ink">{{ app.company.name }}</span>
+                </div>
+                <div>
+                  <span class="text-xs text-muted block">ที่อยู่</span>
+                  <span class="text-ink">
+                    {{ app.company.addressNo }} {{ app.company.street || '' }} {{ app.company.subdistrict }}, {{ app.company.district }}, จ.{{ app.company.province }} {{ app.company.postalCode }}
+                  </span>
+                </div>
+                <div class="grid grid-cols-2 gap-2 pt-1 border-t border-divider">
+                  <div>
+                    <span class="text-xs text-muted block">ผู้ประสานงาน</span>
+                    <span class="text-ink">{{ app.company.contactPerson || '—' }}</span>
+                  </div>
+                  <div>
+                    <span class="text-xs text-muted block">เบอร์โทรศัพท์</span>
+                    <span class="text-ink">{{ app.company.phone || '—' }}</span>
+                  </div>
+                </div>
+              </div>
+            </UCard>
+
+            <!-- Internship & Letter Details Card -->
+            <UCard>
+              <template #header>
+                <div class="flex items-center gap-2">
+                  <UIcon name="i-lucide-mail" class="size-5 text-primary" />
+                  <h3 class="font-semibold text-ink text-sm">ข้อมูลหนังสือและสถานที่ฝึก</h3>
+                </div>
+              </template>
+              <div class="space-y-3 text-sm">
+                <div>
+                  <span class="text-xs text-muted block">ผู้รับหนังสือขอความอนุเคราะห์</span>
+                  <span class="font-medium text-ink">{{ app.recipientName || '—' }}</span>
+                </div>
+                <div>
+                  <span class="text-xs text-muted block">ที่อยู่สำหรับออกหนังสือ</span>
+                  <span class="text-ink">{{ app.letterAddress || '—' }}</span>
+                </div>
+                <div class="pt-1 border-t border-divider">
+                  <span class="text-xs text-muted block">สถานที่ฝึกจริง / สาขา</span>
+                  <span class="text-ink">{{ app.internshipLocationName || '—' }}</span>
+                </div>
+                <div v-if="app.internshipLatitude && app.internshipLongitude" class="text-xs text-muted">
+                  พิกัด: {{ app.internshipLatitude }}, {{ app.internshipLongitude }}
+                </div>
+              </div>
+            </UCard>
+          </div>
+
+          <!-- Application Note -->
+          <UCard v-if="app.note">
+            <template #header>
+              <h4 class="font-semibold text-ink text-sm">หมายเหตุ</h4>
+            </template>
+            <p class="text-sm text-muted leading-relaxed whitespace-pre-line">{{ app.note }}</p>
+          </UCard>
+        </template>
+      </div>
+
+      <!-- Update Milestone Modal -->
+      <UModal
+        v-model:open="isMilestoneModalOpen"
+        title="ระบุความคืบหน้า / ผลการสมัคร"
+        description="เลือกสถานะใหม่ที่สอดคล้องกับการติดต่อกับสถานประกอบการ"
+      >
+        <template #body>
+          <div class="space-y-4">
+            <UFormField label="สถานะใหม่" required>
+              <USelect
+                v-model="selectedMilestone"
+                size="xl"
+                :items="[
+                  { label: 'รอผลตอบกลับ (Awaiting Response)', value: 'AWAITING_RESPONSE' },
+                  { label: 'รอสัมภาษณ์ (Interview)', value: 'INTERVIEW' },
+                  { label: 'บริษัทตอบรับแล้ว', value: 'ACCEPTED' },
+                  { label: 'บริษัทปฏิเสธ (Rejected)', value: 'REJECTED' }
+                ]"
+                class="w-full"
+              />
+            </UFormField>
+          </div>
+        </template>
+
+        <template #footer>
+          <div class="flex w-full justify-end gap-2">
+            <UButton size="xl" color="neutral" variant="outline" label="ยกเลิก" @click="isMilestoneModalOpen = false" />
+            <UButton
+              size="xl"
+              color="primary"
+              label="บันทึกสถานะ"
+              :loading="isUpdatingMilestone"
+              @click="handleUpdateMilestone"
+            />
+          </div>
+        </template>
+      </UModal>
+
+      <!-- Cancel Application Modal -->
+      <UIConfirmModal
+        v-model:open="isCancelModalOpen"
+        title="ยืนยันการยกเลิกการสมัคร"
+        description="ท่านต้องการยกเลิกการสมัครสถานประกอบการนี้ใช่หรือไม่? การยกเลิกจะมีผลให้สถานะเป็น WITHDRAWN"
+        confirm-label="ยืนยันการยกเลิก"
+        confirm-color="error"
+        :loading="isCancelling"
+        @confirm="handleCancelConfirm"
+      />
+
+      <!-- Confirm Application Modal (ACCEPTED -> CONFIRMED + Request) -->
+      <UIConfirmModal
+        v-model:open="isConfirmModalOpen"
+        title="ยืนยันสถานประกอบการและส่งคำร้อง"
+        :description="`ยืนยันส่งคำร้องขอหนังสือขอความอนุเคราะห์สำหรับ ${app?.company?.name} ใช่หรือไม่? ข้อมูลสถานประกอบการจะถูกล็อกและส่งต่อไปยังเจ้าหน้าที่ทันที`"
+        confirm-label="ยืนยันและส่งคำร้องทันที"
+        confirm-color="success"
+        :loading="isConfirming"
+        @confirm="handleConfirmApplication"
+      />
+
+    </template>
+  </UDashboardPanel>
+</template>

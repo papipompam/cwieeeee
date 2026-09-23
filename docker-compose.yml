@@ -1,15 +1,60 @@
 services:
   db:
-    image: postgres:17
+    image: postgres:17.6-bookworm
     restart: unless-stopped
     ports:
-      - '5432:5432'
+      - '127.0.0.1:${POSTGRES_PORT:-5432}:5432'
     environment:
-      POSTGRES_USER: cwie
-      POSTGRES_PASSWORD: cwie
-      POSTGRES_DB: cwie_dev
+      POSTGRES_USER: ${POSTGRES_USER:-cwie}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-cwie_dev}
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+  migrate:
+    build:
+      context: .
+      target: migrate
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-cwie}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB:-cwie_dev}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: 'no'
+
+  app:
+    build:
+      context: .
+      target: runtime
+    init: true
+    restart: unless-stopped
+    ports:
+      - '127.0.0.1:${APP_PORT:-3000}:3000'
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-cwie}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB:-cwie_dev}
+      PERSISTENT_STORAGE_DIR: /app/uploads
+      DOCUMENT_SIGNER_NAME: ${DOCUMENT_SIGNER_NAME:-}
+      DOCUMENT_SIGNER_TITLE: ${DOCUMENT_SIGNER_TITLE:-}
+      DOCUMENT_SIGNER_SIGNATURE_PATH: /run/signatures/authorized-dean.png
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    volumes:
+      - uploads-data:/app/uploads
+      - ${DOCUMENT_SIGNER_SIGNATURE_DIR:-./signatures}:/run/signatures:ro
+    healthcheck:
+      test: ['CMD-SHELL', "node -e \"fetch('http://127.0.0.1:3000/api/health').then(response => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
 
 volumes:
-  pgdata:
+  postgres-data:
+  uploads-data:

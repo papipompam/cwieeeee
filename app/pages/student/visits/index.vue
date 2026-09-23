@@ -1,0 +1,128 @@
+<script setup lang="ts">
+import type { TableColumn } from '@nuxt/ui'
+
+definePageMeta({ layout: 'dashboard' })
+
+interface VisitItem {
+  id: number
+  visitNo: number
+  visitDate: string
+  period: string
+  companyName: string
+  companyAddress: string | null
+  supervisorName: string | null
+  status: string
+  notes: string | null
+}
+
+const { data: visits, status, error, refresh } = await useFetch<VisitItem[]>('/api/student/visits')
+
+const formatThaiDate = (val?: string | null) => {
+  if (!val) return '—'
+  return new Intl.DateTimeFormat('th-TH', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric'
+  }).format(new Date(val))
+}
+
+const columns: TableColumn<VisitItem>[] = [
+  { accessorKey: 'visitNo', header: 'ครั้งที่' },
+  { accessorKey: 'visitDate', header: 'วันที่นิเทศ' },
+  { accessorKey: 'period', header: 'ช่วงเวลา' },
+  { accessorKey: 'companyName', header: 'สถานที่นิเทศ' },
+  { accessorKey: 'supervisorName', header: 'อาจารย์นิเทศ' },
+  { accessorKey: 'notes', header: 'หมายเหตุ / ผลการนิเทศ' }
+]
+</script>
+
+<template>
+  <UDashboardPanel id="student-visits-page">
+    <template #header>
+      <AppDashboardNavbar title="ตารางการนิเทศงานสหกิจศึกษา">
+        <template #leading>
+          <UDashboardSidebarCollapse />
+        </template>
+        <template #right>
+          <div class="flex items-center gap-2">
+            <UIButtonRefresh :loading="status === 'pending'" @refresh="refresh" />
+            <AppNotificationBell />
+          </div>
+        </template>
+      </AppDashboardNavbar>
+    </template>
+
+    <template #body>
+      <div class="space-y-4 pb-8">
+        <UAlert
+          v-if="error"
+          color="error"
+          variant="subtle"
+          icon="i-lucide-circle-alert"
+          title="ไม่สามารถโหลดตารางนิเทศได้"
+          :description="error.message"
+        />
+
+        <UCard :ui="{ body: 'p-0 sm:p-0' }">
+          <template #header>
+            <div class="flex items-start justify-between gap-4">
+              <div>
+                <h2 id="visits-heading" class="text-lg font-bold text-highlighted">รายการนัดนิเทศ</h2>
+                <p class="mt-1 text-sm leading-6 text-muted">ดูวัน เวลา สถานประกอบการ และอาจารย์ผู้นิเทศของคุณ</p>
+              </div>
+              <span class="grid size-10 shrink-0 place-items-center rounded-lg bg-info/10 text-info">
+                <UIcon name="i-lucide-calendar-days" class="size-5" />
+              </span>
+            </div>
+          </template>
+
+          <div class="overflow-x-auto min-w-full">
+            <UTable
+              :columns="columns"
+              :data="visits || []"
+              :loading="status === 'pending'"
+              class="min-w-full"
+            >
+              <template #visitNo-cell="{ row }">
+                <span class="font-semibold text-highlighted text-xs">ครั้งที่ {{ row.original.visitNo }}</span>
+              </template>
+
+              <template #visitDate-cell="{ row }">
+                <span class="text-xs text-highlighted">{{ formatThaiDate(row.original.visitDate) }}</span>
+              </template>
+
+              <template #period-cell="{ row }">
+                <UBadge size="xs" variant="subtle" :color="row.original.period === 'MORNING' ? 'info' : 'warning'">
+                  {{ row.original.period === 'MORNING' ? 'ช่วงเช้า' : row.original.period === 'AFTERNOON' ? 'ช่วงบ่าย' : 'เต็มวัน' }}
+                </UBadge>
+              </template>
+
+              <template #companyName-cell="{ row }">
+                <div>
+                  <p class="font-medium text-highlighted text-xs">{{ row.original.companyName }}</p>
+                  <p v-if="row.original.companyAddress" class="text-muted text-[11px]">{{ row.original.companyAddress }}</p>
+                </div>
+              </template>
+
+              <template #supervisorName-cell="{ row }">
+                <span class="text-xs text-muted">{{ row.original.supervisorName || '—' }}</span>
+              </template>
+
+              <template #notes-cell="{ row }">
+                <span class="text-xs text-muted">{{ row.original.notes || '—' }}</span>
+              </template>
+
+              <template #empty>
+                <div class="py-12 text-center text-muted space-y-2">
+                  <UIcon name="i-lucide-calendar-days" class="size-8 mx-auto opacity-40" />
+                  <p class="text-sm font-medium text-ink">ยังไม่มีตารางนิเทศที่เผยแพร่</p>
+                  <p class="text-xs text-muted">เมื่อเจ้าหน้าที่เผยแพร่ตารางนิเทศ วันเวลาและอาจารย์ผู้นิเทศจะแสดงที่นี่</p>
+                </div>
+              </template>
+            </UTable>
+          </div>
+        </UCard>
+      </div>
+    </template>
+  </UDashboardPanel>
+</template>

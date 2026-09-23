@@ -1,2 +1,94 @@
+@import "@fontsource/prompt/thai-300.css";
+@import "@fontsource/prompt/thai-400.css";
+@import "@fontsource/prompt/thai-500.css";
+@import "@fontsource/prompt/thai-600.css";
+@import "@fontsource/prompt/thai-700.css";
 @import "tailwindcss";
 @import "@nuxt/ui";
+@import "leaflet/dist/leaflet.css";
+
+/* Tokens used by the isolated /dev/ui reference page. */
+@theme {
+  --font-sans: "Prompt", "Noto Sans Thai", "Leelawadee UI", Tahoma, system-ui, sans-serif;
+  --color-canvas: #ffffff;
+  --color-surface: #f7f7f7;
+  --color-sidebar: #1d1e20;
+  --color-sidebar-hover: #2a2b2e;
+  --color-sidebar-border: #343538;
+  --color-sidebar-text: #d4d4d8;
+  --color-sidebar-muted: #a1a1aa;
+  --color-divider: #e5e7e9;
+  --color-ink: #1d1e20;
+  --color-muted: #656a72;
+  --color-success-soft: #eaf7ef;
+  --color-warning-soft: #fff6df;
+  --color-danger: #c33232;
+  --color-danger-soft: #fff0f0;
+  --color-info-soft: #edf5ff;
+  --color-interview: #7152a3;
+  --color-interview-soft: #f3effb;
+  --radius-control: 0.625rem;
+  --radius-panel: 0.875rem;
+  --shadow-panel: 0 1px 2px rgb(29 30 32 / 0.05), 0 8px 24px rgb(29 30 32 / 0.04);
+}
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+  }
+
+  body {
+    font-weight: 300;
+  }
+
+  :is(button, input, textarea, select) {
+    font-family: inherit;
+  }
+}
+
+@layer components {
+  .app-sidebar {
+    --ui-bg-elevated: var(--color-sidebar-hover);
+    --ui-border: var(--color-sidebar-border);
+    --ui-border-muted: var(--color-sidebar-border);
+    --ui-text: var(--color-sidebar-text);
+    --ui-text-muted: var(--color-sidebar-muted);
+    --ui-text-dimmed: var(--color-sidebar-muted);
+    --ui-text-toned: var(--color-sidebar-text);
+    --ui-text-highlighted: #ffffff;
+    background-color: var(--color-sidebar);
+    color: var(--ui-text);
+  }
+
+  .sidebar-menu {
+    --ui-bg-elevated: var(--ui-primary);
+    --ui-text-highlighted: var(--color-ink);
+  }
+
+  :is(.app-ui-theme, .student-ui-theme, .staff-ui-theme, .teacher-ui-theme, body:has(.app-ui-theme)) {
+    --ui-primary: #f5b32b;
+    --ui-bg: #ffffff;
+    --ui-bg-muted: #f7f7f7;
+    --ui-bg-elevated: #f7f7f7;
+    --ui-bg-accented: #fff6df;
+    --ui-border: #e5e7e9;
+    --ui-border-muted: #eef0f2;
+    --ui-border-accented: #d7dadd;
+    --ui-text: #1d1e20;
+    --ui-text-muted: #656a72;
+    --ui-text-toned: #4f545b;
+    --ui-text-highlighted: #1d1e20;
+    color: var(--color-ink);
+    background: var(--color-surface);
+    font-family: "Prompt", "Noto Sans Thai", "Leelawadee UI", Tahoma, system-ui, sans-serif;
+    font-weight: 300;
+  }
+
+  :is(.app-ui-theme, .student-ui-theme, .staff-ui-theme, .teacher-ui-theme) :is(button, input, textarea, select, [role="button"], [role="combobox"]) {
+    font-family: inherit;
+  }
+
+  :is(.app-ui-theme, .student-ui-theme, .staff-ui-theme, .teacher-ui-theme) [data-slot="body"] {
+    scrollbar-gutter: stable;
+  }
+}

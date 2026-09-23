@@ -1,0 +1,191 @@
+<script setup lang="ts">
+definePageMeta({
+  layout: "dashboard"
+})
+
+type CooperativeCycleStatus = "OPEN_FOR_APPLICATION" | "APPLICATION_CLOSED" | "IN_PROGRESS" | "CLOSED"
+
+interface CooperativeCycle {
+  id: number
+  term: number
+  academicYear: number
+  cohortYear: number
+  applicationStartDate: string
+  applicationEndDate: string
+  internshipStartDate: string
+  internshipEndDate: string
+  status: CooperativeCycleStatus
+  note: string | null
+}
+
+const route = useRoute()
+const cycleId = computed(() => Number(route.params.cycleId))
+const { setActiveCycle } = useStaffActiveCycle()
+
+// Fetch current cycle
+const { data: cycle, status: fetchStatus, error: fetchError } = await useFetch<CooperativeCycle>(() => `/api/cooperative-cycles/${cycleId.value}`)
+
+if (fetchError.value?.statusCode === 404) {
+  setActiveCycle(null)
+  await navigateTo('/staff/cooperative-cycles?select=1', { replace: true })
+}
+
+// Provide to child pages
+provide("currentCycle", cycle)
+watch(cycle, value => {
+  if (value) setActiveCycle(value.id)
+}, { immediate: true })
+
+const statusDisplayMap: Record<CooperativeCycleStatus, { label: string; color: "success" | "warning" | "info" | "neutral" }> = {
+  OPEN_FOR_APPLICATION: { label: "เปิดรับคำร้อง", color: "success" },
+  APPLICATION_CLOSED: { label: "ปิดรับคำร้อง", color: "warning" },
+  IN_PROGRESS: { label: "กำลังฝึกงาน", color: "info" },
+  CLOSED: { label: "ปิดรอบ", color: "neutral" }
+}
+
+const formatDateThai = (dateStr?: string) => {
+  if (!dateStr) return "-"
+  const d = new Date(dateStr)
+  if (isNaN(d.getTime())) return "-"
+  return d.toLocaleDateString("th-TH", {
+    year: "numeric",
+    month: "short",
+    day: "numeric"
+  })
+}
+
+const moduleTitleMap: Record<string, string> = {
+  '': 'ภาพรวมรอบ',
+  applications: 'ออกหนังสือขออนุเคราะห์',
+  'sending-letters': 'ออกหนังสือส่งตัว',
+  placements: 'การจัดสถานประกอบการ',
+  supervisors: 'อาจารย์นิเทศ',
+  visits: 'ตารางนิเทศ',
+  evaluations: 'การประเมิน',
+  budgets: 'งบประมาณ',
+  students: 'รายชื่อนักศึกษา'
+}
+
+const currentModuleTitle = computed(() => {
+  const sub = route.path.replace(`/staff/cooperative-cycles/${cycleId.value}`, '').replace(/^\//, '').split('/')[0] || ''
+  return moduleTitleMap[sub] || ''
+})
+</script>
+
+<template>
+  <UDashboardPanel id="staff-cycle-workspace">
+    <!-- Top Navbar -->
+    <template #header>
+      <AppDashboardNavbar>
+        <template #leading>
+          <div class="flex items-center gap-2">
+            <UDashboardSidebarCollapse />
+            <UButton
+              icon="i-lucide-arrow-left"
+              color="neutral"
+              variant="ghost"
+              to="/staff/cooperative-cycles?select=1"
+              aria-label="กลับไปหน้ารายการรอบสหกิจ"
+              title="กลับไปหน้ารายการรอบสหกิจ"
+            />
+            <div class="flex items-center gap-1.5 text-sm">
+              <NuxtLink to="/staff/cooperative-cycles?select=1" class="text-muted hover:text-ink transition-colors">
+                รอบสหกิจ
+              </NuxtLink>
+              <span class="text-xs text-muted">/</span>
+              <NuxtLink
+                v-if="cycle"
+                :to="`/staff/cooperative-cycles/${cycle.id}`"
+                class="font-medium text-ink hover:text-primary transition-colors truncate"
+              >
+                ภาคเรียนที่ {{ cycle.term }}/{{ cycle.academicYear }}
+              </NuxtLink>
+              <template v-if="currentModuleTitle && currentModuleTitle !== 'ภาพรวมรอบ'">
+                <span class="text-xs text-muted">/</span>
+                <span class="text-muted font-medium truncate">
+                  {{ currentModuleTitle }}
+                </span>
+              </template>
+            </div>
+          </div>
+        </template>
+        <template #right>
+          <AppNotificationBell />
+        </template>
+      </AppDashboardNavbar>
+    </template>
+
+    <template #body>
+      <!-- Error state -->
+      <div v-if="fetchError" class="p-6">
+        <UEmpty
+          icon="i-lucide-triangle-alert"
+          title="ไม่พบข้อมูลรอบสหกิจ"
+          :description="fetchError.message"
+          variant="subtle"
+          class="min-h-64"
+        >
+          <template #actions>
+            <UButton label="กลับไปหน้ารายการรอบสหกิจ" color="neutral" variant="outline" to="/staff/cooperative-cycles?select=1" />
+          </template>
+        </UEmpty>
+      </div>
+
+      <div v-else-if="fetchStatus === 'pending'" class="py-16 text-center text-muted">
+        <UIcon name="i-lucide-loader-2" class="size-8 animate-spin mx-auto mb-2 text-primary" />
+        <p>กำลังโหลดข้อมูลรอบสหกิจ...</p>
+      </div>
+
+      <div v-else-if="cycle" class="flex flex-col flex-1">
+        <!-- Context Header Banner -->
+        <div class="border-b border-divider bg-surface px-4 py-4 sm:px-6">
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div class="flex items-center gap-3">
+              <div class="size-10 rounded-control bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                <UIcon name="i-lucide-calendar-range" class="size-5" />
+              </div>
+              <div>
+                <div class="flex items-center gap-2">
+                  <h1 class="text-lg font-bold text-ink">
+                    ภาคเรียนที่ {{ cycle.term }}/{{ cycle.academicYear }}
+                  </h1>
+                  <UBadge
+                    :label="statusDisplayMap[cycle.status]?.label || cycle.status"
+                    :color="statusDisplayMap[cycle.status]?.color || 'neutral'"
+                    variant="subtle"
+                  />
+                </div>
+                <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted mt-0.5">
+                  <span class="inline-flex items-center gap-1">
+                    <UIcon name="i-lucide-calendar" class="size-3.5" />
+                    ช่วงรับคำร้อง: {{ formatDateThai(cycle.applicationStartDate) }} – {{ formatDateThai(cycle.applicationEndDate) }}
+                  </span>
+                  <span>•</span>
+                  <span class="inline-flex items-center gap-1">
+                    <UIcon name="i-lucide-briefcase" class="size-3.5" />
+                    ช่วงฝึกงาน: {{ formatDateThai(cycle.internshipStartDate) }} – {{ formatDateThai(cycle.internshipEndDate) }}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Closed cycle read-only alert -->
+          <div v-if="cycle.status === 'CLOSED'" class="mt-3">
+            <UAlert
+              color="neutral"
+              icon="i-lucide-lock"
+              title="รอบสหกิจนี้ปิดรอบแล้ว"
+              description="ข้อมูลในรอบนี้อยู่ในสถานะอ่านอย่างเดียว (Read-only) ไม่สามารถแก้ไขหรือเพิ่มข้อมูลใหม่ได้"
+            />
+          </div>
+        </div>
+
+        <!-- Nested Content Pages -->
+        <div class="flex-1 p-4 sm:p-6">
+          <NuxtPage />
+        </div>
+      </div>
+    </template>
+  </UDashboardPanel>
+</template>

@@ -1,0 +1,36 @@
+const scoreKeys = ['responsibilityScore', 'disciplineScore', 'communicationScore', 'knowledgeScore', 'workQualityScore', 'problemSolvingScore'] as const
+
+export default defineEventHandler(async (event) => {
+  const user = await requireRole(event, 'TEACHER')
+  const appointmentId = Number(getRouterParam(event, 'appointmentId'))
+  const studentUserId = Number(getRouterParam(event, 'studentId'))
+  if (!Number.isInteger(appointmentId) || !Number.isInteger(studentUserId)) throw createError({ statusCode: 400, message: 'ข้อมูลรายการประเมินไม่ถูกต้อง' })
+
+  const appointment = await prisma.supervisionAppointment.findFirst({
+    where: {
+      id: appointmentId,
+      status: { in: ['PUBLISHED', 'RESCHEDULED', 'COMPLETED'] },
+      supervisionGroup: { teachers: { some: { teacherUserId: user.id } } },
+      students: { some: { studentUserId } }
+    }
+  })
+  if (!appointment) throw createError({ statusCode: 403, message: 'ไม่มีสิทธิ์ประเมินรายการนี้ หรือรายการนิเทศไม่พร้อมใช้งาน' })
+  const existingEvaluation = await prisma.studentEvaluation.findUnique({ where: { appointment_student_teacher: { appointmentId, studentUserId, teacherUserId: user.id } }, select: { id: true } })
+  if (existingEvaluation) throw createError({ statusCode: 409, message: 'บันทึกผลประเมินรายการนี้แล้ว จึงไม่สามารถแก้ไขได้' })
+
+  const body = await readBody(event)
+  const scores = Object.fromEntries(scoreKeys.map(key => {
+    const value = body?.[key]
+    if (value === null || value === undefined || value === '') return [key, null]
+    const score = Number(value)
+    if (!Number.isInteger(score) || score < 1 || score > 5) throw createError({ statusCode: 400, message: 'คะแนนต้องเป็นจำนวนเต็ม 1 ถึง 5' })
+    return [key, score]
+  }))
+  if (scoreKeys.some(key => scores[key] === null) && !Array.isArray(body?.answers)) throw createError({ statusCode: 400, message: 'กรุณาให้คะแนนให้ครบทุกข้อก่อนส่งแบบประเมิน' })
+  const text = (key: string) => typeof body?.[key] === 'string' && body[key].trim() ? body[key].trim() : null
+
+  const data = { ...scores, strengths: text('strengths'), problems: text('problems'), recommendations: text('recommendations'), followUp: text('followUp') }
+  const evaluation = await prisma.studentEvaluation.create({ data: { ...data, appointmentId, studentUserId, teacherUserId: user.id } })
+  if (Array.isArray(body?.answers)) await prisma.$transaction((body.answers as Array<{ questionId: number, score?: number, textValue?: string }>).filter(answer => Number.isInteger(Number(answer.questionId))).map(answer => prisma.evaluationAnswer.upsert({ where: { questionId_studentEvaluationId: { questionId: Number(answer.questionId), studentEvaluationId: evaluation.id } }, create: { questionId: Number(answer.questionId), studentEvaluationId: evaluation.id, score: answer.score == null ? null : Number(answer.score), textValue: answer.textValue || null }, update: { score: answer.score == null ? null : Number(answer.score), textValue: answer.textValue || null } })))
+  return evaluation
+})

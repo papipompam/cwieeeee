@@ -1,0 +1,4 @@
+ALTER TABLE "supervision_travel_plans"
+  ADD COLUMN "lodging_rate" DOUBLE PRECISION NOT NULL DEFAULT 0,
+  ADD COLUMN "lodging_nights" INTEGER NOT NULL DEFAULT 0,
+  ADD COLUMN "lodging_rooms" INTEGER NOT NULL DEFAULT 0;
