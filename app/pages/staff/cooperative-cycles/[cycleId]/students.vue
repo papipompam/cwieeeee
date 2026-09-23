@@ -88,8 +88,10 @@ const cycle = inject<Ref<CooperativeCycle | null>>('currentCycle')
 const notify = useNotify()
 
 const searchQuery = ref('')
+const cycleStatusFilter = ref('all')
 const classGroupFilter = ref<string>('all')
 const statusFilter = ref<'all' | 'active' | 'inactive'>('all')
+const sortStatus = ref<'asc' | 'desc' | null>(null)
 const page = ref(1)
 const pageSize = ref(10)
 const pageSizeOptions = [10, 20, 50, 100]
@@ -122,10 +124,12 @@ const { data, status: fetchStatus, refresh } = await useFetch<StudentsResponse>(
       page: page.value,
       pageSize: pageSize.value,
       search: searchQuery.value || undefined,
+      cycleStatus: cycleStatusFilter.value !== 'all' ? cycleStatusFilter.value : undefined,
       classGroup: classGroupFilter.value !== 'all' ? classGroupFilter.value : undefined,
-      status: statusFilter.value !== 'all' ? statusFilter.value : undefined
+      status: statusFilter.value !== 'all' ? statusFilter.value : undefined,
+      sortStatus: sortStatus.value || undefined
     })),
-    watch: [page, searchQuery, classGroupFilter, statusFilter, pageSize]
+    watch: [page, searchQuery, cycleStatusFilter, classGroupFilter, statusFilter, sortStatus, pageSize]
   }
 )
 
@@ -148,10 +152,17 @@ const statusOptions = [
   { label: 'ไม่ใช้งาน', value: 'inactive' }
 ]
 
-const hasFilters = computed(() => Boolean(searchQuery.value) || classGroupFilter.value !== 'all' || statusFilter.value !== 'all')
+const cycleStatusOptions = [
+  { label: 'ทุกสถานะในรอบ', value: 'all' },
+  { label: 'กำลังดำเนินการ', value: 'IN_PROGRESS' },
+  { label: 'ยืนยันสถานที่แล้ว', value: 'PLACEMENT_CONFIRMED' }
+]
+
+const hasFilters = computed(() => Boolean(searchQuery.value) || cycleStatusFilter.value !== 'all' || classGroupFilter.value !== 'all' || statusFilter.value !== 'all')
 
 const clearFilters = () => {
   searchQuery.value = ''
+  cycleStatusFilter.value = 'all'
   classGroupFilter.value = 'all'
   statusFilter.value = 'all'
   page.value = 1
@@ -212,9 +223,24 @@ const removeEnrollment = async () => {
   }
 }
 
-watch([searchQuery, classGroupFilter, statusFilter, pageSize], () => {
+watch([searchQuery, cycleStatusFilter, classGroupFilter, statusFilter, pageSize], () => {
   page.value = 1
 })
+
+const toggleStatusSort = () => {
+  sortStatus.value = sortStatus.value === null ? 'asc' : sortStatus.value === 'asc' ? 'desc' : null
+  page.value = 1
+}
+
+const exportStudents = () => {
+  const query = new URLSearchParams()
+  if (searchQuery.value.trim()) query.set('search', searchQuery.value.trim())
+  if (cycleStatusFilter.value !== 'all') query.set('cycleStatus', cycleStatusFilter.value)
+  if (classGroupFilter.value !== 'all') query.set('classGroup', classGroupFilter.value)
+  if (statusFilter.value !== 'all') query.set('status', statusFilter.value)
+  const suffix = query.toString()
+  window.location.assign(`/api/staff/cooperative-cycles/${cycleId.value}/students/export${suffix ? `?${suffix}` : ''}`)
+}
 
 // History Modal state
 const isHistoryOpen = ref(false)
@@ -307,6 +333,14 @@ const pageEnd = computed(() => {
           <div class="flex flex-wrap items-center gap-2">
             <UButton
               size="xl"
+              label="ส่งออก Excel"
+              icon="i-lucide-download"
+              color="neutral"
+              variant="outline"
+              @click="exportStudents"
+            />
+            <UButton
+              size="xl"
               label="จัดการฐานข้อมูลนักศึกษา"
               icon="i-lucide-external-link"
               color="neutral"
@@ -323,8 +357,8 @@ const pageEnd = computed(() => {
           </div>
         </div>
 
-        <div class="mt-5 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-          <UFormField label="ค้นหานักศึกษา" class="w-full sm:max-w-sm lg:w-96 lg:flex-none">
+        <div class="mt-5 flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
+          <UFormField label="ค้นหานักศึกษา" class="w-full sm:max-w-sm xl:w-96 xl:flex-none">
             <UInput
               v-model="searchQuery"
               type="search"
@@ -336,7 +370,18 @@ const pageEnd = computed(() => {
             />
           </UFormField>
 
-          <div class="flex flex-wrap items-center justify-end gap-2 lg:ml-auto lg:flex-nowrap">
+          <div class="flex flex-wrap items-center justify-end gap-2 xl:ml-auto xl:flex-nowrap">
+            <div class="w-full sm:w-44">
+              <USelect
+                v-model="cycleStatusFilter"
+                :items="cycleStatusOptions"
+                value-key="value"
+                class="w-full"
+                size="xl"
+                placeholder="สถานะในรอบ"
+                aria-label="กรองตามสถานะในรอบ"
+              />
+            </div>
             <div class="w-full sm:w-36">
               <USelect
                 v-model="classGroupFilter"
@@ -370,6 +415,9 @@ const pageEnd = computed(() => {
           <span class="text-muted">ตัวกรองที่ใช้:</span>
           <span v-if="searchQuery" class="inline-flex min-h-8 items-center gap-1 rounded-full bg-surface px-3 text-ink">
             คำค้น “{{ searchQuery }}”
+          </span>
+          <span v-if="cycleStatusFilter !== 'all'" class="inline-flex min-h-8 items-center gap-1 rounded-full bg-surface px-3 text-ink">
+            {{ cycleStatusOptions.find(option => option.value === cycleStatusFilter)?.label }}
           </span>
           <span v-if="classGroupFilter !== 'all'" class="inline-flex min-h-8 items-center gap-1 rounded-full bg-surface px-3 text-ink">
             {{ classGroupOptions.find(o => o.value === classGroupFilter)?.label }}
@@ -454,6 +502,20 @@ const pageEnd = computed(() => {
                 :color="row.original.cycleStatus.color"
                 variant="subtle"
               />
+            </template>
+            <template #cycleStatus-header>
+              <UButton
+                color="neutral"
+                variant="ghost"
+                size="md"
+                :ui="{ base: 'font-semibold' }"
+                :icon="sortStatus === 'asc' ? 'i-lucide-arrow-up-narrow-wide' : sortStatus === 'desc' ? 'i-lucide-arrow-down-wide-narrow' : 'i-lucide-arrow-down-up'"
+                trailing
+                :aria-label="sortStatus === null ? 'เรียงตามสถานะในรอบ' : sortStatus === 'asc' ? 'เรียงสถานะจากยังไม่ยื่นถึงยืนยันสถานที่' : 'เรียงสถานะจากยืนยันสถานที่ถึงยังไม่ยื่น'"
+                @click.stop="toggleStatusSort"
+              >
+                สถานะในรอบ
+              </UButton>
             </template>
 
             <template #latestCompany-cell="{ row }">

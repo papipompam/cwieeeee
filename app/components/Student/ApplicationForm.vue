@@ -91,6 +91,16 @@ const positionOptions = [
   'IT Support',
   'System Support'
 ].map(position => ({ label: position, value: position }))
+const customPosition = ref(Boolean(form.applicationPosition && !positionOptions.some(option => option.value === form.applicationPosition)))
+const presetPosition = ref(customPosition.value ? '' : form.applicationPosition)
+const enteredPosition = ref(customPosition.value ? form.applicationPosition : '')
+const toggleCustomPosition = () => {
+  if (customPosition.value) enteredPosition.value = form.applicationPosition
+  else presetPosition.value = form.applicationPosition
+  customPosition.value = !customPosition.value
+  form.applicationPosition = customPosition.value ? enteredPosition.value : presetPosition.value
+  delete errors.applicationPosition
+}
 
 const selectExistingCompany = (comp: Company) => {
   selectedCompanyId.value = comp.id
@@ -140,6 +150,8 @@ const validate = () => {
 
   if (!form.applicationPosition.trim()) {
     errors.applicationPosition = 'กรุณาระบุตำแหน่งที่สมัคร'
+  } else if (form.applicationPosition.trim().length > 100) {
+    errors.applicationPosition = 'ชื่อตำแหน่งต้องไม่เกิน 100 ตัวอักษร'
   }
   if (!form.appliedAt) {
     errors.appliedAt = 'กรุณาระบุวันที่สมัคร'
@@ -164,7 +176,7 @@ const handleSubmit = async () => {
       : getFullAddress(newCompany)
 
     const payload: any = {
-      applicationPosition: form.applicationPosition.trim(),
+      applicationPosition: positionOptions.find(option => option.value.toLocaleLowerCase() === form.applicationPosition.trim().toLocaleLowerCase())?.value || form.applicationPosition.trim(),
       applicationMethod: form.applicationMethod,
       appliedAt: form.appliedAt,
       recipientName: contact || null,
@@ -412,15 +424,31 @@ const handleCancel = () => {
         <div class="sm:col-span-2">
           <UFormField label="ตำแหน่งที่สมัคร" required :error="errors.applicationPosition">
             <USelectMenu
+              v-if="!customPosition"
               v-model="form.applicationPosition"
               :items="positionOptions"
               value-key="value"
               size="xl"
               placeholder="เลือกตำแหน่งที่สมัคร"
               :search-input="{ placeholder: 'ค้นหาตำแหน่ง...' }"
-              create-item
-              @create="form.applicationPosition = $event"
               class="w-full"
+            />
+            <UInput
+              v-else
+              v-model="form.applicationPosition"
+              size="xl"
+              maxlength="100"
+              placeholder="พิมพ์ชื่อตำแหน่งตามประกาศรับสมัคร"
+              class="w-full"
+            />
+            <UButton
+              type="button"
+              color="neutral"
+              variant="link"
+              size="sm"
+              class="mt-1 px-0"
+              :label="customPosition ? 'กลับไปเลือกจากรายการ' : 'ไม่มีตำแหน่งในรายการ? กรอกเอง'"
+              @click="toggleCustomPosition"
             />
           </UFormField>
         </div>

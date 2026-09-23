@@ -29,6 +29,16 @@ interface Appointment {
   photos: Array<{ id: number, originalName: string, mimeType: string, createdAt: string, url: string }>
 }
 
+interface GroupEdit {
+  id: number
+  name: string
+  editable: boolean
+  teacherUserIds: number[]
+  appointments: Array<{ companyId: number, scheduledDate: string, period: string, timeNote: string | null }>
+  teachers: Array<{ id: number, name: string, loginId: string }>
+  companies: Array<{ id: number, name: string, province: string | null }>
+}
+
 interface StudentEvaluationItem {
   appointmentId: number
   companyName: string
@@ -65,6 +75,68 @@ const companySaving = ref(false)
 const evaluationQuestions = ref<Array<{ evaluationType: 'student' | 'company', scoreKey: string, label: string }>>([])
 const statusSaving = ref(false)
 const photoUploading = ref(false)
+const groupEditOpen = ref(false)
+const groupEditLoading = ref(false)
+const groupEditSaving = ref(false)
+const groupEditError = ref('')
+const groupEdit = ref<GroupEdit | null>(null)
+const editTeacherIds = ref<number[]>([])
+const editPlans = ref<GroupEdit['appointments']>([])
+const periodOptions = [
+  { label: 'ช่วงเช้า', value: 'MORNING' },
+  { label: 'ช่วงบ่าย', value: 'AFTERNOON' },
+  { label: 'เต็มวัน', value: 'FULL_DAY' }
+]
+
+const openGroupEdit = async () => {
+  if (!selectedAppointment.value || groupEditLoading.value) return
+  groupEditLoading.value = true
+  groupEditError.value = ''
+  try {
+    const data = await $fetch<GroupEdit>(`/api/teacher/supervision-groups/${selectedAppointment.value.group.id}`)
+    groupEdit.value = data
+    editTeacherIds.value = [...data.teacherUserIds]
+    editPlans.value = data.appointments.map(item => ({ ...item }))
+    detailOpen.value = false
+    groupEditOpen.value = true
+  } catch (error: any) {
+    notify.error(error?.data?.message || 'ไม่สามารถโหลดข้อมูลกลุ่มนิเทศได้')
+  } finally {
+    groupEditLoading.value = false
+  }
+}
+
+const setEditTeacher = (id: number, checked: boolean) => {
+  editTeacherIds.value = checked ? [...editTeacherIds.value, id] : editTeacherIds.value.filter(item => item !== id)
+}
+const setEditCompany = (id: number, checked: boolean) => {
+  editPlans.value = checked
+    ? [...editPlans.value, { companyId: id, scheduledDate: '', period: 'MORNING', timeNote: null }]
+    : editPlans.value.filter(item => item.companyId !== id)
+}
+const saveGroupEdit = async () => {
+  if (!groupEdit.value || groupEditSaving.value) return
+  if (!editTeacherIds.value.length || !editPlans.value.length || editPlans.value.some(item => !item.scheduledDate)) {
+    groupEditError.value = 'กรุณาเลือกอาจารย์และสถานประกอบการอย่างน้อย 1 รายการ พร้อมกำหนดวันที่ให้ครบ'
+    return
+  }
+  groupEditSaving.value = true
+  groupEditError.value = ''
+  try {
+    const result = await $fetch<{ success: boolean, unchanged?: boolean }>(`/api/teacher/supervision-groups/${groupEdit.value.id}`, {
+      method: 'PATCH',
+      body: { teacherUserIds: editTeacherIds.value, companyPlans: editPlans.value }
+    })
+    groupEditOpen.value = false
+    await refresh()
+    if (result.unchanged) notify.info('ตารางนิเทศไม่มีการเปลี่ยนแปลง')
+    else notify.success('อัปเดตตารางนิเทศและแจ้งผู้เกี่ยวข้องแล้ว')
+  } catch (error: any) {
+    groupEditError.value = error?.data?.message || 'ไม่สามารถบันทึกตารางนิเทศได้'
+  } finally {
+    groupEditSaving.value = false
+  }
+}
 const appointmentId = computed(() => {
   const value = route.query.appointmentId
   const id = Number(Array.isArray(value) ? value[0] : value)
@@ -564,8 +636,51 @@ const columns: TableColumn<Appointment>[] = [
     </template>
     <template #footer>
       <div v-if="selectedAppointment && selectedAppointment.status !== 'CANCELLED'" class="flex flex-wrap justify-end gap-2">
+        <UButton v-if="selectedAppointment.status !== 'COMPLETED'" size="xl" label="แก้ไขตารางกลุ่ม" color="neutral" variant="outline" :loading="groupEditLoading" @click="openGroupEdit" />
         <UButton size="xl" label="ประเมินนักศึกษา" color="primary" variant="outline" @click="openStudentEvaluation(selectedAppointment)" />
         <UButton size="xl" label="ประเมินสถานที่" color="primary" @click="openCompanyEvaluation(selectedAppointment)" />
+      </div>
+    </template>
+  </UModal>
+
+  <UModal v-model:open="groupEditOpen" :title="groupEdit ? `แก้ไขตาราง · ${groupEdit.name}` : 'แก้ไขตารางนิเทศ'" :ui="{ content: 'sm:max-w-3xl' }">
+    <template #body>
+      <div v-if="groupEdit" class="max-h-[70vh] space-y-5 overflow-y-auto pr-1">
+        <UAlert v-if="!groupEdit.editable" color="warning" variant="subtle" title="แก้ไขตารางไม่ได้" description="กลุ่มนี้มีงบประมาณ ผลประเมิน รูปภาพ หรือการนิเทศที่เสร็จแล้ว" />
+        <UAlert v-if="groupEditError" color="error" variant="subtle" :description="groupEditError" />
+        <div>
+          <h3 class="font-semibold text-ink">อาจารย์ในกลุ่ม</h3>
+          <p class="mt-1 text-sm text-muted">เลือกอาจารย์ที่ยังไม่ได้อยู่ในกลุ่มอื่นของการนิเทศครั้งนี้</p>
+          <div class="mt-3 grid gap-3 rounded-panel border border-divider p-4 sm:grid-cols-2">
+            <UCheckbox v-for="teacher in groupEdit.teachers" :key="teacher.id" :model-value="editTeacherIds.includes(teacher.id)" :label="teacher.name" :disabled="!groupEdit.editable" @update:model-value="setEditTeacher(teacher.id, Boolean($event))" />
+          </div>
+        </div>
+        <div>
+          <h3 class="font-semibold text-ink">สถานประกอบการและวันนิเทศ</h3>
+          <p class="mt-1 text-sm text-muted">เลือกสถานประกอบการที่ยังไม่อยู่ในกลุ่มอื่น แล้วกำหนดวันและช่วงเวลา</p>
+          <div class="mt-3 space-y-3">
+            <div v-for="company in groupEdit.companies" :key="company.id" class="rounded-panel border border-divider p-4">
+              <UCheckbox :model-value="editPlans.some(item => item.companyId === company.id)" :label="`${company.name}${company.province ? ` · ${company.province}` : ''}`" :disabled="!groupEdit.editable" @update:model-value="setEditCompany(company.id, Boolean($event))" />
+              <div v-if="editPlans.some(item => item.companyId === company.id)" class="mt-3 grid gap-3 sm:grid-cols-2">
+                <UFormField label="วันที่นิเทศ" required>
+                  <UInput :model-value="editPlans.find(item => item.companyId === company.id)?.scheduledDate" type="date" size="xl" class="w-full" :disabled="!groupEdit.editable" @update:model-value="editPlans.find(item => item.companyId === company.id)!.scheduledDate = String($event)" />
+                </UFormField>
+                <UFormField label="ช่วงเวลา" required>
+                  <USelect :model-value="editPlans.find(item => item.companyId === company.id)?.period" :items="periodOptions" value-key="value" size="xl" class="w-full" :disabled="!groupEdit.editable" @update:model-value="editPlans.find(item => item.companyId === company.id)!.period = String($event)" />
+                </UFormField>
+                <UFormField label="หมายเหตุเวลา" class="sm:col-span-2">
+                  <UInput :model-value="editPlans.find(item => item.companyId === company.id)?.timeNote || ''" size="xl" class="w-full" :disabled="!groupEdit.editable" @update:model-value="editPlans.find(item => item.companyId === company.id)!.timeNote = String($event)" />
+                </UFormField>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </template>
+    <template #footer>
+      <div class="flex w-full flex-wrap justify-end gap-2">
+        <UButton label="ยกเลิก" color="neutral" variant="outline" size="xl" @click="groupEditOpen = false" />
+        <UButton label="บันทึกตารางนิเทศ" color="primary" size="xl" :loading="groupEditSaving" :disabled="!groupEdit?.editable" @click="saveGroupEdit" />
       </div>
     </template>
   </UModal>

@@ -23,8 +23,7 @@ export const readTeacherInput = (value: Record<string, unknown>): TeacherInput =
   if (!firstName) throw createError({ statusCode: 400, message: 'กรุณากรอกชื่อ' })
   if (!lastName) throw createError({ statusCode: 400, message: 'กรุณากรอกนามสกุล' })
   if (!gender) throw createError({ statusCode: 400, message: 'กรุณาระบุเพศ' })
-  if (!phone) throw createError({ statusCode: 400, message: 'กรุณากรอกเบอร์มือถือ' })
-  if (!/^0\d{9}$/.test(phone)) {
+  if (phone && !/^0\d{9}$/.test(phone)) {
     throw createError({ statusCode: 400, message: 'กรุณากรอกเบอร์มือถือเป็นตัวเลข 10 หลักขึ้นต้นด้วย 0' })
   }
 

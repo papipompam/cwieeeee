@@ -46,6 +46,7 @@ export default defineEventHandler(async (event) => {
 
   const note = body.note !== undefined ? (typeof body.note === 'string' ? body.note.trim() || null : null) : application.note
   const applicationPosition = body.applicationPosition !== undefined ? (typeof body.applicationPosition === 'string' ? body.applicationPosition.trim() || null : null) : application.applicationPosition
+  if (applicationPosition && applicationPosition.length > 100) throw createError({ statusCode: 400, message: 'ชื่อตำแหน่งต้องไม่เกิน 100 ตัวอักษร' })
   const recipientName = body.recipientName !== undefined ? (typeof body.recipientName === 'string' ? body.recipientName.trim() || null : null) : application.recipientName
   const letterAddress = body.letterAddress !== undefined ? (typeof body.letterAddress === 'string' ? body.letterAddress.trim() || null : null) : application.letterAddress
   const internshipLocationName = body.internshipLocationName !== undefined ? (typeof body.internshipLocationName === 'string' ? body.internshipLocationName.trim() || null : null) : application.internshipLocationName

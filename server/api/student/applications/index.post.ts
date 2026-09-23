@@ -38,6 +38,7 @@ export default defineEventHandler(async (event) => {
 
   const note = typeof body.note === 'string' ? body.note.trim() : null
   const applicationPosition = typeof body.applicationPosition === 'string' ? body.applicationPosition.trim() || null : null
+  if (applicationPosition && applicationPosition.length > 100) throw createError({ statusCode: 400, message: 'ชื่อตำแหน่งต้องไม่เกิน 100 ตัวอักษร' })
   const recipientName = typeof body.recipientName === 'string' ? body.recipientName.trim() || null : null
   const letterAddress = typeof body.letterAddress === 'string' ? body.letterAddress.trim() || null : null
   const internshipLocationName = typeof body.internshipLocationName === 'string' ? body.internshipLocationName.trim() || null : null

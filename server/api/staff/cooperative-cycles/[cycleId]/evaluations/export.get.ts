@@ -27,14 +27,14 @@ export default defineEventHandler(async (event) => {
     for (const appointment of appointments) {
       const evaluation = appointment.companyEvaluations[0]
       const values = questions.map(question => evaluation?.answers.find(answer => answer.questionId === question.id)?.score ?? (evaluation as Record<string, unknown> | undefined)?.[question.scoreKey] ?? null)
-      worksheet.addRow({ companyName: appointment.companyName, total: values.reduce<number>((sum, value) => sum + (Number(value) || 0), 0), ...Object.fromEntries(questions.map((question, index) => [`q${question.id}`, values[index]])) })
+      worksheet.addRow({ companyName: appointment.companyName, total: evaluation ? values.reduce<number>((sum, value) => sum + (Number(value) || 0), 0) : null, ...Object.fromEntries(questions.map((question, index) => [`q${question.id}`, values[index]])) })
     }
   } else {
     for (const appointment of appointments) {
       for (const student of appointment.students) {
         const evaluation = appointment.studentEvaluations.find(item => item.studentUserId === student.studentUser.id)
         const values = questions.map(question => evaluation?.answers.find(answer => answer.questionId === question.id)?.score ?? (evaluation as Record<string, unknown> | undefined)?.[question.scoreKey] ?? null)
-        worksheet.addRow({ studentId: student.studentUser.loginId, prefix: student.studentUser.prefix, name: [student.studentUser.firstName, student.studentUser.lastName].filter(Boolean).join(' '), total: values.reduce<number>((sum, value) => sum + (Number(value) || 0), 0), ...Object.fromEntries(questions.map((question, index) => [`q${question.id}`, values[index]])) })
+        worksheet.addRow({ studentId: student.studentUser.loginId, prefix: student.studentUser.prefix, name: [student.studentUser.firstName, student.studentUser.lastName].filter(Boolean).join(' '), total: evaluation ? values.reduce<number>((sum, value) => sum + (Number(value) || 0), 0) : null, ...Object.fromEntries(questions.map((question, index) => [`q${question.id}`, values[index]])) })
       }
     }
   }

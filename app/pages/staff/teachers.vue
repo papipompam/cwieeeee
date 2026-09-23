@@ -220,10 +220,7 @@ const validateForm = () => {
     isValid = false
   }
 
-  if (!formState.phone.trim()) {
-    formErrors.phone = 'กรุณากรอกเบอร์มือถือ'
-    isValid = false
-  } else if (!/^0\d{9}$/.test(formState.phone.trim())) {
+  if (formState.phone.trim() && !/^0\d{9}$/.test(formState.phone.trim())) {
     formErrors.phone = 'กรุณากรอกเบอร์มือถือเป็นตัวเลข 10 หลักขึ้นต้นด้วย 0'
     isValid = false
   }
@@ -673,7 +670,7 @@ const columns: TableColumn<Teacher>[] = [
             />
           </UFormField>
 
-          <UFormField label="เบอร์มือถือ" required :error="formErrors.phone">
+          <UFormField label="เบอร์มือถือ" :error="formErrors.phone">
             <UInput
               v-model="formState.phone"
               placeholder="เช่น 0812345678"

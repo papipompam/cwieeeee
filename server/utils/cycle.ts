@@ -153,6 +153,20 @@ export type StudentCycleStatusKey =
   | 'PLACEMENT_CONFIRMED'
   | 'TERMINATED'
 
+const studentCycleStatusOrder: StudentCycleStatusKey[] = [
+  'NOT_APPLIED', 'APPLYING', 'AWAITING_RESPONSE', 'INTERVIEW', 'ACCEPTED',
+  'REQUEST_SUBMITTED', 'WAITING_DOCUMENT', 'DOCUMENT_UNDER_REVIEW',
+  'TERMINATED', 'PLACEMENT_CONFIRMED'
+]
+
+export const compareStudentCycleStatuses = (a: StudentCycleStatusKey, b: StudentCycleStatusKey, direction: 'asc' | 'desc'): number =>
+  (studentCycleStatusOrder.indexOf(a) - studentCycleStatusOrder.indexOf(b)) * (direction === 'asc' ? 1 : -1)
+
+export const matchesStudentCycleStatusFilter = (status: StudentCycleStatusKey, filter: string): boolean =>
+  filter === 'all'
+  || (filter === 'IN_PROGRESS' && !['NOT_APPLIED', 'TERMINATED', 'PLACEMENT_CONFIRMED'].includes(status))
+  || (filter === 'PLACEMENT_CONFIRMED' && status === 'PLACEMENT_CONFIRMED')
+
 export interface StudentCycleStatusInfo {
   key: StudentCycleStatusKey
   label: string

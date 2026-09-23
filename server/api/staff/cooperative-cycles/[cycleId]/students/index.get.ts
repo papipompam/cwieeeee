@@ -1,5 +1,5 @@
 export default defineEventHandler(async (event) => {
-  const { cycle, cycleId } = await getStaffCycle(event)
+  const { cycleId } = await getStaffCycle(event)
   const query = getQuery(event)
 
   const page = Math.max(1, Number(query.page) || 1)
@@ -7,6 +7,9 @@ export default defineEventHandler(async (event) => {
   const search = typeof query.search === 'string' ? query.search.trim() : ''
   const classGroup = query.classGroup && query.classGroup !== 'all' ? Number(query.classGroup) : undefined
   const status = typeof query.status === 'string' ? query.status : 'all'
+  const sortStatus = query.sortStatus === 'asc' || query.sortStatus === 'desc' ? query.sortStatus : null
+  const cycleStatusFilter = typeof query.cycleStatus === 'string' ? query.cycleStatus : 'all'
+  const needsDerivedResults = Boolean(sortStatus || cycleStatusFilter !== 'all')
 
   const where: any = {
     role: 'STUDENT',
@@ -27,8 +30,8 @@ export default defineEventHandler(async (event) => {
     prisma.user.count({ where }),
     prisma.user.findMany({
       where,
-      skip: (page - 1) * pageSize,
-      take: pageSize,
+      skip: needsDerivedResults ? undefined : (page - 1) * pageSize,
+      take: needsDerivedResults ? undefined : pageSize,
       orderBy: [{ classGroup: 'asc' }, { loginId: 'asc' }],
       select: {
         id: true,
@@ -90,11 +93,21 @@ export default defineEventHandler(async (event) => {
     }
   })
 
+  const filteredStudents = cycleStatusFilter === 'all'
+    ? mappedStudents
+    : mappedStudents.filter(student => matchesStudentCycleStatusFilter(student.cycleStatus.key, cycleStatusFilter))
+
+  if (sortStatus) {
+    filteredStudents.sort((a, b) => {
+      return compareStudentCycleStatuses(a.cycleStatus.key, b.cycleStatus.key, sortStatus) || (a.classGroup ?? 0) - (b.classGroup ?? 0) || a.studentId.localeCompare(b.studentId)
+    })
+  }
+
   return {
-    students: mappedStudents,
-    total,
+    students: needsDerivedResults ? filteredStudents.slice((page - 1) * pageSize, page * pageSize) : filteredStudents,
+    total: needsDerivedResults ? filteredStudents.length : total,
     page,
     pageSize,
-    totalPages: Math.max(1, Math.ceil(total / pageSize))
+    totalPages: Math.max(1, Math.ceil((needsDerivedResults ? filteredStudents.length : total) / pageSize))
   }
 })

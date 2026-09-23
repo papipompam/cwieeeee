@@ -50,6 +50,10 @@ const page = ref(1)
 const pageSize = ref(10)
 const pageSizeOptions = [10, 20, 50, 100]
 
+const exportPlacements = () => {
+  window.location.assign(`/api/staff/cooperative-cycles/${cycleId.value}/placements/export`)
+}
+
 const { data, status: fetchStatus, refresh } = await useFetch<PlacementsResponse>(
   () => `/api/staff/cooperative-cycles/${cycleId.value}/placements`,
   {
@@ -145,7 +149,15 @@ const pageEnd = computed(() => {
             />
           </UFormField>
 
-          <div class="flex items-center gap-2 lg:ml-auto">
+          <div class="flex flex-wrap items-center gap-2 lg:ml-auto">
+            <UButton
+              label="ส่งออกนักศึกษาและที่ฝึกงาน"
+              icon="i-lucide-download"
+              color="neutral"
+              variant="outline"
+              size="sm"
+              @click="exportPlacements"
+            />
             <UIButtonRefresh
               :loading="fetchStatus === 'pending'"
               @refresh="refresh"
