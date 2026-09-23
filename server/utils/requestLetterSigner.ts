@@ -4,7 +4,7 @@ import path from 'node:path'
 export interface RequestLetterSigner {
   signerName: string
   signerTitleLines: string[]
-  signatureImageBytes: Uint8Array
+  signatureImageBytes?: Uint8Array
 }
 
 export interface RequestLetterSignerEnv {
@@ -16,8 +16,6 @@ export interface RequestLetterSignerEnv {
 export type RequestLetterSignerErrorCode =
   | 'MISSING_SIGNER_NAME'
   | 'MISSING_SIGNER_TITLE'
-  | 'MISSING_SIGNATURE_PATH'
-  | 'SIGNATURE_FILE_NOT_FOUND'
   | 'SIGNATURE_FILE_NOT_READABLE'
   | 'INVALID_SIGNATURE_PNG'
 
@@ -64,9 +62,9 @@ export function parseSignerTitleLines(rawTitle: string): string[] {
 }
 
 /**
- * Loads and validates signer configuration and reads the PNG signature file.
+ * Loads signer configuration and reads an optional PNG signature file.
  * Signature file is lazily read only when this function is called.
- * Throws a controlled RequestLetterSignerError if configuration is missing or invalid.
+ * Throws a controlled RequestLetterSignerError if required configuration is missing or the configured file is invalid.
  */
 export async function loadRequestLetterSigner(
   envOverrides?: RequestLetterSignerEnv
@@ -102,8 +100,9 @@ export async function loadRequestLetterSigner(
     ''
   ).trim()
 
+  const signer = { signerName, signerTitleLines }
   if (!signaturePath) {
-    throw new RequestLetterSignerError('MISSING_SIGNATURE_PATH')
+    return signer
   }
 
   // Resolve canonical path to guard against symlinks
@@ -112,7 +111,7 @@ export async function loadRequestLetterSigner(
     canonicalPath = await fs.realpath(signaturePath)
   } catch (err: any) {
     if (err?.code === 'ENOENT') {
-      throw new RequestLetterSignerError('SIGNATURE_FILE_NOT_FOUND')
+      return signer
     }
     throw new RequestLetterSignerError('SIGNATURE_FILE_NOT_READABLE')
   }
@@ -143,7 +142,7 @@ export async function loadRequestLetterSigner(
     fileBytes = await fs.readFile(canonicalPath)
   } catch (err: any) {
     if (err?.code === 'ENOENT') {
-      throw new RequestLetterSignerError('SIGNATURE_FILE_NOT_FOUND')
+      return signer
     }
     throw new RequestLetterSignerError('SIGNATURE_FILE_NOT_READABLE')
   }

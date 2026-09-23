@@ -108,43 +108,27 @@ describe('requestLetterSigner utility', () => {
     )
   })
 
-  it('rejects missing signaturePath with controlled error', async () => {
-    await assert.rejects(
-      async () => {
-        await loadRequestLetterSigner({
-          signerName: 'อาจารย์ ผู้ลงนาม',
-          signerTitle: 'คณบดีคณะวิทยาศาสตร์',
-          signaturePath: ''
-        })
-      },
-      (err: any) => {
-        assert.ok(err instanceof RequestLetterSignerError)
-        assert.strictEqual(err.code, 'MISSING_SIGNATURE_PATH')
-        assert.strictEqual(err.message, 'ยังไม่ได้ตั้งค่าผู้ลงนามสำหรับการออกเอกสาร')
-        return true
-      }
-    )
+  it('allows document generation without a signature file', async () => {
+    const signer = await loadRequestLetterSigner({
+      signerName: 'อาจารย์ ผู้ลงนาม',
+      signerTitle: 'คณบดีคณะวิทยาศาสตร์',
+      signaturePath: ''
+    })
+
+    assert.strictEqual(signer.signerName, 'อาจารย์ ผู้ลงนาม')
+    assert.deepStrictEqual(signer.signerTitleLines, ['คณบดีคณะวิทยาศาสตร์'])
+    assert.strictEqual(signer.signatureImageBytes, undefined)
   })
 
-  it('rejects non-existent signature file without leaking path in public message', async () => {
+  it('allows document generation when a previously configured signature file is gone', async () => {
     const nonExistentPath = path.join(tempDir, 'does_not_exist_12345.png')
-    await assert.rejects(
-      async () => {
-        await loadRequestLetterSigner({
-          signerName: 'อาจารย์ ผู้ลงนาม',
-          signerTitle: 'คณบดีคณะวิทยาศาสตร์',
-          signaturePath: nonExistentPath
-        })
-      },
-      (err: any) => {
-        assert.ok(err instanceof RequestLetterSignerError)
-        assert.strictEqual(err.code, 'SIGNATURE_FILE_NOT_FOUND')
-        assert.strictEqual(err.message, 'ยังไม่ได้ตั้งค่าผู้ลงนามสำหรับการออกเอกสาร')
-        // Must NOT leak the filesystem path in error message
-        assert.ok(!err.message.includes(nonExistentPath))
-        return true
-      }
-    )
+    const signer = await loadRequestLetterSigner({
+      signerName: 'อาจารย์ ผู้ลงนาม',
+      signerTitle: 'คณบดีคณะวิทยาศาสตร์',
+      signaturePath: nonExistentPath
+    })
+
+    assert.strictEqual(signer.signatureImageBytes, undefined)
   })
 
   it('rejects non-PNG files with controlled error', async () => {
@@ -259,7 +243,7 @@ describe('requestLetterSigner utility', () => {
       const res = await loadRequestLetterSigner()
       assert.strictEqual(res.signerName, 'ศ.ดร.ผ่าน ตัวแปรสภาพแวดล้อม')
       assert.deepStrictEqual(res.signerTitleLines, ['คณบดี'])
-      assert.strictEqual(res.signatureImageBytes.length, VALID_PNG_BYTES.length)
+      assert.strictEqual(res.signatureImageBytes?.length, VALID_PNG_BYTES.length)
     } finally {
       if (originalName !== undefined) process.env.DOCUMENT_SIGNER_NAME = originalName
       else delete process.env.DOCUMENT_SIGNER_NAME

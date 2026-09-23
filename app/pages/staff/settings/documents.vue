@@ -71,11 +71,11 @@ await loadSettings()
               <h2 class="text-lg font-semibold text-ink">ศูนย์จัดการเอกสารราชการ</h2>
               <p class="text-sm leading-6 text-muted">ตั้งค่าผู้ลงนามสำหรับหนังสือขอความอนุเคราะห์และหนังสือส่งตัว</p>
             </div>
-            <UBadge :color="settings?.hasSignature ? 'success' : 'warning'" variant="subtle" size="lg">{{ settings?.hasSignature ? 'ตั้งค่าพร้อมออกเอกสาร' : 'รออัปโหลดลายเซ็น' }}</UBadge>
+            <UBadge :color="settings?.signerName && settings?.signerTitle ? 'success' : 'warning'" variant="subtle" size="lg">{{ settings?.signerName && settings?.signerTitle ? 'พร้อมจัดทำเอกสาร' : 'รอตั้งค่าผู้ลงนาม' }}</UBadge>
           </div>
         </UCard>
 
-        <UAlert v-if="!settings?.hasSignature" color="warning" variant="subtle" icon="i-lucide-signature" title="ยังไม่มีลายเซ็นผู้ลงนาม" description="อัปโหลดไฟล์ PNG ก่อนจัดทำหนังสือ เพื่อให้เอกสารมีข้อมูลผู้ลงนามครบถ้วน" />
+        <UAlert v-if="settings && !settings.hasSignature" color="info" variant="subtle" icon="i-lucide-signature" title="ยังไม่มีลายเซ็นผู้ลงนาม" description="จัดทำหนังสือได้ โดยเว้นพื้นที่ลายเซ็นไว้สำหรับลงนามภายหลัง" />
 
         <div class="grid gap-4 xl:grid-cols-2 xl:items-start">
           <UCard>
@@ -90,7 +90,7 @@ await loadSettings()
           <UCard>
             <template #header><div class="flex items-center gap-2"><UIcon name="i-lucide-signature" class="size-5 text-primary" /><h2 class="text-base font-semibold text-ink">ลายเซ็นผู้ลงนาม</h2></div></template>
             <div class="space-y-4">
-              <div class="rounded-lg border border-divider bg-elevated p-4"><p class="text-sm font-medium text-ink">สถานะลายเซ็น</p><p class="mt-1 text-sm text-muted">{{ settings?.hasSignature ? 'มีไฟล์ลายเซ็นพร้อมใช้สำหรับสร้างเอกสาร' : 'ยังไม่ได้อัปโหลดไฟล์ลายเซ็น' }}</p></div>
+              <div class="rounded-lg border border-divider bg-elevated p-4"><p class="text-sm font-medium text-ink">สถานะลายเซ็น</p><p class="mt-1 text-sm text-muted">{{ settings?.hasSignature ? 'มีไฟล์ลายเซ็นพร้อมใช้สำหรับสร้างเอกสาร' : 'ยังไม่ได้อัปโหลดไฟล์ลายเซ็น (ไม่บังคับ)' }}</p></div>
               <UFormField label="อัปโหลดลายเซ็น" hint="รองรับ PNG ขนาดไม่เกิน 2MB">
                 <label class="flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-md border border-dashed border-primary/50 px-4 text-sm font-medium text-primary hover:bg-primary/5"><UIcon :name="uploadingSignature ? 'i-lucide-loader-circle' : 'i-lucide-upload'" :class="{ 'animate-spin': uploadingSignature }" class="size-4" />{{ uploadingSignature ? 'กำลังอัปโหลด...' : 'เลือกไฟล์ลายเซ็น' }}<input type="file" accept="image/png" class="sr-only" :disabled="uploadingSignature" @change="uploadSignature" /></label>
               </UFormField>
