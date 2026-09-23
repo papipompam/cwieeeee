@@ -56,7 +56,8 @@ const formatDateThai = (dateStr?: string) => {
 
 const moduleTitleMap: Record<string, string> = {
   '': 'ภาพรวมรอบ',
-  applications: 'คำร้องนักศึกษา',
+  applications: 'ออกหนังสือขออนุเคราะห์',
+  'sending-letters': 'ออกหนังสือส่งตัว',
   placements: 'การจัดสถานประกอบการ',
   supervisors: 'อาจารย์นิเทศ',
   visits: 'ตารางนิเทศ',

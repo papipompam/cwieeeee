@@ -14,7 +14,6 @@ function makeError(statusCode: number, message: string) {
 
 export function buildSendingLetterData(
   cycle: {
-    internshipHours: number | null
     internshipStartDate: Date | string
     internshipEndDate: Date | string
   },
@@ -37,9 +36,6 @@ export function buildSendingLetterData(
   if (request.status !== 'PLACEMENT_CONFIRMED') {
     throw makeError(400, 'สามารถออกหนังสือส่งตัวได้หลังยืนยันสถานที่ฝึกงานแล้วเท่านั้น')
   }
-  if (!cycle.internshipHours || cycle.internshipHours <= 0) {
-    throw makeError(400, 'กรุณากำหนดจำนวนชั่วโมงฝึกประสบการณ์ในรอบสหกิจก่อนออกหนังสือส่งตัว')
-  }
   if (!reference.letterNumber?.trim() || !reference.issueDate) {
     throw makeError(400, 'ไม่พบเลขที่หรือวันที่ของหนังสือขอความอนุเคราะห์ฉบับที่ใช้อ้างอิง')
   }
@@ -54,9 +50,6 @@ export function buildSendingLetterData(
   return {
     letterNumber: input.letterNumber,
     issueDate: input.issueDate,
-    referenceLetterNumber: reference.letterNumber,
-    referenceIssueDate: reference.issueDate,
-    internshipHours: cycle.internshipHours,
     internshipStartDate: new Date(cycle.internshipStartDate),
     internshipEndDate: new Date(cycle.internshipEndDate),
     recipientName,

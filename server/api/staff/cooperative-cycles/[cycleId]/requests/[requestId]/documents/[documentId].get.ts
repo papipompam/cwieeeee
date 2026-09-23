@@ -8,13 +8,15 @@ export default defineEventHandler(async (event) => {
 
   const request = await getStaffCycleRequest(event, cycleId, requestId)
 
-  let doc = null
-  if (docIdParam === 'latest') {
-    doc = request.documents[0]
-  } else {
-    const docId = validatePositiveId(docIdParam, 'รหัสเอกสาร')
-    doc = request.documents.find(d => d.id === docId)
+  const groupDocumentWhere = {
+    OR: [
+      { cooperativeRequestId: request.id },
+      { requestLetterVersion: { participants: { some: { cooperativeRequestId: request.id } } } }
+    ]
   }
+  const doc = docIdParam === 'latest'
+    ? await prisma.requestDocument.findFirst({ where: groupDocumentWhere, orderBy: { version: 'desc' } })
+    : await prisma.requestDocument.findFirst({ where: { id: validatePositiveId(docIdParam, 'รหัสเอกสาร'), ...groupDocumentWhere } })
 
   if (!doc) {
     throw createError({ statusCode: 404, message: 'ไม่พบไฟล์เอกสาร' })

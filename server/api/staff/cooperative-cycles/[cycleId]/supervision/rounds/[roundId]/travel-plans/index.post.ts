@@ -12,6 +12,9 @@ export default defineEventHandler(async (event) => {
     ? body.startLocation.trim()
     : 'มหาวิทยาลัย'
   const fuelRate = !isNaN(Number(body?.fuelRate)) && Number(body?.fuelRate) > 0 ? Number(body.fuelRate) : 4.0
+  const manualFuelCost = Math.max(0, Number(body?.manualFuelCost) || 0)
+  const manualPerDiemCost = Math.max(0, Number(body?.manualPerDiemCost) || 0)
+  const manualLodgingCost = Math.max(0, Number(body?.manualLodgingCost) || 0)
   const note = typeof body?.note === 'string' && body.note.trim() ? body.note.trim() : null
 
   // Validate stops
@@ -87,6 +90,9 @@ export default defineEventHandler(async (event) => {
         travelDate,
         startLocation,
         fuelRate,
+        manualFuelCost,
+        manualPerDiemCost,
+        manualLodgingCost,
         note
       }
     })
@@ -122,7 +128,9 @@ export default defineEventHandler(async (event) => {
   const calculation = calculateTravelBudget(
     fuelRate,
     stopsData,
-    travellersData
+    travellersData,
+    undefined,
+    { fuelCost: manualFuelCost, perDiemCost: manualPerDiemCost, lodgingCost: manualLodgingCost }
   )
 
   const result = {

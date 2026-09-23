@@ -94,9 +94,15 @@ const staffLinks = computed<NavigationMenuItem[]>(() => {
           onSelect: handleSelect
         },
         {
-          label: 'คำร้อง',
+          label: 'ออกหนังสือขออนุเคราะห์',
           icon: 'i-lucide-file-check-2',
           to: `/staff/cooperative-cycles/${cycleId}/applications`,
+          onSelect: handleSelect
+        },
+        {
+          label: 'ออกหนังสือส่งตัว',
+          icon: 'i-lucide-send',
+          to: `/staff/cooperative-cycles/${cycleId}/sending-letters`,
           onSelect: handleSelect
         },
         {

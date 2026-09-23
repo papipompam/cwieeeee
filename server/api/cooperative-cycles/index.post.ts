@@ -50,6 +50,15 @@ export default defineEventHandler(async (event) => {
         }
       })
 
+      await tx.supervisionRound.createMany({
+        data: [1, 2].map(roundNo => ({
+          cooperativeCycleId: cycle.id,
+          roundNo,
+          name: `นิเทศครั้งที่ ${roundNo}`,
+          status: 'DRAFT' as const
+        }))
+      })
+
       await tx.cooperativeCycleEnrollment.createMany({
         data: students.map(student => ({ cooperativeCycleId: cycle.id, studentUserId: student.id }))
       })

@@ -5,7 +5,7 @@ import crypto from 'node:crypto'
 export default defineEventHandler(async (event) => {
   const teacher = await requireRole(event, 'TEACHER')
   const appointmentId = validatePositiveId(getRouterParam(event, 'appointmentId'), 'รหัสรายการนิเทศ')
-  const appointment = await prisma.supervisionAppointment.findFirst({ where: { id: appointmentId, teachers: { some: { teacherUserId: teacher.id } } } })
+  const appointment = await prisma.supervisionAppointment.findFirst({ where: { id: appointmentId, status: { not: 'DRAFT' }, teachers: { some: { teacherUserId: teacher.id } } } })
   if (!appointment) throw createError({ statusCode: 404, message: 'ไม่พบรายการนิเทศที่คุณรับผิดชอบ' })
   const item = (await readMultipartFormData(event))?.find(value => value.name === 'file' || value.filename)
   if (!item?.filename || !item.data) throw createError({ statusCode: 400, message: 'กรุณาเลือกรูปภาพ' })

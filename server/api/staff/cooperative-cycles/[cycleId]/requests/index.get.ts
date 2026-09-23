@@ -72,6 +72,7 @@ export default defineEventHandler(async (event) => {
   return {
     requests: requests.map(r => ({
       id: r.id,
+      companyId: r.companyApplication.companyId,
       status: r.status,
       companyName: r.companyName,
       position: r.position,

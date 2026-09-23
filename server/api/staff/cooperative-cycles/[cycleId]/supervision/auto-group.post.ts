@@ -1,8 +1,10 @@
 export default defineEventHandler(async (event) => {
   const { cycle, cycleId } = await getStaffSupervisionContext(event, { mustNotBeClosed: true })
   const body = await readBody(event)
-  const groupCount = Math.trunc(Number(body?.groupCount))
-  if (groupCount < 1 || groupCount > 50) {
+  const groupCount = Number(body?.groupCount)
+  if (body?.roundId == null) throw createError({ statusCode: 400, message: 'กรุณาสร้างและเลือกรอบนิเทศก่อนจัดกลุ่ม' })
+  const requestedRoundId = validatePositiveId(body.roundId, 'รหัสครั้งที่นิเทศ')
+  if (!Number.isInteger(groupCount) || groupCount < 1 || groupCount > 50) {
     throw createError({ statusCode: 400, message: 'จำนวนกลุ่มต้องอยู่ระหว่าง 1–50 กลุ่ม' })
   }
   const startDate = new Date(cycle.internshipStartDate)
@@ -13,6 +15,17 @@ export default defineEventHandler(async (event) => {
 
   const result = await prisma.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(${19_100}, ${cycleId})`
+
+    const existingRounds = await tx.supervisionRound.findMany({
+      where: { cooperativeCycleId: cycleId },
+      orderBy: { roundNo: 'asc' },
+      select: { id: true, roundNo: true, status: true, _count: { select: { groups: true, appointments: true } } }
+    })
+    const targetRound = existingRounds.find(round => round.id === requestedRoundId)
+    if (!targetRound) throw createError({ statusCode: 404, message: 'ไม่พบรอบนิเทศที่เลือก' })
+    if (targetRound.roundNo > MAX_SUPERVISION_ROUNDS || targetRound.status !== 'DRAFT') {
+      throw createError({ statusCode: 409, message: 'จัดกลุ่มอัตโนมัติซ้ำได้เฉพาะรอบที่ 1–2 ซึ่งยังไม่เผยแพร่' })
+    }
 
     const requests = await tx.cooperativeRequest.findMany({
       where: {
@@ -81,19 +94,14 @@ export default defineEventHandler(async (event) => {
     }))
     const groupedCompanies = groupCompaniesByLocation(companies, groupCount)
 
-    const lastRound = await tx.supervisionRound.findFirst({
-      where: { cooperativeCycleId: cycleId },
-      orderBy: { roundNo: 'desc' },
-      select: { roundNo: true }
-    })
-    const round = await tx.supervisionRound.create({
-      data: {
-        cooperativeCycleId: cycleId,
-        roundNo: (lastRound?.roundNo ?? 0) + 1,
-        name: `การนิเทศครั้งที่ ${(lastRound?.roundNo ?? 0) + 1}`,
-        status: 'PUBLISHED'
-      }
-    })
+    const round = targetRound
+
+    // A draft round is fully editable. Re-running auto-group replaces its current
+    // draft plan (groups, appointments and travel plans) atomically; published
+    // rounds are rejected above and can never be overwritten.
+    if (targetRound._count.groups || targetRound._count.appointments) {
+      await tx.supervisionGroup.deleteMany({ where: { supervisionRoundId: round.id } })
+    }
 
     for (const [groupIndex, companyGroup] of groupedCompanies.entries()) {
       const teacherIds = teachers
@@ -129,8 +137,7 @@ export default defineEventHandler(async (event) => {
             longitude: company.longitude,
             scheduledDate,
             period,
-            status: 'PUBLISHED',
-            publishedAt: new Date(),
+            status: 'DRAFT',
             teachers: { create: teacherIds.map(teacherUserId => ({ teacherUserId })) },
             students: {
               create: companyEntry.students.map(student => ({

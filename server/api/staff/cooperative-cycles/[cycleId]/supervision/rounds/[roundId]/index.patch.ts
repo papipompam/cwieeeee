@@ -1,17 +1,20 @@
 export default defineEventHandler(async (event) => {
   const { cycleId } = await getStaffSupervisionContext(event, { mustNotBeClosed: true })
   const roundId = validatePositiveId(getRouterParam(event, 'roundId'), 'รหัสครั้งที่นิเทศ')
-  await getSupervisionRound(cycleId, roundId)
+  const round = await getSupervisionRound(cycleId, roundId)
 
   const body = await readBody(event)
   const data: any = {}
 
-  if (typeof body?.name === 'string') {
-    data.name = body.name.trim() || null
+  if (body?.name !== undefined) {
+    throw createError({ statusCode: 400, message: 'ชื่อรอบนิเทศกำหนดไว้แล้วเป็นนิเทศครั้งที่ 1 และ 2' })
   }
 
-  if (body?.status && ['PUBLISHED', 'COMPLETED'].includes(body.status)) {
-    data.status = body.status
+  if (body?.status !== undefined) {
+    if (body.status !== 'COMPLETED' || round.status !== 'PUBLISHED') {
+      throw createError({ statusCode: 400, message: 'การเผยแพร่ต้องใช้ปุ่มเผยแพร่ตารางนิเทศ' })
+    }
+    data.status = 'COMPLETED'
   }
 
   const updated = await prisma.supervisionRound.update({

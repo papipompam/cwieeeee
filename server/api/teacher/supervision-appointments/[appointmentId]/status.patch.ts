@@ -7,7 +7,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, message: 'สถานะไม่ถูกต้อง' })
   }
   const result = await prisma.supervisionAppointment.updateMany({
-    where: { id: appointmentId, teachers: { some: { teacherUserId: teacher.id } } },
+    where: { id: appointmentId, status: { not: 'DRAFT' }, teachers: { some: { teacherUserId: teacher.id } } },
     data: {
       status: status as 'PUBLISHED' | 'RESCHEDULED' | 'COMPLETED' | 'CANCELLED',
       changeReason: status === 'RESCHEDULED' ? (body.reason?.trim() || null) : null,

@@ -1,6 +1,8 @@
 import { prisma } from './db'
 import { getStaffCycle, validatePositiveId } from './cycle'
 
+export const MAX_SUPERVISION_ROUNDS = 2
+
 export const getStaffSupervisionContext = async (event: any, options?: { mustNotBeClosed?: boolean }) => {
   const { user, cycle, cycleId } = await getStaffCycle(event, options)
   return { user, cycle, cycleId }
@@ -360,16 +362,26 @@ export const calculateTravelBudget = (
     nights: number
     personsPerRoom: number
   }>,
-  lodging?: { rate: number; nights: number; rooms: number }
+  lodging?: { rate: number; nights: number; rooms: number },
+  manualCosts?: { fuelCost?: number | null; perDiemCost?: number | null; lodgingCost?: number | null }
 ): TravelCalculationBreakdown => {
   const totalDistanceKm = stops.reduce((acc, s) => acc + (Number(s.distanceKmFromPrevious) || 0), 0)
-  const fuelCost = Math.round(totalDistanceKm * (Number(fuelRate) || 0) * 100) / 100
-  const hasLodgingBreakdown = Boolean(lodging && Number(lodging.rooms) > 0)
+  const hasManualFuelCost = Number.isFinite(manualCosts?.fuelCost)
+  const hasManualPerDiemCost = Number.isFinite(manualCosts?.perDiemCost)
+  const hasManualLodgingCost = Number.isFinite(manualCosts?.lodgingCost)
+  const fuelCost = hasManualFuelCost
+    ? Math.round(Math.max(0, Number(manualCosts?.fuelCost)) * 100) / 100
+    : Math.round(totalDistanceKm * (Number(fuelRate) || 0) * 100) / 100
+  const hasLodgingBreakdown = !hasManualLodgingCost && Boolean(lodging && Number(lodging.rooms) > 0)
 
-  let perDiemTotal = 0
-  let lodgingTotal = hasLodgingBreakdown && lodging
-    ? Math.round((Math.max(0, lodging.rate) * Math.max(0, lodging.nights) * Math.max(0, lodging.rooms)) * 100) / 100
+  let perDiemTotal = hasManualPerDiemCost
+    ? Math.round(Math.max(0, Number(manualCosts?.perDiemCost)) * 100) / 100
     : 0
+  let lodgingTotal = hasManualLodgingCost
+    ? Math.round(Math.max(0, Number(manualCosts?.lodgingCost)) * 100) / 100
+    : hasLodgingBreakdown && lodging
+      ? Math.round((Math.max(0, lodging.rate) * Math.max(0, lodging.nights) * Math.max(0, lodging.rooms)) * 100) / 100
+      : 0
 
   const travellerDetails = travellers.map((t) => {
     const perDiemCost = Math.round((Number(t.perDiemRate) || 0) * (Number(t.perDiemDays) || 0) * 100) / 100
@@ -377,7 +389,7 @@ export const calculateTravelBudget = (
     const lodgingCost = hasLodgingBreakdown ? 0 : Math.round((((Number(t.lodgingRate) || 0) * (Number(t.nights) || 0)) / personsPerRoom) * 100) / 100
     const totalCost = Math.round((perDiemCost + lodgingCost) * 100) / 100
 
-    perDiemTotal += perDiemCost
+    if (!hasManualPerDiemCost) perDiemTotal += perDiemCost
     lodgingTotal += lodgingCost
 
     return {

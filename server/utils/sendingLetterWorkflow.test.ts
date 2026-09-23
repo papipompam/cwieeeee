@@ -3,7 +3,7 @@ import { describe, it } from 'node:test'
 import { buildSendingLetterData, saveSendingLetterVersion } from './sendingLetterWorkflow'
 
 const cycle = {
-  internshipHours: 450,
+  internshipHours: null,
   internshipStartDate: new Date('2026-10-19T00:00:00+07:00'),
   internshipEndDate: new Date('2027-02-05T00:00:00+07:00')
 }
@@ -30,8 +30,7 @@ const signer = {
 describe('sendingLetterWorkflow', () => {
   it('maps confirmed request and active request letter into sending-letter data', () => {
     const result = buildSendingLetterData(cycle, request, input, reference, signer)
-    assert.strictEqual(result.referenceLetterNumber, reference.letterNumber)
-    assert.strictEqual(result.internshipHours, 450)
+    assert.strictEqual(result.internshipStartDate.toISOString(), cycle.internshipStartDate.toISOString())
     assert.deepStrictEqual(result.students, [{ name: 'นายทดสอบ ระบบดี', studentId: '65011212001' }])
   })
 

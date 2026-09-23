@@ -23,6 +23,7 @@ interface LatestDocument {
 
 interface RequestRow {
   id: number
+  companyId: number
   status: string
   companyName: string
   position: string | null
@@ -50,10 +51,9 @@ interface CooperativeCycle {
   status: string
 }
 interface DocumentCandidate { id: number, companyId: number, companyName: string, recipientName: string | null, student: StudentUser }
-interface CompanyGroup { companyId: number, companyName: string, applicantCount: number, confirmedCount: number, inProgressCount: number, pendingCount: number, issuedCount: number, documentRequestId: number | null, latestResponseStatus: string | null, students: string[] }
+interface CompanyGroup { companyId: number, companyName: string, applicantCount: number, submittedCount: number, waitingStudentCount: number, versionCount: number, documentRequestId: number | null, responseDocument: { id: number, fileName: string, version: number, status: string } | null, workflow: { key: string, label: string, color: 'warning' | 'error' | 'success' | 'neutral' }, students: string[] }
 
 const route = useRoute()
-const router = useRouter()
 const cycleId = computed(() => Number(route.params.cycleId))
 const cycle = inject<Ref<CooperativeCycle | null>>('currentCycle')
 const notify = useNotify()
@@ -70,15 +70,8 @@ const applicationTabs = [
   { label: 'นักศึกษา', icon: 'i-lucide-graduation-cap', value: 'students' }
 ]
 
-const selectedRequestForLetter = ref<RequestRow | null>(null)
-const letterKind = ref<'request' | 'sending'>('request')
-const isLetterModalOpen = ref(false)
-const isLetterGenerating = ref(false)
-const letterNumber = ref('')
 const issueDate = shallowRef<InputDateProps<false>['modelValue']>()
-const letterNumberError = ref('')
 const issueDateError = ref('')
-const letterActionError = ref('')
 const isGroupModalOpen = ref(false)
 const groupCandidates = ref<DocumentCandidate[]>([])
 const selectedCompany = ref('')
@@ -90,6 +83,14 @@ const groupError = ref('')
 const groupLetterNumber = ref('')
 const selectedCompanyDocuments = ref<CompanyGroup | null>(null)
 const isCompanyDocumentsOpen = ref(false)
+const selectedCompanyResponse = ref<CompanyGroup | null>(null)
+const isCompanyResponseOpen = ref(false)
+const isPlacementConfirmationOpen = ref(false)
+const isPlacementConfirming = ref(false)
+const responseActionError = ref('')
+const selectedCompanyGroup = ref<CompanyGroup | null>(null)
+const isIncompleteConfirmationOpen = ref(false)
+const isGroupGenerationConfirmationOpen = ref(false)
 const isGroupPreviewOpen = ref(false)
 const groupPreviewUrl = ref<string | null>(null)
 const groupPreviewLoading = ref(false)
@@ -99,16 +100,17 @@ const { data: companyGroupsData, refresh: refreshCompanyGroups } = await useFetc
 const companyGroups = computed(() => companyGroupsData.value || [])
 const companyGroupColumns: TableColumn<CompanyGroup>[] = [
   { accessorKey: 'companyName', header: 'สถานประกอบการ' },
-  { id: 'students', header: 'ผู้สมัคร', meta: { class: { th: 'w-36 text-center', td: 'w-36 text-center' } } },
-  { id: 'pending', header: 'ยังไม่ออกเอกสาร', meta: { class: { th: 'w-36 text-center', td: 'w-36 text-center' } } },
-  { id: 'issued', header: 'ออกแล้ว', meta: { class: { th: 'w-24 text-center', td: 'w-24 text-center' } } },
-  { id: 'documents', header: 'เอกสาร', meta: { class: { th: 'w-36 text-center', td: 'w-36 text-center' } } },
+  { id: 'students', header: 'นักศึกษา', meta: { class: { th: 'w-44 text-center', td: 'w-44 text-center' } } },
+  { id: 'workflow', header: 'สถานะเอกสารรวม', meta: { class: { th: 'w-64', td: 'w-64' } } },
+  { id: 'documents', header: 'หนังสือที่ออก', meta: { class: { th: 'w-36 text-center', td: 'w-36 text-center' } } },
+  { id: 'response', header: 'หนังสือตอบรับ', meta: { class: { th: 'w-40 text-center', td: 'w-40 text-center' } } },
   { id: 'actions', header: () => h('span', { class: 'block text-right' }, 'จัดการ'), meta: { class: { th: 'w-36 text-end', td: 'w-36 text-end' } } }
 ]
 const openGroupModal = async (company: CompanyGroup) => {
   const loadId = ++groupCandidateLoad
   selectedCompany.value = company.companyName
   selectedCompanyId.value = company.companyId
+  selectedCompanyGroup.value = company
   selectedGroupRequestIds.value = []
   groupCandidates.value = []
   groupError.value = ''
@@ -132,8 +134,45 @@ const openGroupModal = async (company: CompanyGroup) => {
     if (loadId === groupCandidateLoad) groupCandidatesLoading.value = false
   }
 }
+const hasOpenedCompanyFromQuery = ref(false)
+watch(companyGroups, (groups) => {
+  if (hasOpenedCompanyFromQuery.value || route.query.action !== 'create') return
+  const companyId = Number(route.query.companyId)
+  const company = groups.find(group => group.companyId === companyId)
+  if (!company) return
+  hasOpenedCompanyFromQuery.value = true
+  void openGroupModal(company)
+}, { immediate: true })
 const toggleGroupRequest = (id: number) => { selectedGroupRequestIds.value = selectedGroupRequestIds.value.includes(id) ? selectedGroupRequestIds.value.filter(value => value !== id) : [...selectedGroupRequestIds.value, id] }
 const openCompanyDocuments = (company: CompanyGroup) => { selectedCompanyDocuments.value = company; isCompanyDocumentsOpen.value = true }
+const openCompanyResponse = (company: CompanyGroup) => { selectedCompanyResponse.value = company; responseActionError.value = ''; isCompanyResponseOpen.value = true }
+const openGroupModalForRequest = (request: RequestRow) => {
+  const company = companyGroups.value.find(group => group.companyId === request.companyId)
+  if (!company) return notify.error('ไม่พบข้อมูลสถานประกอบการ กรุณารีเฟรชหน้าเว็บ')
+  return openGroupModal(company)
+}
+const openCompanyResponseForRequest = (request: RequestRow) => {
+  const company = companyGroups.value.find(group => group.companyId === request.companyId)
+  if (!company?.responseDocument) return notify.error('ไม่พบหนังสือตอบรับ กรุณารีเฟรชหน้าเว็บ')
+  openCompanyResponse(company)
+}
+const confirmPlacement = async () => {
+  const company = selectedCompanyResponse.value
+  if (!company?.documentRequestId || isPlacementConfirming.value) return
+  isPlacementConfirming.value = true
+  responseActionError.value = ''
+  try {
+    await $fetch(`/api/staff/cooperative-cycles/${cycleId.value}/requests/${company.documentRequestId}/confirm-placement`, { method: 'POST' })
+    notify.success('ยืนยันสถานที่ฝึกงานเรียบร้อยแล้ว')
+    isPlacementConfirmationOpen.value = false
+    isCompanyResponseOpen.value = false
+    await Promise.all([refresh(), refreshCompanyGroups()])
+  } catch (error: any) {
+    responseActionError.value = error?.data?.message || 'ไม่สามารถยืนยันสถานที่ฝึกงานได้'
+  } finally {
+    isPlacementConfirming.value = false
+  }
+}
 const generateGroupLetter = async () => {
   if (groupLoading.value || groupCandidatesLoading.value) return
   const selectedDate = issueDate.value?.toString()
@@ -144,6 +183,7 @@ const generateGroupLetter = async () => {
   try {
     await $fetch(`/api/staff/cooperative-cycles/${cycleId.value}/document-groups/request-letter`, { method: 'POST', body: { issueDate: selectedDate, letterNumber: groupLetterNumber.value, requestIds: selectedGroupRequestIds.value } })
     notify.success('ออกหนังสือขอความอนุเคราะห์รวมเรียบร้อยแล้ว')
+    isGroupGenerationConfirmationOpen.value = false
     closeGroupPreview()
     isGroupModalOpen.value = false
     await Promise.all([refresh(), refreshCompanyGroups()])
@@ -158,6 +198,16 @@ const openGroupPreview = async () => {
   issueDateError.value = selectedDate ? '' : 'กรุณาเลือกวันที่ออกหนังสือ'
   groupError.value = selectedGroupRequestIds.value.length ? '' : 'กรุณาเลือกนักศึกษาอย่างน้อย 1 คน'
   if (!selectedDate || !groupLetterNumber.value.trim() || groupError.value) return
+  if (selectedCompanyGroup.value && selectedCompanyGroup.value.waitingStudentCount > 0) {
+    isIncompleteConfirmationOpen.value = true
+    return
+  }
+  await renderGroupPreview()
+}
+const renderGroupPreview = async () => {
+  const selectedDate = issueDate.value?.toString()
+  if (!selectedDate) return
+  isIncompleteConfirmationOpen.value = false
   groupPreviewLoading.value = true
   groupError.value = ''
   try {
@@ -249,80 +299,6 @@ const formatDate = (dStr?: string | null) => {
   return d.toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' })
 }
 
-const canGenerateLetter = (request: RequestRow) => (
-  cycle?.value?.status !== 'CLOSED'
-  && ['SUBMITTED', 'STAFF_PROCESSING', 'LETTER_READY', 'DOCUMENT_UNDER_REVIEW', 'RETURNED_FOR_REVISION'].includes(request.status)
-)
-
-const openLetterModal = (request: RequestRow) => {
-  letterKind.value = 'request'
-  selectedRequestForLetter.value = request
-  letterNumber.value = ''
-  issueDate.value = undefined
-  letterNumberError.value = ''
-  issueDateError.value = ''
-  letterActionError.value = ''
-  isLetterModalOpen.value = true
-}
-
-const openSendingLetterModal = (request: RequestRow) => {
-  letterKind.value = 'sending'
-  selectedRequestForLetter.value = request
-  letterNumber.value = ''
-  issueDate.value = undefined
-  letterNumberError.value = ''
-  issueDateError.value = ''
-  letterActionError.value = ''
-  isLetterModalOpen.value = true
-}
-
-const getLetterInput = () => {
-  const normalizedLetterNumber = letterNumber.value.trim()
-  const normalizedIssueDate = issueDate.value?.toString()
-  letterNumberError.value = normalizedLetterNumber ? '' : 'กรุณาระบุเลขที่หนังสือ'
-  issueDateError.value = normalizedIssueDate ? '' : 'กรุณาเลือกวันที่ออกหนังสือ'
-  return normalizedLetterNumber && normalizedIssueDate
-    ? { letterNumber: normalizedLetterNumber, issueDate: normalizedIssueDate }
-    : null
-}
-
-const openFullPagePreview = () => {
-  const input = getLetterInput()
-  const request = selectedRequestForLetter.value
-  if (!input || !request) return
-
-  const previewRoute = router.resolve({
-    path: `/staff/cooperative-cycles/${cycleId.value}/applications/${request.id}-letter-preview`,
-    query: { ...input, kind: letterKind.value }
-  })
-  window.open(previewRoute.href, '_blank', 'noopener')
-}
-
-const generateLetter = async () => {
-  const input = getLetterInput()
-  const request = selectedRequestForLetter.value
-  if (!input || !request) return
-
-  isLetterGenerating.value = true
-  letterActionError.value = ''
-  try {
-    const endpoint = letterKind.value === 'sending' ? 'sending-letter/generate' : 'letter/generate'
-    await $fetch(`/api/staff/cooperative-cycles/${cycleId.value}/requests/${request.id}/${endpoint}`, {
-      method: 'POST',
-      body: input
-    })
-    notify.success(`${letterKind.value === 'sending' ? 'ออกหนังสือส่งตัว' : 'ออกหนังสือขอความอนุเคราะห์'}สำหรับ ${request.companyName} เรียบร้อยแล้ว`)
-    isLetterModalOpen.value = false
-    await refresh()
-  } catch (err: any) {
-    const message = err?.data?.message || 'ไม่สามารถออกหนังสือได้'
-    letterActionError.value = message
-    notify.error(message)
-  } finally {
-    isLetterGenerating.value = false
-  }
-}
-
 const columns: TableColumn<RequestRow>[] = [
   {
     accessorKey: 'id',
@@ -349,14 +325,19 @@ const columns: TableColumn<RequestRow>[] = [
     meta: { class: { th: 'w-36 text-center', td: 'w-36 text-center' } }
   },
   {
+    id: 'documents',
+    header: 'หนังสือที่ออก',
+    meta: { class: { th: 'w-36 text-center', td: 'w-36 text-center' } }
+  },
+  {
     id: 'latestDocument',
-    header: 'เอกสารตอบรับ',
+    header: 'หนังสือตอบรับ',
     meta: { class: { th: 'w-36 text-center', td: 'w-36 text-center' } }
   },
   {
     id: 'actions',
     header: () => h('span', { class: 'block text-right' }, 'จัดการ'),
-    meta: { class: { th: 'w-80 text-end', td: 'w-80 text-end' } }
+    meta: { class: { th: 'w-36 text-end', td: 'w-36 text-end' } }
   }
 ]
 
@@ -379,7 +360,7 @@ const pageEnd = computed(() => {
           <div>
             <h3 class="text-lg font-bold text-ink flex items-center gap-2">
               <UIcon name="i-lucide-file-check-2" class="size-5 text-primary" />
-              คำร้องนักศึกษา
+              ออกหนังสือขออนุเคราะห์
             </h3>
             <p class="mt-1 text-sm leading-6 text-muted">
               คิวตรวจสอบคำร้องและออกหนังสือขอความอนุเคราะห์ (ภาคเรียนที่ {{ cycle?.term }}/{{ cycle?.academicYear }})
@@ -457,11 +438,11 @@ const pageEnd = computed(() => {
       <div v-if="activeApplicationView === 'companies' && fetchStatus !== 'pending' && companyGroups.length" class="border-t border-divider">
         <div class="w-full overflow-x-auto"><UTable :data="companyGroups" :columns="companyGroupColumns" class="min-w-full" :ui="{ base: 'w-full min-w-180' }">
           <template #companyName-cell="{ row }"><div><p class="font-medium text-ink">{{ row.original.companyName }}</p><p class="mt-0.5 text-xs text-muted">{{ row.original.students.join(', ') }}</p></div></template>
-          <template #students-cell="{ row }"><div class="text-center"><p class="font-semibold tabular-nums text-ink">{{ row.original.confirmedCount }} / {{ row.original.applicantCount }} คน</p><p v-if="row.original.inProgressCount" class="mt-0.5 text-xs text-muted">กำลังดำเนินการ {{ row.original.inProgressCount }} คน</p><p v-else class="mt-0.5 text-xs text-success">ยืนยันครบแล้ว</p></div></template>
-          <template #pending-cell="{ row }"><UBadge :label="`${row.original.pendingCount} คน`" color="warning" variant="subtle" /></template>
-          <template #issued-cell="{ row }"><UBadge :label="`${row.original.issuedCount} คน`" color="success" variant="subtle" /></template>
-          <template #documents-cell="{ row }"><UButton v-if="row.original.documentRequestId" label="ดูเอกสาร" icon="i-lucide-folder-open" color="neutral" variant="outline" size="xs" @click="openCompanyDocuments(row.original)" /><span v-else class="text-muted">—</span></template>
-          <template #actions-cell="{ row }"><div class="flex justify-end gap-1"><UButton label="จัดทำเอกสาร" icon="i-lucide-file-pen-line" size="xs" @click="openGroupModal(row.original)" /><UButton label="รายละเอียด" icon="i-lucide-arrow-right" color="neutral" variant="ghost" size="xs" :to="`/staff/cooperative-cycles/${cycleId}/applications/companies/${row.original.companyId}`" /></div></template>
+          <template #students-cell="{ row }"><div class="text-center"><p class="font-semibold tabular-nums text-ink">{{ row.original.submittedCount }} / {{ row.original.applicantCount }} คน</p><p v-if="row.original.waitingStudentCount" class="mt-0.5 text-xs text-muted">รอยืนยัน {{ row.original.waitingStudentCount }} คน</p><p v-else class="mt-0.5 text-xs text-success">ยืนยันครบแล้ว</p></div></template>
+          <template #workflow-cell="{ row }"><div><UBadge :label="row.original.workflow.label" :color="row.original.workflow.color" variant="subtle" /><p v-if="row.original.waitingStudentCount" class="mt-1 text-xs leading-5 text-muted">ยังออกเอกสารได้เฉพาะ {{ row.original.submittedCount }} คนที่ส่งคำร้องแล้ว</p></div></template>
+          <template #documents-cell="{ row }"><UButton v-if="row.original.documentRequestId" label="ดูเอกสาร" icon="i-lucide-folder-open" color="neutral" variant="outline" size="xs" @click="openCompanyDocuments(row.original)" /><UButton v-else-if="row.original.submittedCount" label="สร้างเอกสาร" icon="i-lucide-file-pen-line" size="xs" @click="openGroupModal(row.original)" /><span v-else class="text-muted">รอยืนยันสถานประกอบการ</span></template>
+          <template #response-cell="{ row }"><UButton v-if="row.original.responseDocument" label="ดู/ตรวจ" icon="i-lucide-file-search" color="warning" variant="outline" size="xs" @click="openCompanyResponse(row.original)" /><span v-else class="text-muted">{{ row.original.workflow.key === 'returned_for_revision' ? 'รอส่งแก้ไข' : row.original.documentRequestId ? 'รอนักศึกษาส่ง' : 'ยังไม่มีเอกสาร' }}</span></template>
+          <template #actions-cell="{ row }"><div class="flex justify-end"><UButton label="รายละเอียด" icon="i-lucide-arrow-right" color="neutral" variant="ghost" size="xs" :to="`/staff/cooperative-cycles/${cycleId}/applications/companies/${row.original.companyId}`" /></div></template>
         </UTable></div>
       </div>
 
@@ -480,7 +461,7 @@ const pageEnd = computed(() => {
         <UEmpty
           icon="i-lucide-file-check-2"
           class="min-h-64"
-          :title="hasFilters ? 'ไม่พบรายการที่ตรงกับตัวกรอง' : 'ไม่พบข้อมูลคำร้องนักศึกษาในรอบนี้'"
+          :title="hasFilters ? 'ไม่พบรายการที่ตรงกับตัวกรอง' : 'ไม่พบข้อมูลคำร้องขอเอกสารขอความอนุเคราะห์ในรอบนี้'"
           :description="hasFilters ? 'ลองเปลี่ยนคำค้นหาหรือตัวกรองสถานะ' : 'เมื่อนักศึกษาส่งคำร้องขอความอนุเคราะห์ ข้อมูลจะปรากฏในตารางนี้'"
         >
           <template #actions>
@@ -551,71 +532,55 @@ const pageEnd = computed(() => {
               />
             </template>
 
-            <!-- Latest Acceptance Document -->
-            <template #latestDocument-cell="{ row }">
-              <div v-if="row.original.latestDocument" class="text-xs">
-                <span class="font-medium text-ink">ฉบับที่ {{ row.original.latestDocument.version }}</span>
-                <div class="text-muted mt-0.5">
-                  <UBadge
-                    v-if="row.original.latestDocument.status === 'UPLOADED' || row.original.latestDocument.status === 'UNDER_REVIEW'"
-                    label="รอตรวจ"
-                    color="warning"
-                    variant="subtle"
-                    size="xs"
-                  />
-                  <UBadge
-                    v-else-if="row.original.latestDocument.status === 'APPROVED'"
-                    label="อนุมัติแล้ว"
-                    color="success"
-                    variant="subtle"
-                    size="xs"
-                  />
-                  <UBadge
-                    v-else-if="row.original.latestDocument.status === 'RETURNED_FOR_REVISION'"
-                    label="ส่งกลับแก้ไข"
-                    color="error"
-                    variant="subtle"
-                    size="xs"
-                  />
-                  <span v-else class="text-muted">{{ row.original.latestDocument.status }}</span>
-                </div>
-              </div>
-              <span v-else class="text-muted text-xs">—</span>
+            <template #documents-cell="{ row }">
+              <UButton
+                v-if="row.original.sendingLetterAvailable"
+                label="ดูหนังสือส่งตัว"
+                icon="i-lucide-file-text"
+                color="neutral"
+                variant="outline"
+                size="xs"
+                :to="`/api/staff/cooperative-cycles/${cycleId}/requests/${row.original.id}/sending-letter`"
+                target="_blank"
+              />
+              <UButton
+                v-else-if="row.original.letterFilePath"
+                label="ดูเอกสาร"
+                icon="i-lucide-folder-open"
+                color="neutral"
+                variant="outline"
+                size="xs"
+                :to="`/api/staff/cooperative-cycles/${cycleId}/requests/${row.original.id}/letter`"
+                target="_blank"
+              />
+              <UButton
+                v-else-if="cycle?.status !== 'CLOSED'"
+                label="สร้างเอกสาร"
+                icon="i-lucide-file-pen-line"
+                size="xs"
+                @click="openGroupModalForRequest(row.original)"
+              />
+              <span v-else class="text-xs text-muted">รอบสหกิจปิดแล้ว</span>
             </template>
 
-            <!-- Actions: document actions and detail navigation live together. -->
+            <!-- Latest Acceptance Document -->
+            <template #latestDocument-cell="{ row }">
+              <UButton
+                v-if="row.original.latestDocument"
+                :label="['UPLOADED', 'UNDER_REVIEW'].includes(row.original.latestDocument.status) ? 'ดู/ตรวจ' : 'ดูเอกสาร'"
+                icon="i-lucide-file-search"
+                :color="['UPLOADED', 'UNDER_REVIEW'].includes(row.original.latestDocument.status) ? 'warning' : 'neutral'"
+                variant="outline"
+                size="xs"
+                @click="openCompanyResponseForRequest(row.original)"
+              />
+              <span v-else class="text-xs text-muted">{{ row.original.letterFilePath ? 'รอนักศึกษาส่ง' : 'ยังไม่มีเอกสาร' }}</span>
+            </template>
+
             <template #actions-cell="{ row }">
-              <div class="flex items-center justify-end gap-1 whitespace-nowrap">
+              <div class="flex justify-end">
                 <UButton
-                  v-if="row.original.status === 'PLACEMENT_CONFIRMED' && cycle?.status !== 'CLOSED'"
-                  :label="row.original.sendingLetterAvailable ? 'ออกส่งตัวฉบับใหม่' : 'ออกหนังสือส่งตัว'"
-                  icon="i-lucide-send"
-                  color="primary"
-                  size="xs"
-                  @click="openSendingLetterModal(row.original)"
-                />
-                <UButton
-                  v-if="row.original.sendingLetterAvailable"
-                  label="เปิดหนังสือส่งตัว"
-                  icon="i-lucide-external-link"
-                  color="neutral"
-                  variant="outline"
-                  size="xs"
-                  :to="`/api/staff/cooperative-cycles/${cycleId}/requests/${row.original.id}/sending-letter`"
-                  target="_blank"
-                />
-                <UButton
-                  v-if="row.original.letterFilePath"
-                  label="เปิดหนังสือ"
-                  icon="i-lucide-external-link"
-                  color="neutral"
-                  variant="outline"
-                  size="xs"
-                  :to="`/api/staff/cooperative-cycles/${cycleId}/requests/${row.original.id}/letter`"
-                  target="_blank"
-                />
-                <UButton
-                  label="ดูคำร้อง"
+                  label="รายละเอียด"
                   icon="i-lucide-arrow-right"
                   color="neutral"
                   variant="ghost"
@@ -654,41 +619,26 @@ const pageEnd = computed(() => {
       </template>
     </UCard>
 
-    <UModal v-model:open="isCompanyDocumentsOpen" title="เอกสารสถานประกอบการ" :description="selectedCompanyDocuments?.companyName" :ui="{ content: 'max-w-xl' }">
-      <template #body><div v-if="selectedCompanyDocuments?.documentRequestId" class="space-y-3"><div class="flex items-center justify-between gap-3 rounded-panel border border-divider p-4"><div><p class="font-semibold text-ink">หนังสือขอความอนุเคราะห์</p><p class="mt-1 text-sm text-muted">{{ selectedCompanyDocuments.issuedCount }} ฉบับ</p></div><div class="flex flex-wrap justify-end gap-2"><UButton :to="`/api/staff/cooperative-cycles/${cycleId}/requests/${selectedCompanyDocuments.documentRequestId}/letter`" target="_blank" label="ดูเต็มหน้า" icon="i-lucide-external-link" color="neutral" variant="outline" size="sm" /><UButton :to="`/api/staff/cooperative-cycles/${cycleId}/requests/${selectedCompanyDocuments.documentRequestId}/letter`" :download="true" label="ดาวน์โหลด" icon="i-lucide-download" color="primary" size="sm" /></div></div><div class="h-[55vh] overflow-hidden rounded-panel border border-divider bg-surface"><iframe :src="`/api/staff/cooperative-cycles/${cycleId}/requests/${selectedCompanyDocuments.documentRequestId}/letter`" title="ตัวอย่างหนังสือขอความอนุเคราะห์" class="h-full w-full" /></div><div v-if="selectedCompanyDocuments.latestResponseStatus" class="rounded-panel border border-divider p-4 text-sm text-muted">มีหนังสือตอบรับจากสถานประกอบการแล้ว ดูรายละเอียดและไฟล์ทั้งหมดได้จากหน้ารายละเอียดบริษัท</div></div></template>
+    <UModal v-model:open="isCompanyDocumentsOpen" title="เอกสารสถานประกอบการ" :description="selectedCompanyDocuments?.companyName" :ui="{ content: 'max-w-5xl' }">
+      <template #body><div v-if="selectedCompanyDocuments?.documentRequestId" class="space-y-3"><div class="flex items-center justify-between gap-3 rounded-panel border border-divider p-4"><div><p class="font-semibold text-ink">หนังสือขอความอนุเคราะห์</p><p class="mt-1 text-sm text-muted">{{ selectedCompanyDocuments.versionCount }} ฉบับ</p></div><div class="flex flex-wrap justify-end gap-2"><UButton :to="`/api/staff/cooperative-cycles/${cycleId}/requests/${selectedCompanyDocuments.documentRequestId}/letter`" target="_blank" label="ดูเต็มหน้า" icon="i-lucide-external-link" color="neutral" variant="outline" size="sm" /><UButton :to="`/api/staff/cooperative-cycles/${cycleId}/requests/${selectedCompanyDocuments.documentRequestId}/letter`" :download="true" label="ดาวน์โหลด" icon="i-lucide-download" color="primary" size="sm" /></div></div><div class="h-[55vh] overflow-hidden rounded-panel border border-divider bg-surface"><iframe :src="`/api/staff/cooperative-cycles/${cycleId}/requests/${selectedCompanyDocuments.documentRequestId}/letter`" title="ตัวอย่างหนังสือขอความอนุเคราะห์" class="h-full w-full" /></div></div></template>
       <template #footer><div class="flex w-full justify-end"><UButton label="ปิด" size="xl" color="neutral" variant="outline" @click="isCompanyDocumentsOpen = false" /></div></template>
     </UModal>
-
-    <UModal
-      v-model:open="isLetterModalOpen"
-      :title="letterKind === 'sending' ? 'ออกหนังสือส่งตัว' : 'ออกหนังสือขอความอนุเคราะห์'"
-      :description="selectedRequestForLetter ? `สำหรับ ${selectedRequestForLetter.student.prefix}${selectedRequestForLetter.student.firstName} ${selectedRequestForLetter.student.lastName} · ${selectedRequestForLetter.companyName}` : undefined"
-      :ui="{ content: 'max-w-2xl' }"
-    >
+    <UModal v-model:open="isCompanyResponseOpen" title="หนังสือตอบรับจากสถานประกอบการ" :description="selectedCompanyResponse?.companyName" :ui="{ content: 'max-w-5xl' }">
       <template #body>
-        <UForm class="grid gap-5" @submit.prevent="generateLetter">
-          <UFormField label="เลขที่หนังสือ" required :error="letterNumberError">
-            <UInput v-model="letterNumber" class="w-full" size="xl" placeholder="เช่น ๑๒๓/๒๕๖๙" autocomplete="off" />
-          </UFormField>
-          <UFormField label="วันที่ออกหนังสือ" required :error="issueDateError">
-            <UPopover>
-              <UInputDate v-model="issueDate" class="w-full" size="xl" locale="th-TH" aria-label="Select a date" />
-              <template #content>
-                <UCalendar v-model="issueDate" locale="th-TH" />
-              </template>
-            </UPopover>
-          </UFormField>
-          <UAlert v-if="letterActionError" color="error" icon="i-lucide-circle-alert" title="ไม่สามารถออกเอกสารได้" :description="letterActionError" />
-        </UForm>
-      </template>
-      <template #footer>
-        <div class="flex w-full flex-wrap justify-end gap-2">
-          <UButton label="ยกเลิก" color="neutral" variant="outline" size="xl" :disabled="isLetterGenerating" @click="isLetterModalOpen = false" />
-          <UButton label="ดูตัวอย่างเต็มหน้า" icon="i-lucide-expand" color="neutral" variant="outline" size="xl" :disabled="isLetterGenerating" @click="openFullPagePreview" />
-          <UButton :label="letterKind === 'sending' ? 'ยืนยันออกหนังสือส่งตัว' : 'ยืนยันออกเอกสาร'" icon="i-lucide-file-check-2" color="primary" size="xl" :loading="isLetterGenerating" @click="generateLetter" />
+        <div v-if="selectedCompanyResponse?.responseDocument && selectedCompanyResponse.documentRequestId" class="space-y-3">
+          <div class="flex flex-wrap items-center justify-between gap-3 rounded-panel border border-divider p-4">
+            <div><p class="font-semibold text-ink">{{ selectedCompanyResponse.responseDocument.fileName }}</p><p class="mt-1 text-sm text-muted">ฉบับที่ {{ selectedCompanyResponse.responseDocument.version }}</p></div>
+            <div class="flex flex-wrap gap-2"><UButton :to="`/api/staff/cooperative-cycles/${cycleId}/requests/${selectedCompanyResponse.documentRequestId}/documents/${selectedCompanyResponse.responseDocument.id}`" target="_blank" label="ดูเต็มหน้า" icon="i-lucide-external-link" color="neutral" variant="outline" size="sm" /><UButton :to="`/api/staff/cooperative-cycles/${cycleId}/requests/${selectedCompanyResponse.documentRequestId}/documents/${selectedCompanyResponse.responseDocument.id}`" :download="true" label="ดาวน์โหลด" icon="i-lucide-download" color="primary" size="sm" /></div>
+          </div>
+          <UAlert v-if="responseActionError" color="error" title="ไม่สามารถยืนยันสถานที่ฝึกงานได้" :description="responseActionError" />
+          <div class="h-[60vh] overflow-hidden rounded-panel border border-divider bg-surface"><iframe :src="`/api/staff/cooperative-cycles/${cycleId}/requests/${selectedCompanyResponse.documentRequestId}/documents/${selectedCompanyResponse.responseDocument.id}`" title="หนังสือตอบรับจากสถานประกอบการ" class="h-full w-full" /></div>
         </div>
       </template>
+      <template #footer><div class="flex w-full flex-wrap justify-end gap-2"><UButton label="ปิด" size="xl" color="neutral" variant="outline" :disabled="isPlacementConfirming" @click="isCompanyResponseOpen = false" /><UButton v-if="selectedCompanyResponse?.workflow.key === 'response_under_review'" label="ยืนยันสถานที่ฝึกงาน" icon="i-lucide-check-circle-2" color="success" size="xl" :loading="isPlacementConfirming" @click="isPlacementConfirmationOpen = true" /></div></template>
     </UModal>
+    <UIConfirmModal v-model:open="isPlacementConfirmationOpen" title="ยืนยันสถานที่ฝึกงาน" description="ระบบจะยืนยันสถานที่ฝึกงานและแจ้งผลให้นักศึกษาทุกคนในชุดเอกสารนี้" confirm-label="ยืนยันสถานที่ฝึกงาน" confirm-color="success" :loading="isPlacementConfirming" @confirm="confirmPlacement" />
+    <UIConfirmModal v-model:open="isIncompleteConfirmationOpen" title="นักศึกษายืนยันสถานประกอบการไม่ครบ" :description="`มีนักศึกษาส่งคำร้องแล้ว ${selectedCompanyGroup?.submittedCount || 0} จาก ${selectedCompanyGroup?.applicantCount || 0} คน หากดำเนินการต่อ หนังสือฉบับนี้จะรวมเฉพาะผู้ที่ส่งคำร้องแล้ว ต้องการสร้างตัวอย่างต่อหรือไม่?`" confirm-label="สร้างตัวอย่างต่อ" confirm-color="warning" :loading="groupPreviewLoading" @confirm="renderGroupPreview" />
+
     <UModal v-model:open="isGroupModalOpen" title="จัดทำหนังสือขอความอนุเคราะห์รวม" description="ตรวจสอบรายชื่อนักศึกษาที่จะอยู่ในเอกสารฉบับนี้" :ui="{ content: 'max-w-2xl' }">
       <template #body>
         <UForm class="space-y-4" @submit.prevent="generateGroupLetter">
@@ -725,7 +675,8 @@ const pageEnd = computed(() => {
     </UModal>
     <UModal :open="isGroupPreviewOpen" title="ตัวอย่างหนังสือขอความอนุเคราะห์" :description="selectedCompany" :ui="{ content: 'max-w-5xl' }" @update:open="(open) => { if (!open) closeGroupPreview() }">
       <template #body><div class="h-[70vh] overflow-hidden rounded-panel border border-divider bg-surface"><iframe v-if="groupPreviewUrl" :src="groupPreviewUrl" title="ตัวอย่างหนังสือขอความอนุเคราะห์" class="h-full w-full" /></div></template>
-      <template #footer><div class="flex w-full flex-wrap justify-end gap-2"><UButton label="กลับไปแก้ไข" color="neutral" variant="outline" size="xl" @click="closeGroupPreview" /><UButton label="ยืนยันออกเอกสาร" icon="i-lucide-file-check-2" color="primary" size="xl" :loading="groupLoading" @click="generateGroupLetter" /></div></template>
+      <template #footer><div class="flex w-full flex-wrap justify-end gap-2"><UButton label="กลับไปแก้ไข" color="neutral" variant="outline" size="xl" @click="closeGroupPreview" /><UButton label="ยืนยันออกเอกสาร" icon="i-lucide-file-check-2" color="primary" size="xl" :loading="groupLoading" @click="isGroupGenerationConfirmationOpen = true" /></div></template>
     </UModal>
+    <UIConfirmModal v-model:open="isGroupGenerationConfirmationOpen" title="ยืนยันการออกหนังสือขอความอนุเคราะห์" description="ระบบจะบันทึกหนังสือและส่งการแจ้งเตือนพร้อมลิงก์ดาวน์โหลดให้เฉพาะนักศึกษาที่เลือกในฉบับนี้" confirm-label="ออกเอกสาร" :loading="groupLoading" @confirm="generateGroupLetter" />
   </div>
 </template>

@@ -440,11 +440,13 @@ model SupervisionVisit {
 }
 
 enum SupervisionRoundStatus {
+  DRAFT
   PUBLISHED
   COMPLETED
 }
 
 enum SupervisionAppointmentStatus {
+  DRAFT
   PUBLISHED
   RESCHEDULED
   COMPLETED
@@ -457,7 +459,7 @@ model SupervisionRound {
   cooperativeCycle   CooperativeCycle          @relation(fields: [cooperativeCycleId], references: [id], onDelete: Cascade)
   roundNo            Int                       @default(1) @map("round_no")
   name               String?
-  status             SupervisionRoundStatus    @default(PUBLISHED)
+  status             SupervisionRoundStatus    @default(DRAFT)
   groups             SupervisionGroup[]
   groupCompanies     SupervisionGroupCompany[]
   groupTeachers      SupervisionGroupTeacher[]
@@ -533,7 +535,7 @@ model SupervisionAppointment {
   scheduledDate      DateTime                        @map("scheduled_date") @db.Date
   period             String                          @default("MORNING")
   timeNote           String?                         @map("time_note")
-  status             SupervisionAppointmentStatus    @default(PUBLISHED)
+  status             SupervisionAppointmentStatus    @default(DRAFT)
   changeReason       String?                         @map("change_reason")
   cancelReason       String?                         @map("cancel_reason")
   publishedAt        DateTime?                       @map("published_at")
@@ -700,9 +702,12 @@ model SupervisionTravelPlan {
   travelDate         DateTime                     @map("travel_date") @db.Date
   startLocation      String                       @default("มหาวิทยาลัย") @map("start_location")
   fuelRate           Float                        @default(4.0) @map("fuel_rate")
+  manualFuelCost     Float?                       @map("manual_fuel_cost")
+  manualPerDiemCost  Float?                       @map("manual_per_diem_cost")
   lodgingRate        Float                        @default(0.0) @map("lodging_rate")
   lodgingNights      Int                          @default(0) @map("lodging_nights")
   lodgingRooms       Int                          @default(0) @map("lodging_rooms")
+  manualLodgingCost  Float?                       @map("manual_lodging_cost")
   note               String?
   stops              SupervisionTravelStop[]
   travellers         SupervisionTravelTraveller[]

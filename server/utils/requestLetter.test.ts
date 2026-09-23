@@ -91,6 +91,16 @@ describe('requestLetter renderer', () => {
     }, assets)
     const doc = await PDFDocument.load(pdfBytes)
     assert.strictEqual(doc.getPageCount(), 2)
+    const studentLines = extractPageDrawnLines(doc.getPage(0), doc)
+      .filter(line => line.x && line.y && [156.02, 381.02].some(x => Math.abs(Number(line.x) - x) < 0.01) && Number(line.y) >= 330 && Number(line.y) <= 380)
+      .slice(-6)
+    assert.deepStrictEqual(
+      studentLines.map(line => [Number(line.x).toFixed(2), Number(line.y).toFixed(2)]),
+      [
+        ['156.02', '376.15'], ['156.02', '356.15'], ['156.02', '336.15'],
+        ['381.02', '376.15'], ['381.02', '356.15'], ['381.02', '336.15']
+      ]
+    )
   })
 
   it('handles complex Thai vowels and tone marks properly', async () => {

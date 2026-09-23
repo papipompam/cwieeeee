@@ -253,14 +253,14 @@ async function run() {
 
     console.log('✅ Fixtures created successfully.')
 
-    // TEST 1: Supervision Round creation & No Auto-seed on GET
-    console.log('\n--- TEST 1: Supervision Round creation & No Auto-seed on GET ---')
+    // TEST 1: Fixed supervision rounds (fixtures bypass the cycle creation API)
+    console.log('\n--- TEST 1: Fixed supervision rounds ---')
     const listRoundsEvent = createMockEvent({
       params: { cycleId: String(cycle1.id) },
       staffUser
     })
     const roundsRes0: any = await listRoundsHandler(listRoundsEvent as any)
-    assert.equal(roundsRes0.rounds.length, 0, 'GET rounds should NOT auto-create round 1')
+    assert.equal(roundsRes0.rounds.length, 0, 'GET rounds should not mutate a direct database fixture')
 
     // Closed cycle GET should also NOT auto-create round 1
     const closedCycleGetEvent = createMockEvent({
@@ -270,28 +270,15 @@ async function run() {
     const closedRoundsRes: any = await listRoundsHandler(closedCycleGetEvent as any)
     assert.equal(closedRoundsRes.rounds.length, 0, 'GET rounds on closed cycle must not auto-seed round 1')
 
-    // Create Round 1 explicitly
-    const createRound1Event = createMockEvent({
-      params: { cycleId: String(cycle1.id) },
-      body: { roundNo: 1, title: 'การนิเทศรอบที่ 1' },
-      staffUser
+    await prisma.supervisionRound.createMany({
+      data: [1, 2].map(roundNo => ({ cooperativeCycleId: cycle1.id, roundNo, name: `นิเทศครั้งที่ ${roundNo}`, status: 'DRAFT' as const }))
     })
-    const round1Res: any = await createRoundHandler(createRound1Event as any)
-    const round1Id = round1Res.round.id
-    assert.equal(round1Res.round.roundNo, 1)
+    const fixedRounds: any = await listRoundsHandler(listRoundsEvent as any)
+    assert.deepEqual(fixedRounds.rounds.map((round: any) => round.roundNo), [1, 2])
+    const [round1Id, round2Id] = fixedRounds.rounds.map((round: any) => round.id)
 
-    // Create Round 2 explicitly
-    const createRound2Event = createMockEvent({
-      params: { cycleId: String(cycle1.id) },
-      body: { roundNo: 2, title: 'การนิเทศรอบที่ 2' },
-      staffUser
-    })
-    const round2Res: any = await createRoundHandler(createRound2Event as any)
-    const round2Id = round2Res.round.id
-    assert.equal(round2Res.round.roundNo, 2)
-
-    // TEST 2: Closed Cycle Mutation Guard
-    console.log('\n--- TEST 2: Closed Cycle Mutation Guard ---')
+    // TEST 2: Manual round creation is unavailable, including for closed cycles
+    console.log('\n--- TEST 2: Manual round creation is unavailable ---')
     const closedCycleEvent = createMockEvent({
       params: { cycleId: String(closedCycle.id) },
       body: { roundNo: 1, title: 'รอบใหม่' },
@@ -300,11 +287,11 @@ async function run() {
     await assert.rejects(
       async () => await createRoundHandler(closedCycleEvent as any),
       (err: any) => {
-        assert.equal(err.statusCode, 400)
-        assert.match(err.message, /ปิดรอบแล้ว/)
+        assert.equal(err.statusCode, 405)
+        assert.match(err.message, /ไม่สามารถเพิ่มรอบได้/)
         return true
       },
-      'Should block creating round in closed cycle'
+      'Should block manual round creation'
     )
 
     // TEST 3: Cycle Isolation

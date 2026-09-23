@@ -10,9 +10,6 @@ export interface SendingLetterStudent {
 export interface SendingLetterData {
   letterNumber: string
   issueDate: Date
-  referenceLetterNumber: string
-  referenceIssueDate: Date
-  internshipHours: number
   internshipStartDate: Date
   internshipEndDate: Date
   recipientName: string
@@ -32,26 +29,33 @@ const LAYOUT = {
   left: 85.1,
   width: 453.7,
   letterNumber: { x: 85.1, y: 716, prefix: 'ที่ อว ๐๖๒๔.๖/' },
-  issueDate: { centerX: 312, y: 628 },
-  subjectY: 575,
-  recipientY: 542,
-  bodyY: 500,
-  lineSpacing: 20,
-  firstLineIndent: 70.92,
+  issueDate: { centerX: 312, y: 625 },
+  subjectY: 583,
+  recipientY: 550,
+  bodyY: 516,
+  lineSpacing: 21,
+  firstLineIndent: 42.6,
+  student: {
+    leftX: 120,
+    columnGap: 190,
+    columnWidth: 180,
+    fontSize: 15,
+    rowSpacing: 25
+  },
   signer: {
     centerX: 415,
-    signatureY: 145,
+    signatureY: 174,
     signatureMaxWidth: 140,
     signatureMaxHeight: 35,
-    nameY: 137,
-    firstTitleY: 117,
+    nameY: 160,
+    firstTitleY: 140,
     titleLineSpacing: 19,
     maxTitleLines: 3,
     maxWidth: 235
   }
 } as const
 
-function assertFits(text: string, maxWidth: number, font: any, field: string, size = LAYOUT.fontSize) {
+function assertFits(text: string, maxWidth: number, font: any, field: string, size: number = LAYOUT.fontSize) {
   const width = font.widthOfTextAtSize(text, size)
   if (width > maxWidth) {
     throw new Error(`${field} ยาวเกินพื้นที่เอกสาร กรุณาตรวจสอบข้อมูล`)
@@ -75,10 +79,10 @@ export async function generateSendingLetter(
   const black = rgb(0, 0, 0)
   const white = rgb(1, 1, 1)
 
-  // Keep the official Garuda/header/contact block from the approved template,
-  // and replace the variable body with canonical DOCX wording.
-  page.drawRectangle({ x: 78, y: 145, width: 470, height: 520, color: white })
-  page.drawRectangle({ x: 300, y: 70, width: 248, height: 595, color: white })
+  // Preserve the reference's Garuda, four-line address, and contact footer.
+  // Clear its sample text and signature before drawing the actual letter.
+  page.drawRectangle({ x: 78, y: 225, width: 470, height: 385, color: white })
+  page.drawRectangle({ x: 300, y: 105, width: 248, height: 145, color: white })
   page.drawRectangle({ x: 78, y: 705, width: 195, height: 28, color: white })
 
   const numberText = `${LAYOUT.letterNumber.prefix}${toThaiDigits(data.letterNumber.trim())}`
@@ -119,17 +123,15 @@ export async function generateSendingLetter(
     color: black
   })
 
-  const referenceNumber = `${LAYOUT.letterNumber.prefix}${toThaiDigits(data.referenceLetterNumber.trim())}`
   const body =
-    `ตามหนังสือคณะวิทยาศาสตร์ ${referenceNumber} ลงวันที่ ${formatThaiDate(data.referenceIssueDate)} `
-    + `ท่านได้ให้ความอนุเคราะห์รับนักศึกษาสาขาวิชาวิทยาการคอมพิวเตอร์ คณะวิทยาศาสตร์ `
-    + `มหาวิทยาลัยราชภัฏบุรีรัมย์ ฝึกประสบการณ์วิชาชีพอย่างน้อย ${toThaiDigits(data.internshipHours)} ชั่วโมง `
-    + `เพื่อเสริมสร้างความรู้ ทักษะ และประสบการณ์ในการปฏิบัติงานจริง ระหว่างวันที่ `
-    + `${formatThaiDate(data.internshipStartDate)} ถึงวันที่ ${formatThaiDate(data.internshipEndDate)} นั้น `
-    + 'มหาวิทยาลัยราชภัฏบุรีรัมย์ขอส่งนักศึกษามารายงานตัวเข้ารับการฝึกประสบการณ์วิชาชีพ ดังรายชื่อต่อไปนี้'
+    'ตามหนังสือที่สาขาวิชาวิทยาการคอมพิวเตอร์ คณะวิทยาศาสตร์ มหาวิทยาลัยราชภัฏบุรีรัมย์ '
+    + 'ได้รับความอนุเคราะห์จากท่านยินดีรับนักศึกษาสาขาวิชาวิทยาการคอมพิวเตอร์ '
+    + 'เข้าฝึกประสบการณ์วิชาชีพในหน่วยงานของท่านตั้งแต่วันที่ '
+    + `${formatThaiDate(data.internshipStartDate)} ถึงวันที่ ${formatThaiDate(data.internshipEndDate)} `
+    + 'ดังรายละเอียดที่แจ้งแล้วนั้น ในการนี้ มหาวิทยาลัยฯ ขอส่งตัวนักศึกษาเข้าฝึกประสบการณ์วิชาชีพ ดังรายชื่อต่อไปนี้'
 
   const bodyLines = wrapThaiText(body, LAYOUT.width, LAYOUT.firstLineIndent, font, LAYOUT.fontSize)
-  if (bodyLines.length > 8) throw new Error('เนื้อหาหนังสือส่งตัวยาวเกินพื้นที่เอกสาร')
+  if (bodyLines.length > 6) throw new Error('เนื้อหาหนังสือส่งตัวยาวเกินพื้นที่เอกสาร')
 
   let y = LAYOUT.bodyY
   bodyLines.forEach((line, index) => {
@@ -143,31 +145,35 @@ export async function generateSendingLetter(
     y -= LAYOUT.lineSpacing
   })
 
-  y -= 4
+  y -= 12
+  const studentRows = Math.max(3, Math.ceil(data.students.length / 2))
   data.students.forEach((student, index) => {
-    const studentText = student.studentId
-      ? `${toThaiDigits(index + 1)}.  ${student.name.trim()}    รหัสนักศึกษา  ${toThaiDigits(student.studentId.trim())}`
-      : `${toThaiDigits(index + 1)}.  ${student.name.trim()}`
-    assertFits(studentText, LAYOUT.width - LAYOUT.firstLineIndent, font, 'ข้อมูลนักศึกษา')
+    const column = index < studentRows ? 0 : 1
+    const row = column === 0 ? index : index - studentRows
+    const x = LAYOUT.student.leftX + column * LAYOUT.student.columnGap
+    const studentY = y - row * LAYOUT.student.rowSpacing
+    const studentText = `${toThaiDigits(index + 1)}.  ${student.name.trim()}`
+    assertFits(studentText, LAYOUT.student.columnWidth, font, 'ข้อมูลนักศึกษา', LAYOUT.student.fontSize)
     page.drawText(studentText, {
-      x: LAYOUT.left + LAYOUT.firstLineIndent,
-      y,
-      size: LAYOUT.fontSize,
+      x,
+      y: studentY,
+      size: LAYOUT.student.fontSize,
       font,
       color: black
     })
-    y -= LAYOUT.lineSpacing
   })
+  y -= studentRows * LAYOUT.student.rowSpacing
 
-  y -= 12
-  const conclusion =
-    'จึงเรียนมาเพื่อโปรดพิจารณา และเมื่อนักศึกษาฝึกประสบการณ์วิชาชีพครบตามกำหนดเวลา '
-    + 'ขอความกรุณาแจ้งผลการฝึกประสบการณ์วิชาชีพตามแบบฟอร์มที่แนบมาพร้อมนี้ '
-    + 'ให้มหาวิทยาลัยทราบ จักเป็นพระคุณอย่างยิ่ง'
-  const conclusionLines = wrapThaiText(conclusion, LAYOUT.width, LAYOUT.firstLineIndent, font, LAYOUT.fontSize)
+  y -= 18
+  const conclusionLines = [
+    'จึงเรียนมาเพื่อโปรดพิจารณา และเมื่อนักศึกษาฝึกประสบการณ์วิชาชีพครบตามกำหนดเวลา ขอ',
+    'ความกรุณาแจ้งผลการฝึกประสบการณ์วิชาชีพตามแบบฟอร์มที่แนบมาพร้อมนี้ ให้มหาวิทยาลัยทราบ จักเป็น',
+    'พระคุณอย่างยิ่ง'
+  ]
   const conclusionBottom = y - (conclusionLines.length - 1) * LAYOUT.lineSpacing
-  if (conclusionBottom < 225) throw new Error('รายชื่อนักศึกษายาวเกินพื้นที่เอกสาร')
+  if (conclusionBottom < 235) throw new Error('รายชื่อนักศึกษายาวเกินพื้นที่เอกสาร')
   conclusionLines.forEach((line, index) => {
+    assertFits(line, LAYOUT.width - (index === 0 ? LAYOUT.firstLineIndent : 0), font, 'เนื้อหาหนังสือส่งตัว')
     page.drawText(line, {
       x: index === 0 ? LAYOUT.left + LAYOUT.firstLineIndent : LAYOUT.left,
       y: y - index * LAYOUT.lineSpacing,
@@ -179,7 +185,7 @@ export async function generateSendingLetter(
 
   page.drawText('ขอแสดงความนับถือ', {
     x: LAYOUT.signer.centerX - font.widthOfTextAtSize('ขอแสดงความนับถือ', LAYOUT.fontSize) / 2,
-    y: 190,
+    y: 215,
     size: LAYOUT.fontSize,
     font,
     color: black

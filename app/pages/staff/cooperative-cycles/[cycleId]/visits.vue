@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { TableColumn } from '@nuxt/ui'
 
-type AppointmentStatus = 'PUBLISHED' | 'RESCHEDULED' | 'COMPLETED' | 'CANCELLED'
+type AppointmentStatus = 'DRAFT' | 'PUBLISHED' | 'RESCHEDULED' | 'COMPLETED' | 'CANCELLED'
 type AppointmentPeriod = 'MORNING' | 'AFTERNOON' | 'FULL_DAY'
 
 interface AppointmentPerson { id: number; prefix: string | null; firstName: string | null; lastName: string | null }
@@ -48,6 +48,7 @@ const groups = computed(() => groupsData.value?.groups || [])
 const groupFilterOptions = computed(() => [{ label: 'ทุกกลุ่ม', value: 'ALL' }, ...groups.value.map(group => ({ label: group.name, value: String(group.id) }))])
 const statusFilterOptions = [
   { label: 'ทุกสถานะ', value: 'ALL' },
+  { label: 'ฉบับร่าง', value: 'DRAFT' },
   { label: 'เผยแพร่แล้ว', value: 'PUBLISHED' },
   { label: 'เลื่อนกำหนดการ', value: 'RESCHEDULED' },
   { label: 'ประเมินเสร็จแล้ว', value: 'COMPLETED' },
@@ -62,8 +63,7 @@ const { data, status: fetchStatus, refresh } = await useFetch<AppointmentsRespon
       status: selectedStatus.value === 'ALL' ? undefined : selectedStatus.value,
       search: searchQuery.value || undefined,
       page: page.value,
-      pageSize: pageSize.value,
-      excludeDrafts: 'true'
+      pageSize: pageSize.value
     })),
     watch: [selectedRoundId, selectedGroupId, selectedStatus, page, searchQuery, pageSize]
   }
@@ -75,6 +75,7 @@ const hasFilters = computed(() => Boolean(searchQuery.value) || selectedGroupId.
 const appointments = computed(() => data.value?.appointments || [])
 const periodMap: Record<AppointmentPeriod, string> = { MORNING: 'ช่วงเช้า', AFTERNOON: 'ช่วงบ่าย', FULL_DAY: 'เต็มวัน' }
 const statusMap: Record<AppointmentStatus, { label: string; color: 'success' | 'warning' | 'info' | 'error' }> = {
+  DRAFT: { label: 'ฉบับร่าง', color: 'warning' },
   PUBLISHED: { label: 'เผยแพร่แล้ว', color: 'success' },
   RESCHEDULED: { label: 'เลื่อนกำหนดการ', color: 'warning' },
   COMPLETED: { label: 'ประเมินเสร็จแล้ว', color: 'info' },

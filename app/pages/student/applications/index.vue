@@ -52,7 +52,7 @@ const route = useRoute()
 const isApplicationModalOpen = ref(false)
 const applicationNotice = ref<string | null>(null)
 
-const { data: contextData } = await useFetch<any>('/api/student/context')
+const { data: contextData, refresh: refreshContext } = await useFetch<any>('/api/student/context')
 const { data: rawApplications, status, error, refresh } = await useFetch<Application[]>('/api/student/applications')
 
 // Filters
@@ -255,6 +255,11 @@ const openApplicationModal = () => {
   applicationNotice.value = contextData.value?.reason || 'ขออภัย ขณะนี้ยังไม่สามารถกรอกข้อมูลสถานประกอบการใหม่ได้'
 }
 
+const handleApplicationSaved = async () => {
+  isApplicationModalOpen.value = false
+  await Promise.all([refresh(), refreshContext()])
+}
+
 watch([() => route.query.companyId, contextData], ([companyId, context]) => {
   if (companyId && context && Number.isInteger(Number(companyId))) openApplicationModal()
 }, { immediate: true })
@@ -299,7 +304,7 @@ const updateOutcome = async () => {
     notify.success('อัปเดตผลการสมัครเรียบร้อยแล้ว')
     applicationToUpdate.value = null
     if (targetStatus === 'REJECTED') clearedFeaturedApplicationId.value = applicationId
-    await Promise.all([refresh(), refreshNuxtData('/api/student/context')])
+    await Promise.all([refresh(), refreshContext()])
   } catch (err: any) {
     notify.error(err.data?.message || 'ไม่สามารถอัปเดตผลการสมัครได้')
   } finally {
@@ -328,7 +333,7 @@ const uploadSignedDocument = async () => {
     notify.success('อัปโหลดหนังสือตอบรับเรียบร้อยแล้ว กรุณารอเจ้าหน้าที่ตรวจสอบ')
     isUploadModalOpen.value = false
     selectedFile.value = null
-    await Promise.all([refresh(), refreshNuxtData('/api/student/context')])
+    await Promise.all([refresh(), refreshContext()])
   } catch (err: any) {
     notify.error(err.data?.message || 'ไม่สามารถอัปโหลดหนังสือตอบรับได้')
   } finally {
@@ -356,7 +361,7 @@ const confirmFeaturedApplication = async () => {
   try {
     await $fetch(`/api/student/applications/${featuredApplication.value.id}/confirm`, { method: 'POST' })
     notify.success('ยืนยันสถานประกอบการและส่งคำร้องเรียบร้อยแล้ว')
-    await Promise.all([refresh(), refreshNuxtData('/api/student/context')])
+    await Promise.all([refresh(), refreshContext()])
   } catch (err: any) {
     notify.error(err.data?.message || 'ไม่สามารถยืนยันสถานประกอบการได้')
   } finally {
@@ -448,6 +453,7 @@ const confirmFeaturedApplication = async () => {
                       label="ดาวน์โหลดหนังสือ"
                     />
                     <UButton
+                      v-if="featuredRequest?.sendingLetterParticipations?.length"
                       color="success"
                       size="xl"
                       icon="i-lucide-download"
@@ -554,8 +560,8 @@ const confirmFeaturedApplication = async () => {
                 <h3 class="mt-4 text-sm font-semibold text-ink">หนังสือขอความอนุเคราะห์</h3>
                 <p class="mt-1 flex-1 text-sm leading-6 text-muted">หนังสือจากมหาวิทยาลัยสำหรับยื่นต่อสถานประกอบการ</p>
                 <UButton
-                  :disabled="!featuredRequest?.letterFilePath"
-                  :to="featuredRequest?.letterFilePath ? `/api/student/applications/${featuredApplication.id}/letter` : undefined"
+                  v-if="featuredRequest?.letterFilePath"
+                  :to="`/api/student/applications/${featuredApplication.id}/letter`"
                   target="_blank"
                   color="neutral"
                   variant="outline"
@@ -574,6 +580,7 @@ const confirmFeaturedApplication = async () => {
                 <h3 class="mt-4 text-sm font-semibold text-ink">หนังสือส่งตัว</h3>
                 <p class="mt-1 flex-1 text-sm leading-6 text-muted">หนังสือสำหรับรายงานตัวเข้ารับการฝึกประสบการณ์วิชาชีพ</p>
                 <UButton
+                  v-if="featuredRequest?.sendingLetterParticipations?.length"
                   color="neutral"
                   variant="outline"
                   size="sm"
@@ -872,7 +879,13 @@ const confirmFeaturedApplication = async () => {
       >
         <template #body>
           <div class="max-h-[80vh] overflow-y-auto pr-1">
-            <StudentApplicationForm :preselected-company-id="typeof route.query.companyId === 'string' ? route.query.companyId : undefined" embedded class="max-w-none" @cancel="isApplicationModalOpen = false" />
+            <StudentApplicationForm
+              :preselected-company-id="typeof route.query.companyId === 'string' ? route.query.companyId : undefined"
+              embedded
+              class="max-w-none"
+              @cancel="isApplicationModalOpen = false"
+              @saved="handleApplicationSaved"
+            />
           </div>
         </template>
       </UModal>

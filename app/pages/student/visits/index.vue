@@ -93,7 +93,7 @@ const columns: TableColumn<VisitItem>[] = [
 
               <template #period-cell="{ row }">
                 <UBadge size="xs" variant="subtle" :color="row.original.period === 'MORNING' ? 'info' : 'warning'">
-                  {{ row.original.period === 'MORNING' ? 'ช่วงเช้า' : 'ช่วงบ่าย' }}
+                  {{ row.original.period === 'MORNING' ? 'ช่วงเช้า' : row.original.period === 'AFTERNOON' ? 'ช่วงบ่าย' : 'เต็มวัน' }}
                 </UBadge>
               </template>
 
@@ -116,7 +116,7 @@ const columns: TableColumn<VisitItem>[] = [
                 <div class="py-12 text-center text-muted space-y-2">
                   <UIcon name="i-lucide-calendar-days" class="size-8 mx-auto opacity-40" />
                   <p class="text-sm font-medium text-ink">ยังไม่มีตารางนิเทศที่เผยแพร่</p>
-                  <p class="text-xs text-muted">เมื่ออาจารย์นิเทศกำหนดและเผยแพร่วันเวลานิเทศ ตารางจะแสดงที่นี่</p>
+                  <p class="text-xs text-muted">เมื่อเจ้าหน้าที่เผยแพร่ตารางนิเทศ วันเวลาและอาจารย์ผู้นิเทศจะแสดงที่นี่</p>
                 </div>
               </template>
             </UTable>

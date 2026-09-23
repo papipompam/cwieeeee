@@ -27,6 +27,9 @@ interface TravelPlanRow {
   travelDate: string
   startLocation: string
   fuelRate: number
+  manualFuelCost: number | null
+  manualPerDiemCost: number | null
+  manualLodgingCost: number | null
   note: string | null
   travellersCount: number
   group: {
@@ -224,6 +227,7 @@ const columns: TableColumn<TravelPlanRow>[] = [
 const isModalOpen = ref(false)
 const editingPlanId = ref<number | null>(null)
 const isSaving = ref(false)
+const expenseForm = ref({ manualFuelCost: 0, manualPerDiemCost: 0, manualLodgingCost: 0 })
 
 const planForm = ref<{
   groupId: number | undefined
@@ -248,28 +252,16 @@ const planForm = ref<{
   travellers: []
 })
 
-const groupTeachersOptions = computed(() => {
-  const g = groups.value.find(gr => gr.id === planForm.value.groupId)
-  if (!g) return []
-  return g.teachers.map(t => ({
-    label: `${t.teacher.prefix || ''}${t.teacher.firstName || ''} ${t.teacher.lastName || ''} (${t.teacher.loginId})`.trim(),
-    value: t.teacherUserId
-  }))
-})
-
 // Precalculate in modal
 const modalCalculations = computed(() => {
-  const perDiem = planForm.value.travellers.reduce((s, t) => s + (Number(t.perDiemRate) || 0) * (Number(t.perDiemDays) || 0), 0)
-  const lodging = planForm.value.travellers.reduce((s, t) => {
-    const rate = Number(t.lodgingRate) || 0
-    const nights = Number(t.nights) || 0
-    const persons = Math.max(1, Number(t.personsPerRoom) || 1)
-    return s + (rate * nights) / persons
-  }, 0)
+  const perDiem = Number(expenseForm.value.manualPerDiemCost) || 0
+  const lodging = Number(expenseForm.value.manualLodgingCost) || 0
+  const travel = Number(expenseForm.value.manualFuelCost) || 0
   return {
+    travel: Math.round(travel * 100) / 100,
     perDiem: Math.round(perDiem * 100) / 100,
     lodging: Math.round(lodging * 100) / 100,
-    total: Math.round((perDiem + lodging) * 100) / 100
+    total: Math.round((travel + perDiem + lodging) * 100) / 100
   }
 })
 
@@ -313,6 +305,7 @@ const openCreatePlanModal = () => {
     note: '',
     travellers: defaultTeachers
   }
+  expenseForm.value = { manualFuelCost: 0, manualPerDiemCost: defaultTeachers.length * 240, manualLodgingCost: 0 }
   isModalOpen.value = true
 }
 
@@ -333,26 +326,12 @@ const openEditPlanModal = (plan: TravelPlanRow) => {
       personsPerRoom: t.personsPerRoom
     }))
   }
+  expenseForm.value = {
+    manualFuelCost: plan.manualFuelCost ?? plan.calculation.fuelCost,
+    manualPerDiemCost: plan.manualPerDiemCost ?? plan.calculation.perDiemTotal,
+    manualLodgingCost: plan.manualLodgingCost ?? plan.calculation.lodgingTotal
+  }
   isModalOpen.value = true
-}
-
-const addTraveller = () => {
-  const g = groups.value.find(gr => gr.id === planForm.value.groupId)
-  const unusedTeacher = g?.teachers.find(
-    t => !planForm.value.travellers.some(tr => tr.teacherUserId === t.teacherUserId)
-  )
-  planForm.value.travellers.push({
-    teacherUserId: unusedTeacher?.teacherUserId,
-    perDiemRate: 240,
-    perDiemDays: 1,
-    lodgingRate: 1500,
-    nights: 0,
-    personsPerRoom: 2
-  })
-}
-
-const removeTraveller = (idx: number) => {
-  planForm.value.travellers.splice(idx, 1)
 }
 
 const handleSavePlan = async () => {
@@ -383,14 +362,17 @@ const handleSavePlan = async () => {
       groupId: planForm.value.groupId,
       travelDate: planForm.value.travelDate,
       startLocation: planForm.value.startLocation || 'มหาวิทยาลัย',
-      fuelRate: Number(planForm.value.fuelRate) || 4,
+      fuelRate: 4,
+      manualFuelCost: Math.max(0, Number(expenseForm.value.manualFuelCost) || 0),
+      manualPerDiemCost: Math.max(0, Number(expenseForm.value.manualPerDiemCost) || 0),
+      manualLodgingCost: Math.max(0, Number(expenseForm.value.manualLodgingCost) || 0),
       note: planForm.value.note.trim() || undefined,
       travellers: planForm.value.travellers.map(t => ({
         teacherUserId: t.teacherUserId,
-        perDiemRate: Math.max(0, Number(t.perDiemRate) || 0),
-        perDiemDays: Math.max(0, Number(t.perDiemDays) || 0),
-        lodgingRate: Math.max(0, Number(t.lodgingRate) || 0),
-        nights: Math.max(0, Number(t.nights) || 0),
+        perDiemRate: 240,
+        perDiemDays: 1,
+        lodgingRate: 0,
+        nights: 0,
         personsPerRoom: Math.max(1, Number(t.personsPerRoom) || 1)
       }))
     }
@@ -466,25 +448,7 @@ const handleDeletePlan = async () => {
 
     <template v-else>
       <!-- Summary Statistics Grid -->
-      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div class="p-5 rounded-panel border border-divider bg-canvas shadow-panel">
-          <div class="text-xs text-muted">แผนเดินทางทั้งหมด</div>
-          <div class="text-2xl font-bold text-ink mt-1">
-            {{ overallBudget.plansCount }} รายการ
-          </div>
-          <div class="text-xs text-muted mt-1">แยกตามวันและกลุ่มนิเทศ</div>
-        </div>
-
-        <div class="p-5 rounded-panel border border-divider bg-canvas shadow-panel">
-          <div class="text-xs text-muted">ค่าเบี้ยเลี้ยง + ที่พัก</div>
-          <div class="text-2xl font-bold text-ink mt-1">
-            ฿{{ formatCurrency(overallBudget.totalPerDiem + overallBudget.totalLodging) }}
-          </div>
-          <div class="text-xs text-muted mt-1">
-            เบี้ยเลี้ยง ฿{{ formatCurrency(overallBudget.totalPerDiem) }} · ที่พัก ฿{{ formatCurrency(overallBudget.totalLodging) }}
-          </div>
-        </div>
-
+      <div class="grid grid-cols-1 gap-4">
         <div class="p-5 rounded-panel border border-primary/30 bg-primary/5 shadow-panel">
           <div class="text-xs text-primary font-medium">รวมงบประมาณประมาณการ</div>
           <div class="text-2xl font-extrabold text-primary mt-1">
@@ -736,18 +700,19 @@ const handleDeletePlan = async () => {
     <!-- Modal: Create / Edit Travel Plan -->
     <UModal
       v-model:open="isModalOpen"
-      :title="editingPlanId ? 'แก้ไขแผนเดินทาง & งบประมาณ' : 'สร้างแผนเดินทาง & งบประมาณใหม่'"
+      :title="editingPlanId ? 'แก้ไขงบประมาณ' : 'สร้างแผนเดินทาง & งบประมาณใหม่'"
       size="xl"
+      :ui="{ content: 'w-[calc(100vw-2rem)] max-w-2xl rounded-panel border border-divider bg-canvas shadow-panel' }"
     >
       <template #body>
-        <div class="space-y-5">
+        <div class="space-y-5 p-1 sm:p-2">
           <!-- General Details -->
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div class="grid grid-cols-1 gap-x-4 gap-y-5 sm:grid-cols-2">
             <UFormField label="กลุ่มนิเทศ" required>
               <USelect
                 v-model="planForm.groupId"
                 :items="groupOptions"
-                class="w-full"
+                class="h-11 w-full rounded-control"
                 size="xl"
                 :disabled="!!editingPlanId"
               />
@@ -757,146 +722,70 @@ const handleDeletePlan = async () => {
               <UInput
                 v-model="planForm.travelDate"
                 type="date"
-                class="w-full"
+                class="h-11 w-full rounded-control"
                 size="xl"
               />
             </UFormField>
           </div>
 
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <UFormField label="จุดเริ่มต้นเดินทาง">
-              <UInput
-                v-model="planForm.startLocation"
-                placeholder="มหาวิทยาลัย"
-                class="w-full"
-                size="xl"
-              />
-            </UFormField>
+          <section class="rounded-panel border border-divider bg-canvas p-5">
+            <div>
+              <h4 class="text-lg font-bold text-ink">ค่าใช้จ่ายการนิเทศ</h4>
+              <p class="mt-1 text-sm text-muted">กรอกยอดค่าใช้จ่ายตามจริง และแก้ไขย้อนหลังได้</p>
+            </div>
 
-            <UFormField label="อัตราค่าน้ำมัน (฿/กม.)" required>
-              <UInput
-                v-model.number="planForm.fuelRate"
-                type="number"
-                step="0.5"
-                min="0"
-                class="w-full"
-                size="xl"
-              />
-            </UFormField>
-          </div>
+            <div class="mt-5 grid grid-cols-1 gap-x-4 gap-y-5 sm:grid-cols-2">
+              <UFormField label="ค่าน้ำมัน (บาท)">
+                <UInput v-model.number="expenseForm.manualFuelCost" type="number" min="0" class="h-11 w-full rounded-control" size="xl" />
+              </UFormField>
+              <UFormField label="เบี้ยเลี้ยง (บาท)">
+                <UInput v-model.number="expenseForm.manualPerDiemCost" type="number" min="0" class="h-11 w-full rounded-control" size="xl" />
+              </UFormField>
+              <UFormField label="ค่าที่พัก (บาท)">
+                <UInput v-model.number="expenseForm.manualLodgingCost" type="number" min="0" class="h-11 w-full rounded-control" size="xl" />
+              </UFormField>
+            </div>
+
+            <div class="mt-4 space-y-2 rounded-control bg-surface p-4">
+              <div class="flex items-center justify-between gap-4 text-sm text-ink">
+                <span>ค่าน้ำมัน (กรอกเอง)</span>
+                <span class="shrink-0 font-semibold">{{ formatCurrency(modalCalculations.travel) }} บาท</span>
+              </div>
+              <div class="flex items-center justify-between gap-4 text-sm text-ink">
+                <span>เบี้ยเลี้ยง (กรอกเอง)</span>
+                <span class="shrink-0 font-semibold">{{ formatCurrency(modalCalculations.perDiem) }} บาท</span>
+              </div>
+              <div class="flex items-center justify-between gap-4 text-sm text-ink">
+                <span>ค่าที่พัก (กรอกเอง)</span>
+                <span class="shrink-0 font-semibold">{{ formatCurrency(modalCalculations.lodging) }} บาท</span>
+              </div>
+              <div class="mt-3 flex items-center justify-between gap-4 border-t border-divider pt-4 text-base font-bold text-ink">
+                <span>รวมค่าใช้จ่าย</span>
+                <span class="shrink-0 text-lg">{{ formatCurrency(modalCalculations.total) }} บาท</span>
+              </div>
+            </div>
+          </section>
 
           <UFormField label="หมายเหตุเพิ่มเติม">
             <UInput
               v-model="planForm.note"
               placeholder="หมายเหตุหรือรายละเอียดเพิ่มเติมสำหรับแผนการเดินทาง"
-              class="w-full"
+              class="h-11 w-full rounded-control"
               size="xl"
             />
           </UFormField>
 
-          <!-- Travellers Section -->
-          <div class="p-4 rounded-panel border border-divider bg-surface space-y-3">
-            <div class="flex items-center justify-between">
-              <h4 class="font-semibold text-ink text-sm flex items-center gap-1.5">
-                <UIcon name="i-lucide-users" class="size-4 text-primary" />
-                อาจารย์ผู้ร่วมเดินทางและอัตราประมาณการ ({{ planForm.travellers.length }} ท่าน)
-              </h4>
-              <UButton
-                label="เพิ่มอาจารย์"
-                icon="i-lucide-plus"
-                color="neutral"
-                variant="outline"
-                size="xs"
-                :disabled="!planForm.groupId || groupTeachersOptions.length === 0"
-                @click="addTraveller"
-              />
-            </div>
-
-            <div v-if="!planForm.groupId" class="text-muted italic text-xs">
-              กรุณาเลือกกลุ่มนิเทศก่อน
-            </div>
-            <div v-else-if="groupTeachersOptions.length === 0" class="text-muted italic text-xs">
-              ไม่พบอาจารย์ในกลุ่มนี้ กรุณามอบหมายอาจารย์ประจำกลุ่มก่อน
-            </div>
-            <div v-else-if="planForm.travellers.length === 0" class="text-muted italic text-xs">
-              ยังไม่มีอาจารย์ผู้ร่วมเดินทาง คลิก "เพิ่มอาจารย์"
-            </div>
-            <div v-else class="space-y-2.5 max-h-64 overflow-y-auto">
-              <div
-                v-for="(tr, idx) in planForm.travellers"
-                :key="idx"
-                class="bg-canvas p-3 rounded-control border border-divider space-y-2.5"
-              >
-                <div class="flex items-center justify-between gap-2">
-                  <div class="flex items-center gap-2 flex-1">
-                    <USelect
-                      v-model="tr.teacherUserId"
-                      :items="groupTeachersOptions"
-                      placeholder="เลือกอาจารย์..."
-                      class="flex-1"
-                      size="md"
-                    />
-                  </div>
-                  <UButton
-                    icon="i-lucide-trash-2"
-                    color="error"
-                    variant="ghost"
-                    size="xs"
-                    aria-label="ลบผู้เดินทาง"
-                    @click="removeTraveller(idx)"
-                  />
-                </div>
-
-                <!-- Compact numeric inputs as instructed in docs/fix-ui/01-staff.md -->
-                <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs">
-                  <div>
-                    <span class="text-muted block mb-0.5">เบี้ยเลี้ยง (฿/วัน)</span>
-                    <UInput v-model.number="tr.perDiemRate" type="number" class="w-full font-mono" size="xs" />
-                  </div>
-                  <div>
-                    <span class="text-muted block mb-0.5">จำนวนวัน</span>
-                    <UInput v-model.number="tr.perDiemDays" type="number" class="w-full font-mono" size="xs" />
-                  </div>
-                  <div>
-                    <span class="text-muted block mb-0.5">ค่าที่พัก/ห้อง/คืน</span>
-                    <UInput v-model.number="tr.lodgingRate" type="number" class="w-full font-mono" size="xs" />
-                  </div>
-                  <div>
-                    <span class="text-muted block mb-0.5">จำนวนคืน</span>
-                    <UInput v-model.number="tr.nights" type="number" class="w-full font-mono" size="xs" />
-                  </div>
-                  <div>
-                    <span class="text-muted block mb-0.5">คนต่อห้อง</span>
-                    <UInput v-model.number="tr.personsPerRoom" type="number" min="1" class="w-full font-mono" size="xs" />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Calculation Preview Card -->
-          <div class="p-4 rounded-panel border border-primary/30 bg-primary/5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div class="space-y-0.5">
-              <div class="text-sm font-semibold text-ink">ประมาณการงบประมาณแผนนี้</div>
-              <div class="text-xs text-muted">
-                เบี้ยเลี้ยง ฿{{ formatCurrency(modalCalculations.perDiem) }} · ที่พัก ฿{{ formatCurrency(modalCalculations.lodging) }}
-              </div>
-            </div>
-            <div class="text-right font-mono">
-              <div class="text-xs text-muted">ยอดรวมทั้งสิ้น</div>
-              <div class="text-2xl font-bold text-primary">฿{{ formatCurrency(modalCalculations.total) }}</div>
-            </div>
-          </div>
         </div>
       </template>
 
       <template #footer>
-        <div class="flex justify-end gap-2 w-full">
+        <div class="flex w-full items-center justify-end gap-3 pt-1">
           <UButton
             label="ยกเลิก"
             color="neutral"
             variant="outline"
             size="xl"
+            class="h-11 rounded-control"
             @click="isModalOpen = false"
           />
           <UButton
@@ -904,6 +793,7 @@ const handleDeletePlan = async () => {
             color="primary"
             size="xl"
             :loading="isSaving"
+            class="h-11 rounded-control"
             @click="handleSavePlan"
           />
         </div>

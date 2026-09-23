@@ -64,7 +64,8 @@ export default defineEventHandler(async (event) => {
         nights: t.nights,
         personsPerRoom: t.personsPerRoom
       })),
-      { rate: p.lodgingRate, nights: p.lodgingNights, rooms: p.lodgingRooms }
+      { rate: p.lodgingRate, nights: p.lodgingNights, rooms: p.lodgingRooms },
+      { fuelCost: p.manualFuelCost, perDiemCost: p.manualPerDiemCost, lodgingCost: p.manualLodgingCost }
     )
 
     return {
@@ -75,9 +76,12 @@ export default defineEventHandler(async (event) => {
       travelDate: p.travelDate,
       startLocation: p.startLocation,
       fuelRate: p.fuelRate,
+      manualFuelCost: p.manualFuelCost,
+      manualPerDiemCost: p.manualPerDiemCost,
       lodgingRate: p.lodgingRate,
       lodgingNights: p.lodgingNights,
       lodgingRooms: p.lodgingRooms,
+      manualLodgingCost: p.manualLodgingCost,
       note: p.note,
       stopsCount: p.stops.length,
       travellersCount: p.travellers.length,

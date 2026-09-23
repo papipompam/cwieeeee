@@ -2,7 +2,7 @@ export default defineEventHandler(async (event) => {
   const { cycleId } = await getStaffSupervisionContext(event)
 
   const rounds = await prisma.supervisionRound.findMany({
-    where: { cooperativeCycleId: cycleId },
+    where: { cooperativeCycleId: cycleId, roundNo: { in: [1, 2] } },
     orderBy: { roundNo: 'asc' },
     include: {
       groups: {
@@ -15,9 +15,12 @@ export default defineEventHandler(async (event) => {
         select: {
           id: true,
           fuelRate: true,
+          manualFuelCost: true,
+          manualPerDiemCost: true,
           lodgingRate: true,
           lodgingNights: true,
           lodgingRooms: true,
+          manualLodgingCost: true,
           stops: { select: { distanceKmFromPrevious: true } },
           travellers: {
             select: {
@@ -38,21 +41,21 @@ export default defineEventHandler(async (event) => {
       let budgetEstimate = 0
       for (const plan of r.travelPlans) {
         const dist = plan.stops.reduce((sum: number, s: { distanceKmFromPrevious: number }) => sum + s.distanceKmFromPrevious, 0)
-        const fuel = dist * plan.fuelRate
-        const perDiem = plan.travellers.reduce((sum: number, t: { perDiemRate: number; perDiemDays: number }) => sum + t.perDiemRate * t.perDiemDays, 0)
-        const lodging = plan.lodgingRooms > 0
+        const fuel = plan.manualFuelCost ?? dist * plan.fuelRate
+        const perDiem = plan.manualPerDiemCost ?? plan.travellers.reduce((sum: number, t: { perDiemRate: number; perDiemDays: number }) => sum + t.perDiemRate * t.perDiemDays, 0)
+        const lodging = plan.manualLodgingCost ?? (plan.lodgingRooms > 0
           ? plan.lodgingRate * plan.lodgingNights * plan.lodgingRooms
           : plan.travellers.reduce(
           (sum: number, t: { lodgingRate: number; nights: number; personsPerRoom: number }) => sum + (t.lodgingRate * t.nights) / Math.max(1, t.personsPerRoom),
           0
-        )
+        ))
         budgetEstimate += fuel + perDiem + lodging
       }
 
       return {
         id: r.id,
         roundNo: r.roundNo,
-        title: r.name || `การนิเทศครั้งที่ ${r.roundNo}`,
+        title: `นิเทศครั้งที่ ${r.roundNo}`,
         status: r.status,
         groupsCount: r.groups.length,
         appointmentsCount: r.appointments.length,

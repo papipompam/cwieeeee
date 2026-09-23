@@ -28,6 +28,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   cancel: []
+  saved: [applicationId: number]
 }>()
 
 const notify = useNotify()
@@ -208,7 +209,11 @@ const handleSubmit = async () => {
         body: payload
       })
       notify.success('บันทึกการสมัครสถานประกอบการเรียบร้อยแล้ว')
-      await router.push(props.embedded ? '/student/applications' : `/student/applications/${res.id}`)
+      if (props.embedded) {
+        emit('saved', res.id)
+      } else {
+        await router.push(`/student/applications/${res.id}`)
+      }
     }
   } catch (err: any) {
     notify.error(err.data?.message || 'เกิดข้อผิดพลาดในการบันทึกข้อมูล')

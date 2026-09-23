@@ -7,7 +7,7 @@ export default defineEventHandler(async (event) => {
   const reference = await prisma.requestLetterVersion.findFirst({
     where: { isActive: true, OR: [{ cooperativeRequestId: request.id }, { participants: { some: { cooperativeRequestId: request.id } } }] },
     orderBy: { version: 'desc' },
-    include: { participants: { include: { cooperativeRequest: { include: { companyApplication: { include: { studentUser: true } } } } } } }
+    include: { participants: { orderBy: { id: 'asc' }, include: { cooperativeRequest: { include: { companyApplication: { include: { studentUser: true } } } } } } }
   })
   if (!reference?.letterNumber || !reference.issueDate) throw createError({ statusCode: 400, message: 'ไม่พบหนังสือขอความอนุเคราะห์ฉบับที่ใช้อ้างอิง' })
   const participants = reference.participants.length ? reference.participants.map(item => item.cooperativeRequest) : [request]

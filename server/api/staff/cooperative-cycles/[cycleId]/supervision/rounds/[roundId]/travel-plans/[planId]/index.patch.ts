@@ -24,6 +24,15 @@ export default defineEventHandler(async (event) => {
   if (!isNaN(Number(body?.fuelRate)) && Number(body?.fuelRate) > 0) {
     data.fuelRate = Number(body.fuelRate)
   }
+  if (body?.manualFuelCost !== undefined) {
+    data.manualFuelCost = Math.max(0, Number(body.manualFuelCost) || 0)
+  }
+  if (body?.manualPerDiemCost !== undefined) {
+    data.manualPerDiemCost = Math.max(0, Number(body.manualPerDiemCost) || 0)
+  }
+  if (body?.manualLodgingCost !== undefined) {
+    data.manualLodgingCost = Math.max(0, Number(body.manualLodgingCost) || 0)
+  }
   if (body?.note !== undefined) {
     data.note = typeof body.note === 'string' && body.note.trim() ? body.note.trim() : null
   }

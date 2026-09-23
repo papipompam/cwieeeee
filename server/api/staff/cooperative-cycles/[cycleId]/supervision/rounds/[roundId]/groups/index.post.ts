@@ -70,6 +70,8 @@ export default defineEventHandler(async (event) => {
     : null
 
   const group = await prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(${19_100}, ${cycleId})`
+    const round = await tx.supervisionRound.findUniqueOrThrow({ where: { id: roundId }, select: { status: true } })
     if (teacherUserIds.length === 0 || companyPlans.length === 0) {
       throw createError({ statusCode: 400, message: 'กรุณาเลือกอาจารย์และกำหนดแผนนิเทศของสถานประกอบการอย่างน้อยอย่างละ 1 รายการ' })
     }
@@ -188,7 +190,8 @@ export default defineEventHandler(async (event) => {
             supervisionRoundId: roundId, supervisionGroupId: group.id, companyId: plan.companyId,
             companyName: company.name, companyAddress, province: company.province, latitude: company.latitude,
             longitude: company.longitude, scheduledDate: plan.scheduledDate, period: plan.period,
-            timeNote: plan.timeNote, status: 'PUBLISHED', publishedAt: new Date(),
+            timeNote: plan.timeNote, status: round.status === 'DRAFT' ? 'DRAFT' : 'PUBLISHED',
+            publishedAt: round.status === 'DRAFT' ? null : new Date(),
             students: { create: students.map(student => ({ studentUserId: student.studentUserId, cooperativeRequestId: student.requestId })) },
             teachers: { create: appointmentTeacherIds.get(plan.companyId)!.map(teacherUserId => ({ teacherUserId })) }
           }

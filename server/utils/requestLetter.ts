@@ -247,7 +247,7 @@ export async function generateRequestLetter(
     throw new Error('หนังสือขอความอนุเคราะห์รองรับรายชื่อนักศึกษาสูงสุด 6 คนต่อฉบับ')
   }
 
-  const rows = Math.ceil(studentNames.length / 2)
+  const rows = Math.min(3, studentNames.length)
   const studentColumnWidth = 205
   for (let index = 0; index < studentNames.length; index++) {
     const column = index < rows ? 0 : 1

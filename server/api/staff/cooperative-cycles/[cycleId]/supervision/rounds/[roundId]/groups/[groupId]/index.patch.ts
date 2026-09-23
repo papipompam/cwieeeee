@@ -91,6 +91,8 @@ export default defineEventHandler(async (event) => {
     : null
 
   const updated = await prisma.$transaction(async (tx: any) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(${19_100}, ${cycleId})`
+    const round = await tx.supervisionRound.findUniqueOrThrow({ where: { id: roundId }, select: { status: true } })
     const [teachers, companies, assignedTeachers, assignedCompanies] = await Promise.all([
       tx.user.findMany({ where: { id: { in: teacherUserIds }, role: 'TEACHER', isActive: true }, select: { id: true } }),
       tx.company.findMany({
@@ -138,7 +140,7 @@ export default defineEventHandler(async (event) => {
     for (const plan of companyPlans) {
       const company = companyById.get(plan.companyId)!
       const companyAddress = [company.addressNo, company.moo ? `หมู่ ${company.moo}` : '', company.soi ? `ซอย${company.soi}` : '', company.street ? `ถนน${company.street}` : '', company.subdistrict ? `ต.${company.subdistrict}` : '', company.district ? `อ.${company.district}` : '', company.province ? `จ.${company.province}` : '', company.postalCode].filter(Boolean).join(' ')
-      const appointment = await tx.supervisionAppointment.create({ data: { supervisionRoundId: roundId, supervisionGroupId: groupId, companyId: plan.companyId, companyName: company.name, companyAddress, province: company.province, latitude: company.latitude, longitude: company.longitude, scheduledDate: plan.scheduledDate, period: plan.period, timeNote: plan.timeNote, status: 'PUBLISHED', publishedAt: new Date(), students: { create: (studentsByCompany.get(plan.companyId) || []).map(student => ({ studentUserId: student.studentUserId, cooperativeRequestId: student.requestId })) }, teachers: { create: appointmentTeacherIds.get(plan.companyId)!.map(teacherUserId => ({ teacherUserId })) } } })
+      const appointment = await tx.supervisionAppointment.create({ data: { supervisionRoundId: roundId, supervisionGroupId: groupId, companyId: plan.companyId, companyName: company.name, companyAddress, province: company.province, latitude: company.latitude, longitude: company.longitude, scheduledDate: plan.scheduledDate, period: plan.period, timeNote: plan.timeNote, status: round.status === 'DRAFT' ? 'DRAFT' : 'PUBLISHED', publishedAt: round.status === 'DRAFT' ? null : new Date(), students: { create: (studentsByCompany.get(plan.companyId) || []).map(student => ({ studentUserId: student.studentUserId, cooperativeRequestId: student.requestId })) }, teachers: { create: appointmentTeacherIds.get(plan.companyId)!.map(teacherUserId => ({ teacherUserId })) } } })
       appointments.push({ id: appointment.id, scheduledDate: plan.scheduledDate, distanceKmFromPrevious: plan.distanceKmFromPrevious })
     }
     if (budget) {

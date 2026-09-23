@@ -110,6 +110,8 @@ const { data: roundsData, status: roundsStatus, refresh: refreshRounds } = await
 )
 
 const rounds = computed(() => roundsData.value?.rounds || [])
+const selectedRound = computed(() => rounds.value.find(round => round.id === selectedRoundId.value))
+const canAutoGroup = computed(() => Boolean(selectedRound.value && selectedRound.value.roundNo <= 2 && selectedRound.value.status === 'DRAFT'))
 
 // Watch rounds to set default active round
 watch(rounds, (newRounds) => {
@@ -120,7 +122,7 @@ watch(rounds, (newRounds) => {
 
 const roundOptions = computed(() => {
   return rounds.value.map(r => ({
-    label: `ครั้งที่ ${r.roundNo}: ${r.title}`,
+    label: `นิเทศครั้งที่ ${r.roundNo}`,
     value: r.id
   }))
 })
@@ -162,29 +164,18 @@ const filteredGroups = computed(() => {
   )
 })
 
-// Create Round Modal
-const isCreateRoundOpen = ref(false)
-const createRoundForm = ref({
-  title: 'การนิเทศรอบที่ 1'
-})
-const isCreatingRound = ref(false)
-
-const isAutoGroupOpen = ref(false)
 const isAutoGrouping = ref(false)
+const isPublishConfirmOpen = ref(false)
+const isPublishing = ref(false)
 const autoGroupForm = ref({
   groupCount: 1
 })
 
-const openAutoGroupModal = () => {
-  autoGroupForm.value = {
-    groupCount: Math.max(1, Math.ceil(unassignedCompanies.value.length / 4))
-  }
-  isAutoGroupOpen.value = true
-}
-
 const handleAutoGroup = async () => {
-  if (!Number.isInteger(autoGroupForm.value.groupCount) || autoGroupForm.value.groupCount < 1) {
-    notify.warning('จำนวนกลุ่มต้องเป็นจำนวนเต็มตั้งแต่ 1 ขึ้นไป')
+  if (isAutoGrouping.value) return
+  if (!canAutoGroup.value || !selectedRoundId.value) return
+  if (!Number.isInteger(autoGroupForm.value.groupCount) || autoGroupForm.value.groupCount < 1 || autoGroupForm.value.groupCount > 50) {
+    notify.warning('จำนวนกลุ่มต้องเป็นจำนวนเต็มระหว่าง 1–50')
     return
   }
 
@@ -194,10 +185,9 @@ const handleAutoGroup = async () => {
       `/api/staff/cooperative-cycles/${cycleId.value}/supervision/auto-group`,
       {
         method: 'POST',
-        body: { groupCount: autoGroupForm.value.groupCount }
+        body: { groupCount: autoGroupForm.value.groupCount, roundId: selectedRoundId.value }
       }
     )
-    isAutoGroupOpen.value = false
     await refreshAll()
     selectedRoundId.value = result.roundId
     notify.success(`จัด ${result.companiesCount} สถานประกอบการเป็น ${result.groupsCount} กลุ่มเรียบร้อยแล้ว`)
@@ -208,35 +198,18 @@ const handleAutoGroup = async () => {
   }
 }
 
-const openCreateRoundModal = () => {
-  const nextNo = rounds.value.length > 0 ? Math.max(...rounds.value.map(r => r.roundNo)) + 1 : 1
-  createRoundForm.value = {
-    title: `การนิเทศรอบที่ ${nextNo}`
-  }
-  isCreateRoundOpen.value = true
-}
-
-const handleCreateRound = async () => {
-  if (!createRoundForm.value.title.trim()) {
-    notify.warning('กรุณากรอกชื่อรอบการนิเทศ')
-    return
-  }
-  isCreatingRound.value = true
+const publishRound = async () => {
+  if (!selectedRoundId.value || isPublishing.value) return
+  isPublishing.value = true
   try {
-    const res = await $fetch<{ round: SupervisionRound }>(`/api/staff/cooperative-cycles/${cycleId.value}/supervision/rounds`, {
-      method: 'POST',
-      body: { name: createRoundForm.value.title.trim() }
-    })
-    notify.success('สร้างครั้งที่นิเทศสำเร็จ')
-    isCreateRoundOpen.value = false
+    await $fetch(`/api/staff/cooperative-cycles/${cycleId.value}/supervision/rounds/${selectedRoundId.value}/publish`, { method: 'POST' })
+    isPublishConfirmOpen.value = false
     await refreshRounds()
-    if (res.round?.id) {
-      selectedRoundId.value = res.round.id
-    }
+    notify.success('เผยแพร่ตารางนิเทศเรียบร้อยแล้ว')
   } catch (err: any) {
-    notify.error(err.data?.message || 'ไม่สามารถสร้างรอบการนิเทศได้')
+    notify.error(err.data?.message || 'ไม่สามารถเผยแพร่ตารางนิเทศได้')
   } finally {
-    isCreatingRound.value = false
+    isPublishing.value = false
   }
 }
 
@@ -258,6 +231,7 @@ const selectedCompanyPlans = ref<Array<{
 }>>([])
 const teacherSearchQuery = ref('')
 const companySearchQuery = ref('')
+const expandedCompanyStudents = ref<Record<number, boolean>>({})
 const periodOptions = [
   { label: 'ช่วงเช้า', value: 'MORNING' },
   { label: 'ช่วงบ่าย', value: 'AFTERNOON' },
@@ -277,6 +251,7 @@ const openCreateGroupModal = () => {
   selectedCompanyPlans.value = []
   teacherSearchQuery.value = ''
   companySearchQuery.value = ''
+  expandedCompanyStudents.value = {}
   isGroupModalOpen.value = true
 }
 
@@ -299,7 +274,15 @@ const openEditGroupModal = (group: SupervisionGroup) => {
   })
   teacherSearchQuery.value = ''
   companySearchQuery.value = ''
+  expandedCompanyStudents.value = {}
   isGroupModalOpen.value = true
+}
+
+const toggleCompanyStudents = (companyId: number) => {
+  expandedCompanyStudents.value = {
+    ...expandedCompanyStudents.value,
+    [companyId]: !expandedCompanyStudents.value[companyId]
+  }
 }
 
 const handleSaveGroup = async () => {
@@ -498,9 +481,17 @@ const selectableCompanies = computed<UnassignedCompany[]>(() => {
     province: company.company.province,
     address: company.company.addressNo || null,
     studentCount: company.studentsCount,
-    students: []
+    students: company.students || []
   }))
   return [...currentCompanies, ...unassignedCompanies.value.filter(company => !currentCompanies.some(current => current.companyId === company.companyId))]
+})
+
+const filteredCompaniesForForm = computed(() => {
+  const query = companySearchQuery.value.trim().toLowerCase()
+  if (!query) return selectableCompanies.value
+  return selectableCompanies.value.filter(company =>
+    `${company.companyName} ${company.province || ''} ${company.address || ''}`.toLowerCase().includes(query)
+  )
 })
 
 const manageCompanySearchQuery = ref('')
@@ -574,15 +565,17 @@ const handleRemoveCompany = async (companyId: number) => {
             class="w-56"
             size="xl"
           />
+          <UBadge v-if="selectedRound" :label="selectedRound.status === 'DRAFT' ? 'ฉบับร่าง' : selectedRound.status === 'COMPLETED' ? 'เสร็จสิ้น' : 'เผยแพร่แล้ว'" :color="selectedRound.status === 'DRAFT' ? 'warning' : 'success'" variant="subtle" />
         </div>
 
         <UButton
-          label="เพิ่มรอบนิเทศ"
-          icon="i-lucide-calendar-plus"
-          color="neutral"
-          variant="outline"
+          v-if="selectedRound?.status === 'DRAFT'"
+          label="เผยแพร่ตารางนิเทศ"
+          icon="i-lucide-send"
+          color="primary"
           size="xl"
-          @click="openCreateRoundModal"
+          :disabled="!selectedRound.appointmentsCount"
+          @click="isPublishConfirmOpen = true"
         />
 
         <UIButtonRefresh
@@ -591,6 +584,11 @@ const handleRemoveCompany = async (companyId: number) => {
         />
       </div>
     </div>
+
+    <p v-if="selectedRound?.status === 'DRAFT' && !selectedRound.appointmentsCount" class="text-xs text-muted">จัดกลุ่มและกำหนดตารางนิเทศอย่างน้อย 1 รายการก่อนเผยแพร่</p>
+    <p v-if="!rounds.length && roundsStatus !== 'pending'" class="text-xs text-muted">ไม่สามารถโหลดรอบนิเทศที่กำหนดไว้ได้ กรุณารีเฟรชหน้า</p>
+    <p v-else-if="selectedRound && !canAutoGroup" class="text-xs text-muted">จัดกลุ่มอัตโนมัติใช้ได้เฉพาะนิเทศครั้งที่ 1–2 ที่ยังไม่เผยแพร่</p>
+    <p v-if="selectedRound?.status === 'DRAFT' && (selectedRound.groupsCount || selectedRound.appointmentsCount)" class="text-xs text-warning">จัดกลุ่มอัตโนมัติอีกครั้งจะเขียนทับกลุ่ม ตาราง และการมอบหมายฉบับร่างของรอบนี้</p>
 
     <!-- Alert / Banner for Unassigned Companies if any -->
     <div
@@ -639,13 +637,13 @@ const handleRemoveCompany = async (companyId: number) => {
     </div>
 
     <!-- Toolbar: Search & Create Group -->
-    <div class="flex flex-wrap items-center justify-between gap-3">
-      <div class="flex items-center gap-2">
+    <div class="flex flex-wrap items-end justify-between gap-3">
+      <div class="flex flex-wrap items-end gap-2">
         <UInput
           v-model="searchQuery"
           icon="i-lucide-search"
           placeholder="ค้นหากลุ่ม อาจารย์ สถานประกอบการ..."
-          class="w-72"
+          class="w-72 h-10 rounded-control"
           size="xl"
         />
         <UButton
@@ -654,24 +652,32 @@ const handleRemoveCompany = async (companyId: number) => {
           color="neutral"
           variant="ghost"
           size="xs"
+          class="h-10"
           @click="searchQuery = ''"
         />
       </div>
 
-      <div class="flex flex-wrap items-center gap-2">
+      <div class="flex flex-wrap items-end gap-2">
+        <UFormField label="จำนวนกลุ่ม" class="w-28">
+          <UInput v-model.number="autoGroupForm.groupCount" type="number" min="1" max="50" size="xl" class="w-full h-10 rounded-control" :disabled="!canAutoGroup || isAutoGrouping" />
+        </UFormField>
         <UButton
           label="จัดกลุ่มอัตโนมัติ"
           icon="i-lucide-wand-sparkles"
           color="neutral"
           variant="outline"
           size="xl"
-          @click="openAutoGroupModal"
+          class="h-10 rounded-control"
+          :disabled="!canAutoGroup"
+          :loading="isAutoGrouping"
+          @click="handleAutoGroup"
         />
         <UButton
           label="สร้างกลุ่มใหม่"
           icon="i-lucide-plus"
           color="primary"
           size="xl"
+          class="h-10 rounded-control"
           @click="openCreateGroupModal"
         />
       </div>
@@ -782,6 +788,7 @@ const handleRemoveCompany = async (companyId: number) => {
         <!-- Card Footer -->
         <div class="p-3 bg-surface border-t border-divider flex items-center justify-between gap-2">
           <NuxtLink
+            v-if="selectedRound?.status === 'PUBLISHED' || selectedRound?.status === 'COMPLETED'"
             :to="`/staff/cooperative-cycles/${cycleId}/visits`"
             class="text-xs text-primary hover:underline flex items-center gap-1"
           >
@@ -820,84 +827,27 @@ const handleRemoveCompany = async (companyId: number) => {
       </template>
     </UEmpty>
 
-    <!-- Empty State for Rounds -->
-    <UEmpty
-      v-if="rounds.length === 0"
-      icon="i-lucide-calendar-plus"
-      title="ยังไม่มีรอบการนิเทศในรอบสหกิจนี้"
-      description="กรุณาสร้างครั้งที่นิเทศเพื่อเริ่มต้นการจัดกลุ่มสถานประกอบการและวางแผนตารางนิเทศ"
-      class="py-16 bg-surface rounded-panel border border-dashed border-divider"
-    >
-      <template #actions>
-        <UButton
-          label="สร้างครั้งที่นิเทศแรก"
-          icon="i-lucide-plus"
-          color="primary"
-          size="xl"
-          @click="openCreateRoundModal"
-        />
-      </template>
-    </UEmpty>
-
-    <!-- Modal: Create Round -->
-    <UModal v-model:open="isCreateRoundOpen" title="เพิ่มรอบการนิเทศใหม่">
-      <template #body>
-        <div class="space-y-4">
-          <UFormField label="ชื่อรอบการนิเทศ" required>
-            <UInput
-              v-model="createRoundForm.title"
-              placeholder="เช่น การนิเทศรอบที่ 1 หรือ การนิเทศช่วงกลางเทอม"
-              class="w-full"
-              size="xl"
-            />
-          </UFormField>
-        </div>
-      </template>
-      <template #footer>
-        <div class="flex justify-end gap-2 w-full">
-          <UButton
-            label="ยกเลิก"
-            color="neutral"
-            variant="outline"
-            size="xl"
-            @click="isCreateRoundOpen = false"
-          />
-          <UButton
-            label="บันทึกรอบใหม่"
-            color="primary"
-            size="xl"
-            :loading="isCreatingRound"
-            @click="handleCreateRound"
-          />
-        </div>
-      </template>
-    </UModal>
-
-    <UModal v-model:open="isAutoGroupOpen" title="จัดกลุ่มนิเทศอัตโนมัติ">
-      <template #body>
-        <div>
-          <UFormField label="จำนวนกลุ่มที่ต้องการ" required>
-            <UInput v-model.number="autoGroupForm.groupCount" type="number" min="1" class="w-full" size="xl" autofocus />
-          </UFormField>
-        </div>
-      </template>
-      <template #footer>
-        <div class="flex w-full justify-end gap-2">
-          <UButton label="ยกเลิก" color="neutral" variant="outline" size="xl" :disabled="isAutoGrouping" @click="isAutoGroupOpen = false" />
-          <UButton label="สร้างและจัดกลุ่มทั้งหมด" icon="i-lucide-wand-sparkles" size="xl" :loading="isAutoGrouping" @click="handleAutoGroup" />
-        </div>
-      </template>
-    </UModal>
+    <UIConfirmModal
+      v-model:open="isPublishConfirmOpen"
+      title="ยืนยันเผยแพร่ตารางนิเทศ"
+      :message="`เผยแพร่ตารางนิเทศครั้งที่ ${selectedRound?.roundNo || ''} ให้อาจารย์และนักศึกษาที่เกี่ยวข้องเห็นหรือไม่?`"
+      sub-message="ตรวจสอบกลุ่ม อาจารย์ วัน และช่วงเวลานิเทศให้ครบก่อนเผยแพร่"
+      confirm-label="เผยแพร่"
+      confirm-color="primary"
+      :loading="isPublishing"
+      @confirm="publishRound"
+    />
 
     <!-- Modal: Create / Edit Group -->
     <UModal
       v-model:open="isGroupModalOpen"
-      :title="editingGroupId ? 'แก้ไขข้อมูลกลุ่มนิเทศ' : 'สร้างกลุ่มนิเทศใหม่'"
+      :title="editingGroupId ? `แก้ไข ${groupForm.name}` : 'สร้างกลุ่มนิเทศใหม่'"
       size="xl"
+      :ui="{ content: 'w-[calc(100vw-2rem)] max-w-3xl rounded-panel' }"
     >
       <template #body>
-        <div class="max-h-[65vh] space-y-6 overflow-y-auto pr-1">
-          <section class="space-y-3 rounded-panel border border-divider bg-surface p-4">
+        <div class="max-h-[70vh] space-y-7 overflow-y-auto px-1 py-1 pr-2 sm:px-2">
+          <section class="space-y-4 rounded-panel border border-divider bg-surface p-5">
             <div>
               <h4 class="text-sm font-semibold text-ink">ข้อมูลกลุ่มนิเทศ</h4>
               <p class="mt-0.5 text-xs leading-5 text-muted">ตั้งชื่อกลุ่มและบันทึกรายละเอียดที่ช่วยแยกพื้นที่หรือเป้าหมายของกลุ่ม</p>
@@ -920,57 +870,67 @@ const handleRemoveCompany = async (companyId: number) => {
             </UFormField>
           </section>
 
-          <div class="space-y-2">
+          <div v-if="editingGroupId" class="rounded-control bg-surface px-4 py-3 text-sm font-medium text-ink">
+            {{ groups.find(group => group.id === editingGroupId)?.provinces.join(' · ') || 'ไม่ระบุพื้นที่' }} · กำหนดวันและช่วงเวลานิเทศรายสถานประกอบการ
+          </div>
+
+          <div class="space-y-3">
             <div class="flex items-center justify-between gap-2">
               <div>
-                <h4 class="text-sm font-semibold text-ink">อาจารย์ผู้นิเทศ <span class="text-error">*</span></h4>
-                <p class="mt-0.5 text-xs leading-5 text-muted">เลือกอาจารย์ที่รับผิดชอบการนิเทศกลุ่มนี้</p>
+                <h4 class="text-sm font-semibold text-ink">อาจารย์นิเทศ (เลือกได้หลายคน)</h4>
+                <p class="mt-0.5 text-xs leading-5 text-muted">แสดงเฉพาะอาจารย์ที่ยังไม่อยู่ในกลุ่มอื่นของรอบนิเทศครั้งนี้</p>
               </div>
               <span class="shrink-0 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">เลือกแล้ว {{ selectedTeacherIds.length }} ท่าน</span>
             </div>
-            <UInput v-model="teacherSearchQuery" icon="i-lucide-search" placeholder="ค้นหาชื่อหรือรหัสอาจารย์" class="w-full" size="xl" aria-label="ค้นหาอาจารย์ผู้นิเทศ" />
-            <div class="max-h-48 divide-y divide-divider overflow-y-auto rounded-control border border-divider">
-              <button v-for="teacher in filteredTeachers" :key="teacher.id" type="button" class="flex w-full items-center gap-3 p-3 text-left hover:bg-surface focus-visible:outline-2 focus-visible:outline-primary" :class="selectedTeacherIds.includes(teacher.id) ? 'bg-primary/10' : 'bg-canvas'" :aria-pressed="selectedTeacherIds.includes(teacher.id)" @click="toggleTeacher(teacher.id)">
-                <UIcon :name="selectedTeacherIds.includes(teacher.id) ? 'i-lucide-circle-check' : 'i-lucide-circle'" class="size-5 shrink-0" :class="selectedTeacherIds.includes(teacher.id) ? 'text-primary' : 'text-muted'" />
-                <span class="min-w-0"><span class="block truncate text-sm font-medium text-ink">{{ teacher.prefix }}{{ teacher.firstName }} {{ teacher.lastName }}</span><span class="block text-xs text-muted">รหัสอาจารย์: {{ teacher.teacherId }}</span></span>
-              </button>
+            <UInput v-model="teacherSearchQuery" icon="i-lucide-search" placeholder="ค้นหาชื่อหรือรหัสอาจารย์" class="h-11 w-full rounded-control" size="xl" aria-label="ค้นหาอาจารย์ผู้นิเทศ" />
+            <div class="grid max-h-72 grid-cols-1 gap-1 overflow-y-auto rounded-control border border-divider p-3 sm:grid-cols-2">
+              <label v-for="teacher in filteredTeachers" :key="teacher.id" class="flex min-w-0 cursor-pointer items-center gap-2 rounded-control px-2 py-2 text-sm hover:bg-surface">
+                <UCheckbox :model-value="selectedTeacherIds.includes(teacher.id)" @update:model-value="toggleTeacher(teacher.id)" />
+                <span class="min-w-0 truncate text-ink">{{ teacher.prefix }}{{ teacher.firstName }} {{ teacher.lastName }}</span>
+              </label>
               <div v-if="filteredTeachers.length === 0" class="p-4 text-center text-sm text-muted">ไม่พบอาจารย์ที่พร้อมมอบหมาย</div>
             </div>
           </div>
 
-          <div class="space-y-2">
+          <div class="space-y-3">
             <div class="flex items-center justify-between gap-2">
               <div>
-                <h4 class="text-sm font-semibold text-ink">สถานประกอบการ <span class="text-error">*</span></h4>
-                <p class="mt-0.5 text-xs leading-5 text-muted">เลือกสถานประกอบการที่อยู่ในเส้นทางการนิเทศของกลุ่ม</p>
+                <h4 class="text-sm font-semibold text-ink">สถานประกอบการในกลุ่ม</h4>
+                <p class="mt-0.5 text-xs leading-5 text-muted">เลือกสถานประกอบการ แล้วกำหนดวันและช่วงเวลานิเทศ</p>
               </div>
               <span class="shrink-0 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">เลือกแล้ว {{ selectedCompanyPlans.length }} แห่ง</span>
             </div>
-            <UInput v-model="companySearchQuery" icon="i-lucide-search" placeholder="ค้นหาชื่อสถานประกอบการ จังหวัด หรือที่อยู่" class="w-full" size="xl" aria-label="ค้นหาสถานประกอบการ" />
-            <div class="max-h-56 divide-y divide-divider overflow-y-auto rounded-control border border-divider">
-              <button v-for="company in filteredCompanies" :key="company.companyId" type="button" class="flex w-full items-center gap-3 p-3 text-left hover:bg-surface focus-visible:outline-2 focus-visible:outline-primary" :class="selectedCompanyPlans.some(plan => plan.companyId === company.companyId) ? 'bg-primary/10' : 'bg-canvas'" :aria-pressed="selectedCompanyPlans.some(plan => plan.companyId === company.companyId)" @click="toggleCompany(company.companyId)">
-                <UIcon :name="selectedCompanyPlans.some(plan => plan.companyId === company.companyId) ? 'i-lucide-circle-check' : 'i-lucide-circle'" class="size-5 shrink-0" :class="selectedCompanyPlans.some(plan => plan.companyId === company.companyId) ? 'text-primary' : 'text-muted'" />
-                <span class="min-w-0"><span class="block truncate text-sm font-medium text-ink">{{ company.companyName }}</span><span class="block truncate text-xs text-muted">{{ company.province || 'ไม่ระบุจังหวัด' }} · นักศึกษา {{ company.studentCount }} คน</span></span>
-              </button>
-              <div v-if="filteredCompanies.length === 0" class="p-4 text-center text-sm text-muted">ไม่พบสถานประกอบการที่ยังไม่ถูกจัดกลุ่ม</div>
-            </div>
-          </div>
-
-          <div class="space-y-2">
-            <div>
-              <h4 class="text-sm font-semibold text-ink">กำหนดการนิเทศรายสถานประกอบการ <span class="text-error">*</span></h4>
-              <p class="mt-0.5 text-xs leading-5 text-muted">ระบุวันและช่วงเวลา โดยหลายสถานประกอบการสามารถใช้วันและช่วงเวลาเดียวกันได้</p>
-            </div>
-            <div v-if="selectedCompanyDetails.length" class="space-y-2">
-              <div v-for="item in selectedCompanyDetails" :key="item.plan.companyId" class="rounded-control border border-divider bg-surface p-3">
-                <div class="mb-2 text-sm font-medium text-ink">{{ item.company?.companyName || 'สถานประกอบการ' }}</div>
-                <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <UFormField label="วันนิเทศ"><UInput v-model="item.plan.scheduledDate" type="date" class="w-full" size="xl" aria-label="วันนิเทศ" /></UFormField>
-                  <UFormField label="ช่วงเวลา"><USelect v-model="item.plan.period" :items="periodOptions" class="w-full" size="xl" aria-label="ช่วงเวลานิเทศ" /></UFormField>
-                </div>
+            <UInput v-model="companySearchQuery" icon="i-lucide-search" placeholder="ค้นหาชื่อสถานประกอบการ จังหวัด หรือที่อยู่" class="h-11 w-full rounded-control" size="xl" aria-label="ค้นหาสถานประกอบการ" />
+            <div class="space-y-3">
+              <div v-for="company in filteredCompaniesForForm" :key="company.companyId" class="rounded-control border border-divider bg-canvas px-4 py-4">
+                <label class="flex cursor-pointer items-start gap-3">
+                  <UCheckbox :model-value="selectedCompanyPlans.some(plan => plan.companyId === company.companyId)" @update:model-value="toggleCompany(company.companyId)" />
+                  <span class="min-w-0"><span class="block truncate text-sm font-medium text-ink">{{ company.companyName }}</span><span class="block truncate text-xs text-muted">{{ company.province || 'ไม่ระบุจังหวัด' }} · นักศึกษา {{ company.studentCount }} คน</span></span>
+                </label>
+                <button
+                  v-if="company.students?.length"
+                  type="button"
+                  class="mt-2 ml-8 text-sm font-semibold text-primary hover:underline"
+                  :aria-expanded="expandedCompanyStudents[company.companyId] ? 'true' : 'false'"
+                  @click="toggleCompanyStudents(company.companyId)"
+                >
+                  {{ expandedCompanyStudents[company.companyId] ? 'ซ่อนรายชื่อนักศึกษา' : 'ดูรายชื่อนักศึกษา' }}
+                </button>
+                <ul v-if="expandedCompanyStudents[company.companyId]" class="mt-2 ml-8 space-y-1 border-t border-divider pt-2 text-sm text-ink">
+                  <li v-for="student in company.students" :key="student.id" class="flex justify-between gap-3">
+                    <span>{{ student.prefix }}{{ student.firstName }} {{ student.lastName }}</span>
+                    <span class="text-xs text-muted">{{ student.studentId }}</span>
+                  </li>
+                </ul>
+                <template v-for="item in selectedCompanyDetails" :key="item.plan.companyId">
+                  <div v-if="item.plan.companyId === company.companyId" class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <UFormField label="วันที่"><UInput v-model="item.plan.scheduledDate" type="date" class="h-11 w-full rounded-control" size="xl" /></UFormField>
+                    <UFormField label="ช่วงเวลา"><USelect v-model="item.plan.period" :items="periodOptions" class="h-11 w-full rounded-control" size="xl" /></UFormField>
+                  </div>
+                </template>
               </div>
+              <div v-if="filteredCompaniesForForm.length === 0" class="p-4 text-center text-sm text-muted">ไม่พบสถานประกอบการ</div>
             </div>
-            <div v-else class="rounded-control border border-dashed border-divider p-3 text-center text-xs text-muted">เลือกสถานประกอบการเพื่อกำหนดตารางนิเทศ</div>
           </div>
 
         </div>
