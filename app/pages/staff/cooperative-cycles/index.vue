@@ -289,6 +289,7 @@ const submitForm = async () => {
 
   isSubmitting.value = true
   try {
+    let createdCycleId: number | null = null
     if (isEditing.value && editingId.value) {
       await $fetch(`/api/cooperative-cycles/${editingId.value}`, {
         method: 'PUT',
@@ -296,15 +297,17 @@ const submitForm = async () => {
       })
       notify.updated(`รอบสหกิจ ${formState.term}/${formState.academicYear}`)
     } else {
-      await $fetch('/api/cooperative-cycles', {
+      const createdCycle = await $fetch<CooperativeCycle>('/api/cooperative-cycles', {
         method: 'POST',
         body: formState
       })
+      createdCycleId = createdCycle.id
       notify.created(`รอบสหกิจ ${formState.term}/${formState.academicYear}`)
     }
 
     isFormOpen.value = false
     await refresh()
+    if (createdCycleId) setActiveCycle(createdCycleId)
   } catch (err: any) {
     const errorMsg = err?.data?.message || err?.message || 'เกิดข้อผิดพลาดในการบันทึกข้อมูล'
     notify.error(errorMsg)

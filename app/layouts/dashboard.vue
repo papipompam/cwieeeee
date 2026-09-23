@@ -53,14 +53,19 @@ watch(cycles, () => {
   }
 }, { immediate: true })
 
+watch(savedCycleId, (cycleId) => {
+  if (cycleId && !hasCycle(cycleId)) fetchCycles()
+})
+
 const handleSelect = () => {
   open.value = false
 }
 
 const activeCycleId = computed(() => {
   const match = route.path.match(/^\/staff\/cooperative-cycles\/(\d+)/)
-  if (match) return hasCycle(match[1]) ? match[1] : null
-  return hasCycle(savedCycleId.value) ? String(savedCycleId.value) : null
+  if (match) return match[1]
+  if (hasCycle(savedCycleId.value)) return String(savedCycleId.value)
+  return cycles.value?.[0]?.id ? String(cycles.value[0].id) : null
 })
 
 const staffLinks = computed<NavigationMenuItem[]>(() => {
@@ -353,6 +358,7 @@ const currentMenuGroups = computed<MenuGroup[]>(() => {
               {{ group.label }}
             </p>
             <UNavigationMenu
+              :key="currentRole === 'staff' && group.label === 'ภาพรวม' ? `staff-cycle-${activeCycleId}` : group.label"
               :collapsed="collapsed"
               :items="group.items"
               orientation="vertical"
