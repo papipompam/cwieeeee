@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import type { TableColumn } from '@nuxt/ui'
+import type { InputDateProps, TableColumn } from '@nuxt/ui'
+import { parseDate } from '@internationalized/date'
 import { h, resolveComponent } from 'vue'
 
 definePageMeta({
@@ -79,6 +80,16 @@ const formState = reactive({
 })
 
 const formErrors = reactive<Record<string, string>>({})
+
+type CycleDateField = 'applicationStartDate' | 'applicationEndDate' | 'internshipStartDate' | 'internshipEndDate'
+const calendarDate = (field: CycleDateField) => computed<InputDateProps<false>['modelValue']>({
+  get: () => formState[field] ? parseDate(formState[field]) : undefined,
+  set: value => { formState[field] = value?.toString() ?? '' }
+})
+const applicationStartDate = calendarDate('applicationStartDate')
+const applicationEndDate = calendarDate('applicationEndDate')
+const internshipStartDate = calendarDate('internshipStartDate')
+const internshipEndDate = calendarDate('internshipEndDate')
 
 const statusOptions = [
   { label: 'ทุกสถานะ', value: 'all' },
@@ -708,20 +719,16 @@ const columns: TableColumn<CooperativeCycle>[] = [
           <p class="text-xs font-semibold text-ink mb-2">กำหนดการรับคำร้อง</p>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <UFormField label="วันเปิดรับคำร้อง" required :error="formErrors.applicationStartDate">
-              <UInput
-                v-model="formState.applicationStartDate"
-                type="date"
-                class="w-full"
-                size="xl"
-              />
+              <UPopover>
+                <UInputDate v-model="applicationStartDate" class="w-full" size="xl" locale="th-TH" aria-label="วันเปิดรับคำร้อง" />
+                <template #content><UCalendar v-model="applicationStartDate" locale="th-TH" /></template>
+              </UPopover>
             </UFormField>
             <UFormField label="วันปิดรับคำร้อง" required :error="formErrors.applicationEndDate">
-              <UInput
-                v-model="formState.applicationEndDate"
-                type="date"
-                class="w-full"
-                size="xl"
-              />
+              <UPopover>
+                <UInputDate v-model="applicationEndDate" class="w-full" size="xl" locale="th-TH" aria-label="วันปิดรับคำร้อง" />
+                <template #content><UCalendar v-model="applicationEndDate" locale="th-TH" /></template>
+              </UPopover>
             </UFormField>
           </div>
         </div>
@@ -730,20 +737,16 @@ const columns: TableColumn<CooperativeCycle>[] = [
           <p class="text-xs font-semibold text-ink mb-2">กำหนดการฝึกงาน</p>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <UFormField label="วันเริ่มฝึกงาน" required :error="formErrors.internshipStartDate">
-              <UInput
-                v-model="formState.internshipStartDate"
-                type="date"
-                class="w-full"
-                size="xl"
-              />
+              <UPopover>
+                <UInputDate v-model="internshipStartDate" class="w-full" size="xl" locale="th-TH" aria-label="วันเริ่มฝึกงาน" />
+                <template #content><UCalendar v-model="internshipStartDate" locale="th-TH" /></template>
+              </UPopover>
             </UFormField>
             <UFormField label="วันสิ้นสุดฝึกงาน" required :error="formErrors.internshipEndDate">
-              <UInput
-                v-model="formState.internshipEndDate"
-                type="date"
-                class="w-full"
-                size="xl"
-              />
+              <UPopover>
+                <UInputDate v-model="internshipEndDate" class="w-full" size="xl" locale="th-TH" aria-label="วันสิ้นสุดฝึกงาน" />
+                <template #content><UCalendar v-model="internshipEndDate" locale="th-TH" /></template>
+              </UPopover>
             </UFormField>
           </div>
         </div>
