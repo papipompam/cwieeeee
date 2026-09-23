@@ -17,3 +17,4 @@ docs
 *.log
 .DS_Store
 signatures/
+public/.test_*.png
